@@ -896,10 +896,32 @@ var DEFAULT_TCS = [
 //  SEED DEFAULT DATA IF EMPTY OR NEEDS REFRESH
 // ═══════════════════════════════════════════════════════════════
 // Re-seed if data is outdated (fewer TCs than current DEFAULT_TCS)
+var RECOVERY_REGRESSION_TCS = [
+  {id:"TC-201",title:"App load runtime stability",cat:"טכני ו-QA",type:"Regression",pri:"Critical",reqs:"REQ-134",steps:"טען את האפליקציה בתוך iframe ובדוק פונקציות ליבה",expected:"האפליקציה נטענת ופונקציות ליבה זמינות",auto:"yes",fn:"checkAppLoadRuntime"},
+  {id:"TC-202",title:"Portfolio Overview runtime",cat:"UI / ניווט",type:"Regression",pri:"Critical",reqs:"REQ-013",steps:"קרא renderPortfolioPage ובדוק portfolio shell",expected:"portfolioShell מוצג ו-project shell מוסתר",auto:"yes",fn:"checkPortfolioOverviewRuntime"},
+  {id:"TC-203",title:"Project page runtime",cat:"UI / ניווט",type:"Regression",pri:"Critical",reqs:"REQ-013",steps:"קרא renderProjectPage לפרויקט פעיל",expected:"project shell מוצג ו-portfolioShell מוסתר",auto:"yes",fn:"checkProjectPageRuntime"},
+  {id:"TC-204",title:"Risks page runtime",cat:"ניהול סיכונים",type:"Regression",pri:"High",reqs:"REQ-101",steps:"נווט לעמוד הסיכונים ורנדר אותו",expected:"page-risks פעיל ו-risksBody קיים",auto:"yes",fn:"checkRisksPageRuntime"},
+  {id:"TC-205",title:"Add Risk modal runtime",cat:"ניהול סיכונים",type:"Regression",pri:"Critical",reqs:"REQ-101",steps:"הפעל openAddRisk ובדוק פתיחה/סגירה של modal",expected:"modal נפתח ונסגר ללא שגיאה",auto:"yes",fn:"checkAddRiskModalRuntime"},
+  {id:"TC-206",title:"Document Analysis wiring runtime",cat:"ניתוח מסמך",type:"Regression",pri:"Critical",reqs:"REQ-150",steps:"הפעל openDocUpload ובדוק יצירת input/overlay",expected:"docUploadInput ו-analysisOverlay קיימים",auto:"yes",fn:"checkDocumentAnalysisRuntime"},
+  {id:"TC-207",title:"Save and load wiring runtime",cat:"שמירת נתונים",type:"Regression",pri:"High",reqs:"REQ-001",steps:"בדוק manualSave, loadFromFile ו-fileInput",expected:"פונקציות וקלט טעינה קיימים",auto:"yes",fn:"checkSaveLoadWiringRuntime"},
+  {id:"TC-208",title:"Generic modal open-close runtime",cat:"UI / ניווט",type:"Regression",pri:"High",reqs:"REQ-017",steps:"הפעל openModal ואז closeModal",expected:"modal משנה class open וחוזר לסגור",auto:"yes",fn:"checkModalOpenCloseRuntime"},
+  {id:"TC-209",title:"Tooltip attachment runtime",cat:"טכני ו-QA",type:"Regression",pri:"High",reqs:"REQ-136",steps:"הוסף אלמנטים עם data-rpn ו-data-ms-pct וקרא _attachAllTT",expected:"dataset.tt מוזן לשני האלמנטים",auto:"yes",fn:"checkTooltipAttachmentRuntime"},
+  {id:"TC-210",title:"Global non-AI exposure runtime",cat:"טכני ו-QA",type:"Regression",pri:"Critical",reqs:"REQ-133",steps:"בדוק renderPortfolioPage/renderProjectPage/openAddRisk על window",expected:"כל פונקציות ה-non-AI הגלובליות זמינות",auto:"yes",fn:"checkGlobalNonAIFunctionsRuntime"},
+  {id:"TC-211",title:"Legacy AI pages removed from runtime",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-013",steps:"בדוק שאין page-ai או page-multiproject ב-DOM הפעיל",expected:"עמודי AI לא קיימים ב-runtime",auto:"yes",fn:"checkLegacyAIPagesRemovedRuntime"},
+  {id:"TC-212",title:"Disabled AI entry points fail safely",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-119",steps:"קרא openAIRequirementAssistant/openAIRiskAssistant/openAIArchitectureAssistant/runAIReviewReadiness/showAIPopulateModal/aiDocFill",expected:"אין crash ואין modal AI פעיל",auto:"yes",fn:"checkDisabledAIEntryPointsRuntime"}
+];
+
 if(TMS.testCases.length < 125){
   TMS.requirements = DEFAULT_REQS.map(function(r){return Object.assign({},r);});
   TMS.testCases    = DEFAULT_TCS.map(function(t){return Object.assign({},t);});
 }
+function ensureTestCasesPresent(cases){
+  cases.forEach(function(tc){
+    var exists = TMS.testCases.some(function(existing){ return existing.id === tc.id; });
+    if(!exists) TMS.testCases.push(Object.assign({}, tc));
+  });
+}
+ensureTestCasesPresent(RECOVERY_REGRESSION_TCS);
 saveTMS();
 
 // ═══════════════════════════════════════════════════════════════
@@ -1022,8 +1044,172 @@ async function getAppWin(){
   });
 }
 
+function _runtimeFail(msg){
+  return { pass:false, actual: msg };
+}
+
+function _runtimePass(msg){
+  return { pass:true, actual: msg };
+}
+
+async function withAppWindow(run){
+  try{
+    var w = await getAppWin();
+    if(!w || !w.document) return _runtimeFail('iframe של האפליקציה לא נטען');
+    return await run(w);
+  }catch(e){
+    return _runtimeFail('שגיאת runtime: ' + e.message);
+  }
+}
+
 // ── Automation test functions ─────────────────────────────────
 var AUTOMATION = {
+  checkAppLoadRuntime: async function(){
+    return withAppWindow(function(w){
+      var ready = w.document && w.document.readyState === 'complete';
+      var fns = ['renderDashboard','renderPortfolioPage','renderProjectPage','openAddRisk','manualSave','loadFromFile','openDocUpload','handleDocUpload'];
+      var missing = fns.filter(function(name){ return typeof w[name] !== 'function'; });
+      if(!ready) return _runtimeFail('האפליקציה לא סיימה להיטען');
+      if(missing.length) return _runtimeFail('פונקציות חסרות: ' + missing.join(', '));
+      return _runtimePass('האפליקציה נטענה ופונקציות הליבה זמינות');
+    });
+  },
+  checkPortfolioOverviewRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.renderPortfolioPage !== 'function') return _runtimeFail('renderPortfolioPage לא זמינה');
+      w.renderPortfolioPage();
+      var shell = w.document.getElementById('portfolioShell');
+      var sidebar = w.document.getElementById('sidebar');
+      var main = w.document.getElementById('mainContent');
+      var ok = shell && shell.style.display === 'flex' && sidebar && sidebar.style.display === 'none' && main && main.style.display === 'none' && w.appLevel === 'portfolio';
+      return ok ? _runtimePass('Portfolio Overview מוצג כראוי') : _runtimeFail('portfolioShell/project shell לא במצב הצפוי');
+    });
+  },
+  checkProjectPageRuntime: async function(){
+    return withAppWindow(function(w){
+      var pid = w.multiProjectModel && w.multiProjectModel.projects && w.multiProjectModel.projects[0] && w.multiProjectModel.projects[0].id;
+      if(typeof w.renderProjectPage !== 'function' || !pid) return _runtimeFail('renderProjectPage או project id חסרים');
+      w.renderProjectPage(pid);
+      var shell = w.document.getElementById('portfolioShell');
+      var sidebar = w.document.getElementById('sidebar');
+      var main = w.document.getElementById('mainContent');
+      var back = w.document.getElementById('hdrBackToPortfolio');
+      var shellHidden = shell && shell.style.display === 'none';
+      var sidebarShown = sidebar && sidebar.style.display !== 'none';
+      var mainShown = main && main.style.display !== 'none';
+      var backShown = back && back.style.display !== 'none';
+      var ok = shellHidden && sidebarShown && mainShown && backShown && w.appLevel === 'project' && w.currentProjectId === pid;
+      return ok ? _runtimePass('Project shell מוצג לפרויקט ' + pid) : _runtimeFail('renderProjectPage לא העביר למצב project תקין');
+    });
+  },
+  checkRisksPageRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.renderProjectPage !== 'function' || typeof w.navigateTo !== 'function' || typeof w.renderRisks !== 'function') return _runtimeFail('פונקציות project/risks חסרות');
+      var pid = w.multiProjectModel && w.multiProjectModel.projects && w.multiProjectModel.projects[0] && w.multiProjectModel.projects[0].id;
+      w.renderProjectPage(pid);
+      w.navigateTo('risks');
+      w.renderRisks();
+      var page = w.document.getElementById('page-risks');
+      var body = w.document.getElementById('risksBody');
+      var ok = page && page.classList.contains('active') && body;
+      return ok ? _runtimePass('עמוד הסיכונים נגיש ו-risksBody קיים') : _runtimeFail('עמוד הסיכונים לא הפך לפעיל');
+    });
+  },
+  checkAddRiskModalRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.openAddRisk !== 'function' || typeof w.closeModal !== 'function') return _runtimeFail('openAddRisk/closeModal חסרות');
+      var pid = w.multiProjectModel && w.multiProjectModel.projects && w.multiProjectModel.projects[0] && w.multiProjectModel.projects[0].id;
+      if(typeof w.renderProjectPage === 'function' && pid) w.renderProjectPage(pid);
+      w.openAddRisk();
+      var modal = w.document.getElementById('modal');
+      var title = w.document.getElementById('modalTitle');
+      var opened = modal && modal.classList.contains('open') && title && title.textContent.indexOf('סיכון') >= 0;
+      if(!opened) return _runtimeFail('modal של Add Risk לא נפתח');
+      w.closeModal();
+      return modal.classList.contains('open') ? _runtimeFail('modal לא נסגר אחרי closeModal') : _runtimePass('Add Risk modal נפתח ונסגר תקין');
+    });
+  },
+  checkDocumentAnalysisRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.openDocUpload !== 'function') return _runtimeFail('openDocUpload חסרה');
+      w.openDocUpload();
+      var input = w.document.getElementById('docUploadInput');
+      var overlay = w.document.getElementById('analysisOverlay');
+      var title = w.document.getElementById('analysisPanelTitle');
+      return input && overlay && title ? _runtimePass('Document Analysis יצר input/overlay כמצופה') : _runtimeFail('חסר docUploadInput או analysisOverlay');
+    });
+  },
+  checkSaveLoadWiringRuntime: async function(){
+    return withAppWindow(function(w){
+      var ok = typeof w.manualSave === 'function' && typeof w.loadFromFile === 'function' && typeof w.handleFileLoad === 'function';
+      var fileInput = w.document.getElementById('fileInput');
+      return ok && fileInput ? _runtimePass('Save/load wiring קיים עם fileInput פעיל') : _runtimeFail('manualSave/loadFromFile/handleFileLoad/fileInput חסרים');
+    });
+  },
+  checkModalOpenCloseRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.openModal !== 'function' || typeof w.closeModal !== 'function') return _runtimeFail('openModal/closeModal חסרות');
+      w.openModal('בדיקה', '<div id="modalProbe">שלום</div>', function(){}, 'שמור');
+      var modal = w.document.getElementById('modal');
+      var body = w.document.getElementById('modalBody');
+      var opened = modal && modal.classList.contains('open') && body && body.innerHTML.indexOf('modalProbe') >= 0;
+      if(!opened) return _runtimeFail('openModal לא פתח modal תקין');
+      w.closeModal();
+      return modal.classList.contains('open') ? _runtimeFail('closeModal לא סגר את modal') : _runtimePass('openModal/closeModal עובדים תקין');
+    });
+  },
+  checkTooltipAttachmentRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w._attachAllTT !== 'function') return _runtimeFail('_attachAllTT חסרה');
+      var doc = w.document;
+      var rpn = doc.createElement('div');
+      var ms = doc.createElement('div');
+      rpn.setAttribute('data-rpn','12');
+      ms.setAttribute('data-ms-pct','80');
+      doc.body.appendChild(rpn);
+      doc.body.appendChild(ms);
+      w._attachAllTT();
+      var ok = !!rpn.dataset.tt && !!ms.dataset.tt;
+      rpn.remove();
+      ms.remove();
+      return ok ? _runtimePass('Tooltip attachment יצר dataset.tt לאלמנטים דינמיים') : _runtimeFail('_attachAllTT לא הצמיד tooltip metadata');
+    });
+  },
+  checkGlobalNonAIFunctionsRuntime: async function(){
+    return withAppWindow(function(w){
+      var fns = ['renderPortfolioPage','renderProjectPage','openAddRisk','manualSave','loadFromFile','openDocUpload','handleDocUpload'];
+      var missing = fns.filter(function(name){ return typeof w[name] !== 'function'; });
+      return missing.length ? _runtimeFail('פונקציות non-AI חסרות: ' + missing.join(', ')) : _runtimePass('כל פונקציות ה-non-AI הגלובליות זמינות');
+    });
+  },
+  checkLegacyAIPagesRemovedRuntime: async function(){
+    return withAppWindow(function(w){
+      var ai = w.document.getElementById('page-ai');
+      var mpi = w.document.getElementById('page-multiproject');
+      return (!ai && !mpi) ? _runtimePass('עמודי AI הוסרו מה-DOM הפעיל') : _runtimeFail('page-ai או page-multiproject עדיין קיימים ב-runtime');
+    });
+  },
+  checkDisabledAIEntryPointsRuntime: async function(){
+    return withAppWindow(function(w){
+      var names = ['openAIRequirementAssistant','openAIRiskAssistant','openAIArchitectureAssistant','runAIReviewReadiness','showAIPopulateModal','aiDocFill'];
+      var missing = names.filter(function(name){ return typeof w[name] !== 'function'; });
+      if(missing.length) return _runtimeFail('פונקציות AI חסרות: ' + missing.join(', '));
+      var modal = w.document.getElementById('modal');
+      var before = modal ? modal.classList.contains('open') : false;
+      try{
+        w.openAIRequirementAssistant('system');
+        w.openAIRiskAssistant();
+        w.openAIArchitectureAssistant();
+        w.runAIReviewReadiness();
+        w.showAIPopulateModal('risks');
+        w.aiDocFill('SEMP','se');
+      }catch(e){
+        return _runtimeFail('קריאת disabled AI entry points זרקה שגיאה: ' + e.message);
+      }
+      var after = modal ? modal.classList.contains('open') : false;
+      return before === after ? _runtimePass('פונקציות AI המנוטרלות נכשלות בבטחה ללא crash') : _runtimeFail('אחת מפונקציות ה-AI פתחה modal או שינתה מצב UI');
+    });
+  },
   checkAutoSave: async function(){
     var src = await loadAppSource();
     var has = src.includes('_autoSaveTimer') && src.includes('function markDirty');
