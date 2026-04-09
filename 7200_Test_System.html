@@ -912,7 +912,7 @@ var RECOVERY_REGRESSION_TCS = [
 ];
 
 var AI_FOUNDATION_TCS = [
-  {id:"TC-213",title:"AI feature flags foundation exists",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-119",steps:"בדוק ש-FEATURES קיים ושכל דגלי ה-AI הכבדים כבויים, עם אפשרות חריגה מבוקרת ל-Requirement Assist",expected:"aiEnabled כבוי, שאר דגלי ה-AI הכבדים כבויים, ו-aiRequirementAssist נשלט במפורש",auto:"yes",fn:"checkFeaturesFoundationRuntime"},
+  {id:"TC-213",title:"AI feature flags foundation exists",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-119",steps:"בדוק ש-FEATURES קיים ושכל דגלי ה-AI הכבדים כבויים, עם חריגות מבוקרות ל-Requirement Assist ול-Risk Assist בלבד",expected:"aiEnabled כבוי, שאר דגלי ה-AI הכבדים כבויים, ו-aiRequirementAssist/aiRiskAssist נשלטים במפורש",auto:"yes",fn:"checkFeaturesFoundationRuntime"},
   {id:"TC-214",title:"AIFacade exists with run()",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-119",steps:"בדוק ש-AIFacade קיים וש-run היא פונקציה",expected:"AIFacade.run זמין גלובלית",auto:"yes",fn:"checkAIFacadeExistsRuntime"},
   {id:"TC-215",title:"runAIAction wrapper exists",cat:"מומחה AI",type:"Regression",pri:"High",reqs:"REQ-119",steps:"בדוק ש-runAIAction קיים גלובלית",expected:"runAIAction זמין גלובלית",auto:"yes",fn:"checkRunAIActionExistsRuntime"},
   {id:"TC-216",title:"AIFacade disabled response is safe and structured",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-119",steps:"קרא AIFacade.run עבור task שאינו מאופשר ובדוק חוזה תגובה",expected:"ok=false, mode=disabled, reason=AI_DISABLED, trace קיים",auto:"yes",fn:"checkAIFacadeDisabledResponseRuntime"},
@@ -928,6 +928,17 @@ var AI_REQUIREMENT_ASSIST_TCS = [
   {id:"TC-223",title:"Existing requirement flow remains intact",cat:"דרישות",type:"Regression",pri:"Critical",reqs:"REQ-018",steps:"בדוק ש-openAddReq, editItem, _validateRequirement ו-renderReqs עדיין זמינים",expected:"זרימת הדרישות הקיימת נשארת תקינה",auto:"yes",fn:"checkExistingRequirementFlowRuntime"}
 ];
 
+var AI_RISK_ASSIST_TCS = [
+  {id:"TC-224",title:"Risk Assist action exists",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-121",steps:"בדוק שכפתור Risk Assist קיים בהקשר של סיכונים",expected:"קיים action גלוי ובטוח עבור סיכון קיים",auto:"yes",fn:"checkRiskAssistActionExistsRuntime"},
+  {id:"TC-225",title:"Risk Assist returns structured suggestion response",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-121",steps:"קרא runAIAction('risk_assist') ובדוק מבנה תגובה",expected:"ok/mode/confidence/recommendations/warnings/trace קיימים",auto:"yes",fn:"checkRiskAssistStructuredResponseRuntime"},
+  {id:"TC-226",title:"Risk Assist does not mutate DB.risks automatically",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-121",steps:"בדוק שהרצת Risk Assist אינה משנה את DB.risks",expected:"אין שינוי אוטומטי ב-DB.risks",auto:"yes",fn:"checkRiskAssistNoRisksMutationRuntime"},
+  {id:"TC-227",title:"Risk Assist does not mutate DB.residualRisks automatically",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-121",steps:"בדוק שהרצת Risk Assist אינה משנה את DB.residualRisks",expected:"אין שינוי אוטומטי ב-DB.residualRisks",auto:"yes",fn:"checkRiskAssistNoResidualMutationRuntime"},
+  {id:"TC-228",title:"Risk Assist stays offline-only and legacy-free",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-121",steps:"בדוק שהמימוש המקומי לא קורא ל-legacy AI או ל-network",expected:"המימוש נשאר local-only ומבודד",auto:"yes",fn:"checkRiskAssistOfflineOnlySource"},
+  {id:"TC-229",title:"Risk Assist UI opens and closes safely",cat:"מומחה AI",type:"Regression",pri:"High",reqs:"REQ-121",steps:"פתח את UI של Risk Assist ובדוק modal open/close",expected:"ה-modal נפתח ונסגר בלי crash",auto:"yes",fn:"checkRiskAssistUIRuntime"},
+  {id:"TC-230",title:"Existing risk flow remains intact",cat:"סיכונים",type:"Regression",pri:"Critical",reqs:"REQ-101",steps:"בדוק ש-openAddRisk, renderRisks, renderResidualRisks ו-edit/delete עדיין זמינים",expected:"זרימת הסיכונים הקיימת נשארת תקינה",auto:"yes",fn:"checkExistingRiskFlowRuntime"},
+  {id:"TC-231",title:"Risk heatmap and rendering remain unaffected",cat:"סיכונים",type:"Regression",pri:"High",reqs:"REQ-101",steps:"בדוק ש-renderRiskHeatmap ו-renderRisks ממשיכים לעבוד",expected:"heatmap וטבלת הסיכונים נבנים כרגיל",auto:"yes",fn:"checkRiskHeatmapUnaffectedRuntime"}
+];
+
 if(TMS.testCases.length < 125){
   TMS.requirements = DEFAULT_REQS.map(function(r){return Object.assign({},r);});
   TMS.testCases    = DEFAULT_TCS.map(function(t){return Object.assign({},t);});
@@ -941,6 +952,7 @@ function ensureTestCasesPresent(cases){
 ensureTestCasesPresent(RECOVERY_REGRESSION_TCS);
 ensureTestCasesPresent(AI_FOUNDATION_TCS);
 ensureTestCasesPresent(AI_REQUIREMENT_ASSIST_TCS);
+ensureTestCasesPresent(AI_RISK_ASSIST_TCS);
 saveTMS();
 
 // ═══════════════════════════════════════════════════════════════
@@ -1236,10 +1248,11 @@ var AUTOMATION = {
       var missing = keys.filter(function(k){ return !(k in w.FEATURES); });
       if(missing.length) return _runtimeFail('דגלים חסרים: ' + missing.join(', '));
       if(w.FEATURES.aiEnabled !== false) return _runtimeFail('aiEnabled חייב להישאר כבוי כברירת מחדל');
-      var unsafeEnabled = ['aiRiskAssist','aiDocAssist','aiArchitectureAssist','aiMultiProject'].filter(function(k){ return !!w.FEATURES[k]; });
+      var unsafeEnabled = ['aiDocAssist','aiArchitectureAssist','aiMultiProject'].filter(function(k){ return !!w.FEATURES[k]; });
       if(unsafeEnabled.length) return _runtimeFail('דגלי AI שאינם אמורים להיות פעילים: ' + unsafeEnabled.join(', '));
       if(typeof w.FEATURES.aiRequirementAssist !== 'boolean') return _runtimeFail('aiRequirementAssist חייב להיות דגל בוליאני מפורש');
-      return _runtimePass('FEATURES קיים, AI כללי כבוי, ו-Requirement Assist נשלט בדגל מפורש');
+      if(typeof w.FEATURES.aiRiskAssist !== 'boolean') return _runtimeFail('aiRiskAssist חייב להיות דגל בוליאני מפורש');
+      return _runtimePass('FEATURES קיים, AI כללי כבוי, ו-Requirement Assist/Risk Assist נשלטים בדגלים מפורשים');
     });
   },
   checkAIFacadeExistsRuntime: async function(){
@@ -1262,8 +1275,8 @@ var AUTOMATION = {
       if(typeof w.runAIAction !== 'function') return _runtimeFail('runAIAction חסר');
       var facadeResp, wrapperResp;
       try{
-        facadeResp = w.AIFacade.run('risk_assist', { text: 'risk' });
-        wrapperResp = w.runAIAction('risk_assist', { text: 'risk' });
+        facadeResp = w.AIFacade.run('architecture_assist', { text: 'arch' });
+        wrapperResp = w.runAIAction('architecture_assist', { text: 'arch' });
       }catch(e){
         return _runtimeFail('קריאת facade/wrapper זרקה שגיאה: ' + e.message);
       }
@@ -1381,6 +1394,132 @@ var AUTOMATION = {
       var validation = w._validateRequirement('The system should be fast');
       if(!validation || typeof validation !== 'object') return _runtimeFail('_validateRequirement הפסיקה להחזיר אובייקט תקין');
       return _runtimePass('זרימת הדרישות הקיימת נשארה זמינה לצד Requirement Assist');
+    });
+  },
+  checkRiskAssistActionExistsRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.renderRisks !== 'function' || typeof w.openAIRiskAssistant !== 'function') return _runtimeFail('renderRisks/openAIRiskAssistant חסרות');
+      if(!w.DB || !Array.isArray(w.DB.risks)) return _runtimeFail('DB.risks לא זמין');
+      var original = JSON.stringify(w.DB.risks);
+      try{
+        if(!w.DB.risks.length){
+          w.DB.risks.push({id:'TEMP-RISK-AI',desc:'קיים סיכון כי ספק יתעכב ויפגע באינטגרציה',cat:'ספקים — זמינות/איכות רכיבים',impact:'לוח זמנים',sev:3,prob:2,mitigation:'',detection:'',owner:'',status:'open'});
+        }
+        w.renderRisks();
+        var btn = w.document.querySelector('#risksBody [data-ai-risk-assist="true"]');
+        return btn ? _runtimePass('כפתור Risk Assist זמין בשורת סיכון') : _runtimeFail('לא נמצא כפתור Risk Assist בשורת סיכון');
+      } finally {
+        w.DB.risks = JSON.parse(original);
+        w.renderRisks();
+      }
+    });
+  },
+  checkRiskAssistStructuredResponseRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function') return _runtimeFail('runAIAction חסר');
+      var resp;
+      try{
+        resp = w.runAIAction('risk_assist', { text:'קיים סיכון כי ספק יתעכב ויפגע באינטגרציה', category:'ספקים — זמינות/איכות רכיבים', impact:'לוח זמנים', source:'test' });
+      }catch(e){
+        return _runtimeFail('runAIAction(risk_assist) זרק שגיאה: ' + e.message);
+      }
+      var ok = resp &&
+        resp.ok === true &&
+        resp.mode === 'offline' &&
+        typeof resp.confidence === 'number' &&
+        Array.isArray(resp.recommendations) &&
+        Array.isArray(resp.warnings) &&
+        Array.isArray(resp.duplicates) &&
+        resp.trace && resp.trace.source === 'local-risk-assist' &&
+        resp.riskAssist &&
+        typeof resp.riskAssist.suggestedRiskWording === 'string';
+      return ok ? _runtimePass('Risk Assist מחזיר מבנה תשובה מובנה ובטוח') : _runtimeFail('תגובה חסרה שדות נדרשים של Risk Assist');
+    });
+  },
+  checkRiskAssistNoRisksMutationRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function' || !w.DB || !Array.isArray(w.DB.risks)) return _runtimeFail('runAIAction או DB.risks חסרים');
+      var before = JSON.stringify(w.DB.risks);
+      try{
+        w.runAIAction('risk_assist', { text:'קיים סיכון כי קצב האינטגרציה יואט', source:'test' });
+      }catch(e){
+        return _runtimeFail('Risk Assist זרק שגיאה: ' + e.message);
+      }
+      var after = JSON.stringify(w.DB.risks);
+      return before === after ? _runtimePass('Risk Assist לא משנה את DB.risks אוטומטית') : _runtimeFail('זוהה שינוי אוטומטי ב-DB.risks');
+    });
+  },
+  checkRiskAssistNoResidualMutationRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function' || !w.DB || !Array.isArray(w.DB.residualRisks)) return _runtimeFail('runAIAction או DB.residualRisks חסרים');
+      var before = JSON.stringify(w.DB.residualRisks);
+      try{
+        w.runAIAction('risk_assist', { text:'קיים סיכון כי תהליך ההפחתה לא יספיק לפני ה-CDR', source:'test' });
+      }catch(e){
+        return _runtimeFail('Risk Assist זרק שגיאה: ' + e.message);
+      }
+      var after = JSON.stringify(w.DB.residualRisks);
+      return before === after ? _runtimePass('Risk Assist לא משנה את DB.residualRisks אוטומטית') : _runtimeFail('זוהה שינוי אוטומטי ב-DB.residualRisks');
+    });
+  },
+  checkRiskAssistOfflineOnlySource: async function(){
+    var src = await loadAppSource();
+    var start = src.indexOf('function localRiskAssist(');
+    var end = src.indexOf('function formatRiskAssistResult(', start);
+    if(start < 0 || end < 0) return { pass:false, actual:'לא נמצא בלוק Risk Assist לבדיקת source' };
+    var block = src.substring(start, end);
+    var forbidden = ['offlineAI(', 'callClaude(', 'callOpenAI(', 'callOfflineAIEndpoint(', 'analyzeWithAPI(', 'fetch('];
+    var found = forbidden.filter(function(token){ return block.indexOf(token) >= 0; });
+    return { pass: found.length===0, actual: found.length ? 'Risk Assist עדיין מפנה ל: ' + found.join(', ') : 'Risk Assist נשאר local-only וללא תלות ב-network/legacy AI' };
+  },
+  checkRiskAssistUIRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.openAIRiskAssistant !== 'function' || typeof w.closeModal !== 'function') return _runtimeFail('openAIRiskAssistant/closeModal חסרות');
+      if(!w.DB || !Array.isArray(w.DB.risks)) return _runtimeFail('DB.risks לא זמין');
+      var original = JSON.stringify(w.DB.risks);
+      try{
+        if(!w.DB.risks.length){
+          w.DB.risks.push({id:'TEMP-RISK-UI',desc:'קיים סיכון כי ספק יתעכב ויפגע באינטגרציה',cat:'ספקים — זמינות/איכות רכיבים',impact:'לוח זמנים',sev:3,prob:2,mitigation:'',detection:'',owner:'',status:'open'});
+        }
+        w.renderRisks();
+        var result = w.openAIRiskAssistant(0);
+        var modal = w.document.getElementById('modal');
+        var body = w.document.getElementById('modalBody');
+        var opened = modal && modal.classList.contains('open') && body && body.textContent.indexOf('Suggested Risk Wording') >= 0;
+        if(!opened) return _runtimeFail('Modal של Risk Assist לא נפתח כמצופה');
+        w.closeModal();
+        if(modal.classList.contains('open')) return _runtimeFail('Modal של Risk Assist לא נסגר');
+        return result && result.ok === true ? _runtimePass('Risk Assist UI נפתח ונסגר בבטחה') : _runtimeFail('Risk Assist לא החזיר תוצאה תקינה');
+      } finally {
+        w.DB.risks = JSON.parse(original);
+        w.renderRisks();
+      }
+    });
+  },
+  checkExistingRiskFlowRuntime: async function(){
+    return withAppWindow(function(w){
+      var fns = ['openAddRisk','renderRisks','renderResidualRisks','renderRiskHeatmap','editItem','deleteItem'];
+      var missing = fns.filter(function(name){ return typeof w[name] !== 'function'; });
+      return missing.length ? _runtimeFail('פונקציות סיכונים חסרות: ' + missing.join(', ')) : _runtimePass('זרימת הסיכונים הקיימת נשארה זמינה לצד Risk Assist');
+    });
+  },
+  checkRiskHeatmapUnaffectedRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.renderRisks !== 'function' || typeof w.renderRiskHeatmap !== 'function') return _runtimeFail('renderRisks/renderRiskHeatmap חסרות');
+      var original = JSON.stringify(w.DB.risks);
+      try{
+        if(!w.DB.risks.length){
+          w.DB.risks.push({id:'TEMP-RISK-HM',desc:'קיים סיכון כי בדיקת FAT תידחה',cat:'לוחות זמנים — עיכוב פיתוח',impact:'לוח זמנים',sev:4,prob:3,mitigation:'',detection:'',owner:'',status:'open'});
+        }
+        w.renderRisks();
+        var body = w.document.getElementById('risksBody');
+        var heatmap = w.document.getElementById('riskHeatmap');
+        var ok = body && body.querySelectorAll('tr').length > 0 && heatmap && heatmap.innerHTML.length > 0;
+        return ok ? _runtimePass('renderRisks ו-renderRiskHeatmap נשארו פעילים') : _runtimeFail('רנדר סיכונים/heatmap נפגע לאחר Risk Assist');
+      } finally {
+        w.DB.risks = JSON.parse(original);
+        w.renderRisks();
+      }
     });
   },
   checkAIFoundationOfflineStubSource: async function(){
