@@ -4139,12 +4139,13 @@ function formRow2(label,id,val,type){
 function formGroup(label,inputHtml){
   return "<div class='form-group'><label class='form-label'>"+esc(label)+"</label>"+inputHtml+"</div>";
 }
-function actionBtns(i,arr,withArchive){
+function actionBtns(i,arr,withArchive,extraHtml){
   var arc = withArchive
     ? " <button class='btn btn-xs btn-outline' style='color:var(--g600);' "
       +"onclick='archiveItem(\""+ arr +"\","+i+")' title='ארכב'>📦</button>"
     : "";
-  return "<button class='btn btn-xs btn-outline' onclick='editItem(\""+arr+"\","+i+")' title='ערוך פריט'>✏️</button> "
+  return (extraHtml || "")
+    +"<button class='btn btn-xs btn-outline' onclick='editItem(\""+arr+"\","+i+")' title='ערוך פריט'>✏️</button> "
     +"<button class='btn btn-xs btn-danger' onclick='deleteItem(\""+arr+"\","+i+")' title='מחק פריט'>🗑️</button>"
     +arc;
 }
@@ -4379,11 +4380,13 @@ function renderReqs(type){
   var arr=type==="sys"?DB.sysReqs:type==="sw"?DB.swReqs:DB.meReqs;
   var bodyId=type==="sys"?"sysReqsBody":type==="sw"?"swReqsBody":"meReqsBody";
   renderTable(bodyId,arr,[],function(r,i){
+    var arrName=type==="sys"?"sysReqs":type==="sw"?"swReqs":"meReqs";
+    var assistBtn="<button class='btn btn-xs btn-outline' data-ai-requirement-assist='true' onclick='openAIRequirementAssistant(\""+type+"\","+i+")' title='הפק הצעת שיפור לדרישה'>💡</button> ";
     return "<td>"+(i+1)+"</td><td>"+esc(r.rid||"")+"</td><td>"+ragBadge(r.level||r.domain||"")+"</td>"+
       "<td>"+esc(r.domain||"")+"</td><td style='max-width:300px;'>"+esc(r.desc)+"</td>"+
       "<td>"+esc(r.l0||"-")+"</td><td>"+ragBadge(r.status||"Draft")+"</td>"+
       "<td>"+esc(r.vv||"-")+"</td>"+
-      "<td>"+actionBtns(i,type==="sys"?"sysReqs":type==="sw"?"swReqs":"meReqs")+"</td>";
+      "<td>"+actionBtns(i,arrName,false,assistBtn)+"</td>";
   });
 }
 
@@ -7605,8 +7608,34 @@ function formatReviewReadinessResult(data){
 }
 
 function openAIRequirementAssistant(defaultType){
-  notifyAIDisabled();
-  return;
+  var type = defaultType || "sys";
+  var idx = typeof arguments[1] === "number" ? arguments[1] : null;
+  var explicitText = typeof arguments[2] === "string" ? arguments[2] : "";
+  var arrName = type==="sys"?"sysReqs":type==="sw"?"swReqs":"meReqs";
+  var arr = DB[arrName] || [];
+  var req = idx !== null && arr[idx] ? arr[idx] : null;
+  var inputText = explicitText || (req && req.desc) || "";
+  if(!inputText){
+    notify("לא נמצאה דרישה לניתוח", "w");
+    return;
+  }
+  var result = runAIAction("requirement_assist", {
+    text: inputText,
+    type: type,
+    requirementId: req && (req.rid || req.id || ""),
+    domain: req && (req.domain || ""),
+    source: req ? "existing_requirement" : "manual_text"
+  });
+  if(!result || result.ok !== true){
+    return result;
+  }
+  openModal(
+    "Requirement Assist (Suggestion Only)",
+    formatRequirementAssistResult(result),
+    function(){ closeModal(); },
+    "סגור"
+  );
+  return result;
 }
 
 function openAIRiskAssistant(){
@@ -7723,7 +7752,7 @@ function notifyAIDisabled(){
 // - no network-dependent assumptions
 window.FEATURES = window.FEATURES || {
   aiEnabled: false,
-  aiRequirementAssist: false,
+  aiRequirementAssist: true,
   aiRiskAssist: false,
   aiDocAssist: false,
   aiArchitectureAssist: false,
@@ -7759,9 +7788,148 @@ function buildAIFoundationResponse(reason, source, extras){
   }, extras || {});
 }
 
+function _requirementAssistDomainLabel(type){
+  return type==="sw" ? "software" : type==="me" ? "mechanical" : "system";
+}
+
+function _detectRequirementAssistDomain(text, type, explicitDomain){
+  var source = (text || "") + " " + (explicitDomain || "");
+  if(/interface|icd|api|protocol|ethernet|1553|rs-422|ממשק|פרוטוקול/i.test(source)) return "interface";
+  if(/safety|hazard|fail[-\s]?safe|critical|בטיחות|סיכון|מפגע/i.test(source)) return "safety";
+  if(/software|firmware|algorithm|latency|cpu|memory|software|תוכנה|קושחה|אלגוריתם/i.test(source)) return "software";
+  if(/mechanical|thermal|structure|vibration|mount|housing|מכני|תרמי|מבני|מארז/i.test(source)) return "mechanical";
+  return _requirementAssistDomainLabel(type);
+}
+
+function _collectRequirementAssistVagueMatches(text){
+  var lower = String(text || "").toLowerCase();
+  return _VAGUE_WORDS.filter(function(word){
+    return lower.indexOf(String(word).toLowerCase()) >= 0;
+  }).slice(0, 4);
+}
+
+function _suggestRequirementAssistMeasures(text, domain){
+  var notes = [];
+  var t = String(text || "");
+  if(_validateRequirement(t)._measurable) notes.push("כבר מופיע בטקסט רכיב מדיד כלשהו, ולכן כדאי רק לחדד תנאי בדיקה וגבולות.");
+  if(/latency|response|delay|timing|זמן תגובה|השהיה|זמן/i.test(t)) notes.push("כדאי להוסיף זמן יעד או חסם זמן בתנאי הפעלה מוגדרים.");
+  if(/throughput|bandwidth|rate|capacity|קצב|רוחב פס|תפוקה/i.test(t)) notes.push("כדאי להגדיר קצב, רוחב פס או תפוקה בצורה מספרית.");
+  if(/power|current|voltage|consumption|הספק|זרם|מתח|צריכה/i.test(t)) notes.push("כדאי להוסיף מגבלת הספק, זרם או מתח עם תחום עבודה.");
+  if(/temperature|thermal|environment|humidity|shock|טמפרטורה|תרמי|סביבה|לחות|הלם/i.test(t)) notes.push("כדאי לציין תנאי סביבה, טמפרטורה או עומס רלוונטיים.");
+  if(/availability|reliability|fault|uptime|אמינות|זמינות|כשל/i.test(t)) notes.push("כדאי להוסיף יעד אמינות, זמינות או התנהגות במקרה כשל.");
+  if(/interface|protocol|message|packet|ממשק|פרוטוקול|הודעה|חבילה/i.test(t)) notes.push("כדאי להגדיר פרוטוקול, קצב, פורמט או מגבלות ממשק.");
+  if(!notes.length){
+    if(domain === "software") notes.push("כדאי להוסיף תנאי קבלה מדידים כמו latency, throughput, שימוש בזיכרון או כיסוי בדיקות.");
+    else if(domain === "mechanical") notes.push("כדאי להוסיף עומסים, טמפרטורה, משקל, ממדים או תנאי סביבה רלוונטיים.");
+    else if(domain === "interface") notes.push("כדאי להגדיר פרוטוקול, קצב תקשורת, timeout או פורמט נתונים.");
+    else if(domain === "safety") notes.push("כדאי להוסיף תנאי בטיחות, רמת חומרה, או אופן אימות של המצב הבטוח.");
+    else notes.push("כדאי להוסיף סף, זמן, תנאי פעולה או טולרנס כדי להפוך את הדרישה למדידה.");
+  }
+  return notes.slice(0, 3);
+}
+
+function _buildRequirementAssistRewrite(text, type, domain){
+  var original = String(text || "").trim().replace(/\s+/g, " ");
+  var cleaned = original
+    .replace(/^(?:the\s+system|the\s+software|the\s+mechanical\s+assembly|the\s+interface|system|software|module|component)\s+(?:shall|should|must|will)\s+/i, "")
+    .replace(/^(?:shall|should|must|will)\s+/i, "")
+    .replace(/^(?:המערכת|התוכנה|המכלול|הממשק|הרכיב)\s+(?:צריכה|חייבת|צריכים|צריכות|תידרש|יידרש)\s+/i, "")
+    .trim();
+  if(!cleaned) cleaned = original || "meet the defined requirement";
+  cleaned = cleaned.replace(/\bshould\b/ig, "shall").replace(/\bmust\b/ig, "shall");
+  var subject = domain === "software" ? "The software shall " :
+    domain === "mechanical" ? "The mechanical assembly shall " :
+    domain === "interface" ? "The interface shall " :
+    domain === "safety" ? "The system shall " :
+    _requirementAssistDomainLabel(type) === "system" ? "The system shall " :
+    "The subsystem shall ";
+  var sentence = subject + cleaned.replace(/[.;\s]+$/g, "");
+  if(!/(?:with|under|within|during|between|at least|at most|not exceed|no more than|תחת|בתנאי|תוך|לפחות|עד)/i.test(sentence)){
+    sentence += " under defined operating conditions";
+  }
+  if(!/(?:\d|ms|sec|s|%|db|dbm|mhz|ghz|kg|mm|hz|v|a|latency|throughput|availability|temperature|range|accuracy)/i.test(sentence)){
+    sentence += " with measurable acceptance criteria to be defined by engineering review";
+  }
+  return sentence + ".";
+}
+
+function localRequirementAssist(payload){
+  payload = payload || {};
+  var text = String(payload.text || "").trim();
+  if(!text){
+    return buildAIFoundationResponse("EMPTY_REQUIREMENT_TEXT", "local-requirement-assist", {
+      warnings: ["לא סופק טקסט דרישה לניתוח."],
+      trace: { source: "local-requirement-assist", taskType: "requirement_assist" }
+    });
+  }
+  var type = payload.type || "sys";
+  var validation = _validateRequirement(text);
+  var domainSuggestion = _detectRequirementAssistDomain(text, type, payload.domain || "");
+  var vagueMatches = _collectRequirementAssistVagueMatches(text);
+  var measurableNotes = _suggestRequirementAssistMeasures(text, domainSuggestion);
+  var rewrite = _buildRequirementAssistRewrite(text, type, domainSuggestion);
+  var qualityNotes = [];
+  if(validation._vague) qualityNotes.push("הנוסח המקורי כולל מונחים עמומים שקשה לאמת בצורה עקבית.");
+  if(!validation._measurable) qualityNotes.push("הנוסח המקורי לא מגדיר קריטריון מדיד או תנאי קבלה מספיק ברור.");
+  if(!/^(?:the\s+(?:system|software|interface|mechanical\s+assembly)|המערכת|התוכנה|הממשק|המכלול)/i.test(String(text || "").trim())) qualityNotes.push("ההצעה מוסיפה פתיח נורמטיבי ברור כדי להפוך את הדרישה לחד-משמעית יותר.");
+  qualityNotes.push("הנוסח המוצע שומר על הכוונה המקורית אך מפריד טוב יותר בין דרישה לבין תנאי אימות.");
+  var warnings = [];
+  if(vagueMatches.length) warnings.push("זוהו מונחים עמומים: " + vagueMatches.join(", "));
+  if(!validation._measurable) warnings.push("עדיין נדרש להשלים ערך, סף או תנאי אימות מספרי לפני אישור הדרישה.");
+  var confidence = 0.58;
+  if(validation._vague) confidence -= 0.08;
+  if(validation._measurable) confidence += 0.18;
+  if(text.length > 40) confidence += 0.08;
+  confidence = Math.max(0.35, Math.min(0.92, confidence));
+  return {
+    ok: true,
+    mode: "offline",
+    confidence: Number(confidence.toFixed(2)),
+    recommendations: [
+      { type: "rewrite", title: "נוסח מוצע", text: rewrite },
+      { type: "domain", title: "רמז לדומיין", text: "הדרישה נראית שייכת בעיקר ל-" + domainSuggestion + "." },
+      { type: "quality", title: "מה השתפר", text: qualityNotes[qualityNotes.length - 1] }
+    ],
+    warnings: warnings,
+    duplicates: [],
+    needsHumanApproval: true,
+    requirementAssist: {
+      originalText: text,
+      suggestedRewrite: rewrite,
+      domainSuggestion: domainSuggestion,
+      measurableNotes: measurableNotes,
+      qualityNotes: qualityNotes
+    },
+    trace: {
+      source: "local-requirement-assist",
+      taskType: "requirement_assist",
+      requirementType: type,
+      requirementId: payload.requirementId || "",
+      inputSource: payload.source || "manual"
+    }
+  };
+}
+
+function formatRequirementAssistResult(result){
+  var info = result.requirementAssist || {};
+  return "<div style='display:grid;gap:12px;line-height:1.7;'>" +
+    "<div><b>Original Requirement</b><div style='margin-top:4px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);white-space:pre-wrap;'>"+esc(info.originalText || "")+"</div></div>" +
+    "<div><b>Suggested Rewrite</b><div style='margin-top:4px;padding:10px;border:1px solid rgba(35,160,255,.35);border-radius:10px;background:rgba(35,160,255,.06);white-space:pre-wrap;'>"+esc(info.suggestedRewrite || "")+"</div></div>" +
+    "<div><b>Warnings</b>"+renderAIActionList(result.warnings || [])+"</div>" +
+    "<div><b>Measurability Notes</b>"+renderAIActionList(info.measurableNotes || [])+"</div>" +
+    "<div><b>Quality Notes</b>"+renderAIActionList(info.qualityNotes || [])+"</div>" +
+    "<div><b>Domain Suggestion</b><div style='margin-top:4px;'>"+esc(info.domainSuggestion || "")+"</div></div>" +
+    "<div><b>Confidence</b><div style='margin-top:4px;'>"+esc(String(result.confidence || 0))+"</div></div>" +
+    "<div style='font-size:12px;color:var(--g600);'>Suggestion only. Nothing is written to the database automatically.</div>" +
+  "</div>";
+}
+
 window.AIFacade = window.AIFacade || {
   run: function(taskType, payload, options){
     options = options || {};
+    if (taskType === "requirement_assist" && FEATURES.aiRequirementAssist) {
+      return localRequirementAssist(payload || {});
+    }
     if (!FEATURES.aiEnabled) {
       notifyAIDisabled();
       return buildAIFoundationResponse("AI_DISABLED", "ai-foundation-disabled", {
@@ -18196,8 +18364,14 @@ document.addEventListener("DOMContentLoaded", function(){
   }
   _removeLegacyAIPagesFromRuntime();
   document.addEventListener("DOMContentLoaded", _removeLegacyAIPagesFromRuntime);
+  var _requirementAssistEntry = openAIRequirementAssistant;
   window.aiDocFill = aiDocFill = function(){ _aiRecoveryNotice(); };
-  window.openAIRequirementAssistant = openAIRequirementAssistant = function(){ _aiRecoveryNotice(); };
+  window.openAIRequirementAssistant = openAIRequirementAssistant = function(){
+    if(window.FEATURES && window.FEATURES.aiRequirementAssist && typeof _requirementAssistEntry === "function"){
+      return _requirementAssistEntry.apply(this, arguments);
+    }
+    _aiRecoveryNotice();
+  };
   window.openAIRiskAssistant = openAIRiskAssistant = function(){ _aiRecoveryNotice(); };
   window.openAIArchitectureAssistant = openAIArchitectureAssistant = function(){ _aiRecoveryNotice(); };
   window.runAIReviewReadiness = runAIReviewReadiness = function(){ _aiRecoveryNotice(); };

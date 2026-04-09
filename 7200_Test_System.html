@@ -912,11 +912,20 @@ var RECOVERY_REGRESSION_TCS = [
 ];
 
 var AI_FOUNDATION_TCS = [
-  {id:"TC-213",title:"AI feature flags foundation exists",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-119",steps:"בדוק ש-FEATURES קיים ומוגדר disabled-by-default",expected:"FEATURES קיים וכל דגלי ה-AI כבויים",auto:"yes",fn:"checkFeaturesFoundationRuntime"},
+  {id:"TC-213",title:"AI feature flags foundation exists",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-119",steps:"בדוק ש-FEATURES קיים ושכל דגלי ה-AI הכבדים כבויים, עם אפשרות חריגה מבוקרת ל-Requirement Assist",expected:"aiEnabled כבוי, שאר דגלי ה-AI הכבדים כבויים, ו-aiRequirementAssist נשלט במפורש",auto:"yes",fn:"checkFeaturesFoundationRuntime"},
   {id:"TC-214",title:"AIFacade exists with run()",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-119",steps:"בדוק ש-AIFacade קיים וש-run היא פונקציה",expected:"AIFacade.run זמין גלובלית",auto:"yes",fn:"checkAIFacadeExistsRuntime"},
   {id:"TC-215",title:"runAIAction wrapper exists",cat:"מומחה AI",type:"Regression",pri:"High",reqs:"REQ-119",steps:"בדוק ש-runAIAction קיים גלובלית",expected:"runAIAction זמין גלובלית",auto:"yes",fn:"checkRunAIActionExistsRuntime"},
-  {id:"TC-216",title:"AIFacade disabled response is safe and structured",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-119",steps:"קרא AIFacade.run במצב disabled ובדוק חוזה תגובה",expected:"ok=false, mode=disabled, reason=AI_DISABLED, trace קיים",auto:"yes",fn:"checkAIFacadeDisabledResponseRuntime"},
+  {id:"TC-216",title:"AIFacade disabled response is safe and structured",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-119",steps:"קרא AIFacade.run עבור task שאינו מאופשר ובדוק חוזה תגובה",expected:"ok=false, mode=disabled, reason=AI_DISABLED, trace קיים",auto:"yes",fn:"checkAIFacadeDisabledResponseRuntime"},
   {id:"TC-217",title:"AI foundation stays offline-first",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-119",steps:"בדוק ש-AIFacade/runAIAction לא קוראים ל-legacy AI או network AI",expected:"אין חיבורי AI ישנים בתוך facade החדש",auto:"yes",fn:"checkAIFoundationOfflineStubSource"}
+];
+
+var AI_REQUIREMENT_ASSIST_TCS = [
+  {id:"TC-218",title:"Requirement Assist action exists",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-120",steps:"בדוק שכפתור Requirement Assist קיים בהקשר של דרישות",expected:"קיים action גלוי ובטוח עבור דרישה קיימת",auto:"yes",fn:"checkRequirementAssistActionExistsRuntime"},
+  {id:"TC-219",title:"Requirement Assist returns structured suggestion response",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-120",steps:"קרא runAIAction('requirement_assist') ובדוק מבנה תגובה",expected:"ok/mode/confidence/recommendations/warnings/trace קיימים",auto:"yes",fn:"checkRequirementAssistStructuredResponseRuntime"},
+  {id:"TC-220",title:"Requirement Assist does not mutate DB automatically",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-120",steps:"בדוק שהרצת Requirement Assist אינה משנה את DB.sysReqs",expected:"אין שינוי אוטומטי במאגר הדרישות",auto:"yes",fn:"checkRequirementAssistNoMutationRuntime"},
+  {id:"TC-221",title:"Requirement Assist stays offline-only",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-120",steps:"בדוק שהמימוש המקומי לא קורא ל-legacy AI או ל-network",expected:"המימוש נשאר local-only ומבודד",auto:"yes",fn:"checkRequirementAssistOfflineOnlySource"},
+  {id:"TC-222",title:"Requirement Assist UI opens safely",cat:"מומחה AI",type:"Regression",pri:"High",reqs:"REQ-120",steps:"פתח את UI של Requirement Assist ובדוק modal open/close",expected:"ה-modal נפתח ונסגר בלי crash",auto:"yes",fn:"checkRequirementAssistUIRuntime"},
+  {id:"TC-223",title:"Existing requirement flow remains intact",cat:"דרישות",type:"Regression",pri:"Critical",reqs:"REQ-018",steps:"בדוק ש-openAddReq, editItem, _validateRequirement ו-renderReqs עדיין זמינים",expected:"זרימת הדרישות הקיימת נשארת תקינה",auto:"yes",fn:"checkExistingRequirementFlowRuntime"}
 ];
 
 if(TMS.testCases.length < 125){
@@ -931,6 +940,7 @@ function ensureTestCasesPresent(cases){
 }
 ensureTestCasesPresent(RECOVERY_REGRESSION_TCS);
 ensureTestCasesPresent(AI_FOUNDATION_TCS);
+ensureTestCasesPresent(AI_REQUIREMENT_ASSIST_TCS);
 saveTMS();
 
 // ═══════════════════════════════════════════════════════════════
@@ -1224,10 +1234,12 @@ var AUTOMATION = {
       if(!w.FEATURES || typeof w.FEATURES !== 'object') return _runtimeFail('FEATURES לא קיים גלובלית');
       var keys = ['aiEnabled','aiRequirementAssist','aiRiskAssist','aiDocAssist','aiArchitectureAssist','aiMultiProject'];
       var missing = keys.filter(function(k){ return !(k in w.FEATURES); });
-      var enabled = keys.filter(function(k){ return !!w.FEATURES[k]; });
       if(missing.length) return _runtimeFail('דגלים חסרים: ' + missing.join(', '));
-      if(enabled.length) return _runtimeFail('דגלי AI שאינם כבויים: ' + enabled.join(', '));
-      return _runtimePass('FEATURES קיים וכל דגלי ה-AI כבויים כברירת מחדל');
+      if(w.FEATURES.aiEnabled !== false) return _runtimeFail('aiEnabled חייב להישאר כבוי כברירת מחדל');
+      var unsafeEnabled = ['aiRiskAssist','aiDocAssist','aiArchitectureAssist','aiMultiProject'].filter(function(k){ return !!w.FEATURES[k]; });
+      if(unsafeEnabled.length) return _runtimeFail('דגלי AI שאינם אמורים להיות פעילים: ' + unsafeEnabled.join(', '));
+      if(typeof w.FEATURES.aiRequirementAssist !== 'boolean') return _runtimeFail('aiRequirementAssist חייב להיות דגל בוליאני מפורש');
+      return _runtimePass('FEATURES קיים, AI כללי כבוי, ו-Requirement Assist נשלט בדגל מפורש');
     });
   },
   checkAIFacadeExistsRuntime: async function(){
@@ -1250,7 +1262,7 @@ var AUTOMATION = {
       if(typeof w.runAIAction !== 'function') return _runtimeFail('runAIAction חסר');
       var facadeResp, wrapperResp;
       try{
-        facadeResp = w.AIFacade.run('requirement_assist', { text: 'shall' });
+        facadeResp = w.AIFacade.run('risk_assist', { text: 'risk' });
         wrapperResp = w.runAIAction('risk_assist', { text: 'risk' });
       }catch(e){
         return _runtimeFail('קריאת facade/wrapper זרקה שגיאה: ' + e.message);
@@ -1272,6 +1284,103 @@ var AUTOMATION = {
       if(!isSafe(wrapperResp)) return _runtimeFail('runAIAction לא החזיר תגובה בטוחה ומובנית');
       if(facadeResp.reason !== 'AI_DISABLED') return _runtimeFail('AIFacade.run לא החזיר AI_DISABLED');
       return _runtimePass('AIFacade ו-runAIAction מחזירים תגובת disabled בטוחה ומובנית');
+    });
+  },
+  checkRequirementAssistActionExistsRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.renderReqs !== 'function' || typeof w.openAIRequirementAssistant !== 'function') return _runtimeFail('renderReqs/openAIRequirementAssistant חסרות');
+      if(!w.DB || !Array.isArray(w.DB.sysReqs)) return _runtimeFail('DB.sysReqs לא זמין');
+      var original = JSON.stringify(w.DB.sysReqs);
+      try{
+        if(!w.DB.sysReqs.length){
+          w.DB.sysReqs.push({id:'TEMP-REQ-AI',rid:'SYS-TEMP-001',level:'L1',domain:'פונקציונלי',desc:'The system should respond quickly',l0:'-',vv:'Test',status:'Draft'});
+        }
+        w.renderReqs('sys');
+        var btn = w.document.querySelector('#sysReqsBody [data-ai-requirement-assist="true"]');
+        return btn ? _runtimePass('כפתור Requirement Assist זמין בשורת דרישה') : _runtimeFail('לא נמצא כפתור Requirement Assist בשורת דרישה');
+      } finally {
+        w.DB.sysReqs = JSON.parse(original);
+        w.renderReqs('sys');
+      }
+    });
+  },
+  checkRequirementAssistStructuredResponseRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function') return _runtimeFail('runAIAction חסר');
+      var resp;
+      try{
+        resp = w.runAIAction('requirement_assist', { text:'The system should be fast and reliable', type:'sys', source:'test' });
+      }catch(e){
+        return _runtimeFail('runAIAction(requirement_assist) זרק שגיאה: ' + e.message);
+      }
+      var ok = resp &&
+        resp.ok === true &&
+        resp.mode === 'offline' &&
+        typeof resp.confidence === 'number' &&
+        Array.isArray(resp.recommendations) &&
+        Array.isArray(resp.warnings) &&
+        Array.isArray(resp.duplicates) &&
+        resp.trace && resp.trace.source === 'local-requirement-assist' &&
+        resp.requirementAssist &&
+        typeof resp.requirementAssist.suggestedRewrite === 'string';
+      return ok ? _runtimePass('Requirement Assist מחזיר מבנה תשובה מובנה ובטוח') : _runtimeFail('תגובה חסרה שדות נדרשים של Requirement Assist');
+    });
+  },
+  checkRequirementAssistNoMutationRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function' || !w.DB || !Array.isArray(w.DB.sysReqs)) return _runtimeFail('runAIAction או DB.sysReqs חסרים');
+      var before = JSON.stringify(w.DB.sysReqs);
+      try{
+        w.runAIAction('requirement_assist', { text:'The system should be user friendly', type:'sys', source:'test' });
+      }catch(e){
+        return _runtimeFail('Requirement Assist זרק שגיאה: ' + e.message);
+      }
+      var after = JSON.stringify(w.DB.sysReqs);
+      return before === after ? _runtimePass('Requirement Assist לא משנה את DB.sysReqs אוטומטית') : _runtimeFail('זוהה שינוי אוטומטי ב-DB.sysReqs');
+    });
+  },
+  checkRequirementAssistOfflineOnlySource: async function(){
+    var src = await loadAppSource();
+    var start = src.indexOf('function localRequirementAssist(');
+    var end = src.indexOf('function formatRequirementAssistResult(', start);
+    if(start < 0 || end < 0) return { pass:false, actual:'לא נמצא בלוק Requirement Assist לבדיקת source' };
+    var block = src.substring(start, end);
+    var forbidden = ['offlineAI(', 'callClaude(', 'callOpenAI(', 'callOfflineAIEndpoint(', 'analyzeWithAPI(', 'fetch('];
+    var found = forbidden.filter(function(token){ return block.indexOf(token) >= 0; });
+    return { pass: found.length===0, actual: found.length ? 'Requirement Assist עדיין מפנה ל: ' + found.join(', ') : 'Requirement Assist נשאר local-only וללא תלות ב-network/legacy AI' };
+  },
+  checkRequirementAssistUIRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.openAIRequirementAssistant !== 'function' || typeof w.closeModal !== 'function') return _runtimeFail('openAIRequirementAssistant/closeModal חסרות');
+      if(!w.DB || !Array.isArray(w.DB.sysReqs)) return _runtimeFail('DB.sysReqs לא זמין');
+      var original = JSON.stringify(w.DB.sysReqs);
+      try{
+        if(!w.DB.sysReqs.length){
+          w.DB.sysReqs.push({id:'TEMP-REQ-UI',rid:'SYS-TEMP-002',level:'L1',domain:'פונקציונלי',desc:'The system should be robust',l0:'-',vv:'Analysis',status:'Draft'});
+        }
+        w.renderReqs('sys');
+        var result = w.openAIRequirementAssistant('sys', 0);
+        var modal = w.document.getElementById('modal');
+        var body = w.document.getElementById('modalBody');
+        var opened = modal && modal.classList.contains('open') && body && body.textContent.indexOf('Suggested Rewrite') >= 0;
+        if(!opened) return _runtimeFail('Modal של Requirement Assist לא נפתח כמצופה');
+        w.closeModal();
+        if(modal.classList.contains('open')) return _runtimeFail('Modal של Requirement Assist לא נסגר');
+        return result && result.ok === true ? _runtimePass('Requirement Assist UI נפתח ונסגר בבטחה') : _runtimeFail('Requirement Assist לא החזיר תוצאה תקינה');
+      } finally {
+        w.DB.sysReqs = JSON.parse(original);
+        w.renderReqs('sys');
+      }
+    });
+  },
+  checkExistingRequirementFlowRuntime: async function(){
+    return withAppWindow(function(w){
+      var fns = ['openAddReq','editItem','renderReqs','_validateRequirement','_showVagueTooltipFromEl'];
+      var missing = fns.filter(function(name){ return typeof w[name] !== 'function'; });
+      if(missing.length) return _runtimeFail('פונקציות דרישות חסרות: ' + missing.join(', '));
+      var validation = w._validateRequirement('The system should be fast');
+      if(!validation || typeof validation !== 'object') return _runtimeFail('_validateRequirement הפסיקה להחזיר אובייקט תקין');
+      return _runtimePass('זרימת הדרישות הקיימת נשארה זמינה לצד Requirement Assist');
     });
   },
   checkAIFoundationOfflineStubSource: async function(){
