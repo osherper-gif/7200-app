@@ -4891,94 +4891,8 @@ function _generateSmartTextareaContent(docId, sec, proj, projName){
 }
 
 function aiDocFill(docId, expertRole){
-  var defDoc = _findDocDef(docId);
-  if(!defDoc) return;
-
-  var prog = document.getElementById("docprogress-"+docId);
-  if(prog){ prog.textContent = "🤖 ממלא מנתוני פרויקט..."; prog.style.display="inline"; }
-
-  var proj = DB.project || {};
-  var today = new Date().toISOString().split("T")[0];
-  var projName = proj.name || DB._projectName || "";
-
-  // Build fill object: smart defaults overridden by saved DB values
-  var saved = (DB.docRegistry && DB.docRegistry[docId]) || {};
-  var smartFill = Object.assign({
-    ver: "Rev A", status: "Draft", date: today,
-    author: proj.pm || "",
-    projectName: projName,
-    architecture: projName ? "ארכיטקטורת " + projName + " — מבוססת PIDS" : "",
-    mission: proj.description || (projName ? "מערכת " + projName : ""),
-    users: "אופרטור, מפעיל מערכת, מנהל",
-    environment: "סביבה אווירית — MIL-STD-810",
-    phases: "CT → SST → IT → ST → AT",
-    sites: "מעבדה, מגרש בדיקות, FAT",
-    reqCount: String((DB.sysReqs||[]).length || ""),
-    testCount: String((DB.vv||[]).length || ""),
-    reqsCovered: String((DB.sysReqs||[]).length || ""),
-    methods: "Test, Analysis, Demo, Inspection",
-    icdCount: String((DB.icd||[]).length || ""),
-    busTypes: "1553B, GbE, VPX/PCIe",
-    subsystems: projName ? "RF Front-End, FPGA Processing, SW, Power" : "",
-    interfaces: "VPX, 1553B, GbE",
-    reqsBase: "PIDS, SYRS, נדרש טרם הוכנה",
-    dalLevel: "DAL-C", swLang: "C, Python", coverage: "100%",
-    hazardCount: String((DB.risks||[]).length || ""), mitigations: "ראה טבלת סכנות",
-    subsystem: projName || "מערכת", testSite: "מעבדה פנימית + FAT בשטח"
-  }, saved);
-
-  // Collect all sections from DOC_MODAL_SECTIONS
-  var allFields = [];
-  var sections = DOC_MODAL_SECTIONS[docId] || [];
-  sections.forEach(function(sec){
-    if(sec.type==="fields") (sec.fields||[]).forEach(function(f){ allFields.push(f); });
-  });
-  if(!allFields.length && defDoc.fields) allFields = defDoc.fields;
-
-  // Fill type:"fields" elements using BOTH dtmf- and drf- prefixes
-  var filled = 0;
-  ["dtmf-","drf-"].forEach(function(prefix){
-    allFields.forEach(function(f){
-      var val = smartFill[f.k];
-      if(val===undefined||val===null) return;
-      var el = document.getElementById(prefix+docId+"-"+f.k);
-      if(el && (!el.value||el.value.trim()==="")){
-        el.value = String(val); filled++;
-      }
-    });
-  });
-
-  // Fill type:"textarea" sections with smart offline AI content
-  var textareaFilled = 0;
-  var textareaSections = sections.filter(function(s){ return s.type==="textarea"; });
-  textareaSections.forEach(function(sec){
-    var el = document.getElementById("dtmf-"+docId+"-"+sec.key);
-    if(!el || el.value.trim()!=="") return; // skip if already filled
-    var content = saved[sec.key] || _generateSmartTextareaContent(docId, sec, proj, projName);
-    if(content){ el.value = content; textareaFilled++; }
-  });
-
-  var totalFilled = filled + textareaFilled;
-  if(prog){
-    if(totalFilled > 0){
-      prog.textContent = "✅ "+filled+" שדות + "+textareaFilled+" סעיפי תוכן מולאו על ידי מומחה AI — לחץ שמור";
-    } else {
-      prog.textContent = "ℹ️ השדות כבר מלאים";
-    }
-    setTimeout(function(){ prog.style.display="none"; },6000);
-  }
-
-  // OpenAI (only if explicitly configured — not required in isolated environments)
-  if(DB.ai && DB.ai.provider==="openai" && DB.ai.apiKey){
-    var oaiCtx = buildProjectContext();
-    var fieldKeys = allFields.map(function(f){return f.k;}).join(", ");
-    var taKeys = textareaSections.map(function(s){return s.key+":\""+s.title+"\"";}).join(", ");
-    var oaiQ = "מלא את המסמך \""+defDoc.title+"\" ("+docId+") עבור הפרויקט.\n";
-    if(fieldKeys) oaiQ += "שדות מבנה: "+fieldKeys+".\n";
-    if(taKeys) oaiQ += "סעיפי תוכן חופשיים (3-4 משפטים כל אחד): "+taKeys+".\n";
-    oaiQ += "החזר JSON בלבד. כל הערכים בעברית מקצועית. ללא markdown.";
-    _aiDocFillOpenAI(docId, {fields:allFields, textareaSections:textareaSections}, oaiQ, oaiCtx, expertRole, prog);
-  }
+  notifyAIDisabled();
+  return;
 }
 
 function _aiDocFillOpenAI(docId, defDoc, q, ctx, expertRole, prog){
@@ -7691,83 +7605,23 @@ function formatReviewReadinessResult(data){
 }
 
 function openAIRequirementAssistant(defaultType){
-  var title = "AI Improve Requirement";
-  var placeholder = defaultType==="software"
-    ? "הדבק כאן דרישת תוכנה גולמית או חלשה..."
-    : defaultType==="mechanical"
-    ? "הדבק כאן דרישה מכאנית לשיפור..."
-    : "הדבק כאן דרישת מערכת לשיפור...";
-  var html = "<div style='display:grid;gap:10px;'>" +
-    "<div style='color:var(--g600);font-size:13px;'>הפעולה משפרת ניסוח דרישה, מזהה בעיות איכות ומציעה verification method.</div>" +
-    "<textarea id='aiActionInput' class='form-input' style='min-height:140px;resize:vertical;' placeholder='"+esc(placeholder)+"'></textarea>" +
-  "</div>";
-  openModal(title, html, async function(){
-    try{
-      var ctx = ensureAIActionProjectContext(); if(!ctx) return;
-      var input = gV("aiActionInput").trim();
-      if(!input){ notify("נדרש טקסט דרישה לניתוח","warning"); return; }
-      notify("מנתח דרישה...","ok");
-      var data = await callAIActionEndpoint("/api/ai/requirements", {input: input, project_context: ctx});
-      showAIActionResult(title, formatRequirementActionResult(data));
-    }catch(err){
-      notify("פעולת AI נכשלה: "+err.message,"error");
-      closeModal();
-    }
-  }, "🤖 Improve");
+  notifyAIDisabled();
+  return;
 }
 
 function openAIRiskAssistant(){
-  var title = "AI Analyze Risk";
-  var html = "<div style='display:grid;gap:10px;'>" +
-    "<div style='color:var(--g600);font-size:13px;'>הפעולה מנרמלת ניסוח סיכון, מזהה cause/effect ומציעה mitigation ובעלות.</div>" +
-    "<textarea id='aiActionInput' class='form-input' style='min-height:140px;resize:vertical;' placeholder='הדבק כאן תיאור סיכון חופשי או ניסוח קיים...'></textarea>" +
-  "</div>";
-  openModal(title, html, async function(){
-    try{
-      var ctx = ensureAIActionProjectContext(); if(!ctx) return;
-      var input = gV("aiActionInput").trim();
-      if(!input){ notify("נדרש טקסט סיכון לניתוח","warning"); return; }
-      notify("מנתח סיכון...","ok");
-      var data = await callAIActionEndpoint("/api/ai/risks", {input: input, project_context: ctx});
-      showAIActionResult(title, formatRiskActionResult(data));
-    }catch(err){
-      notify("פעולת AI נכשלה: "+err.message,"error");
-      closeModal();
-    }
-  }, "🤖 Analyze");
+  notifyAIDisabled();
+  return;
 }
 
 function openAIArchitectureAssistant(){
-  var title = "AI Architecture Suggest";
-  var html = "<div style='display:grid;gap:10px;'>" +
-    "<div style='color:var(--g600);font-size:13px;'>הפעולה מייצרת חלופות ארכיטקטורה, trade-offs והיבטים חסרים.</div>" +
-    "<textarea id='aiActionInput' class='form-input' style='min-height:140px;resize:vertical;' placeholder='תאר בקצרה את המערכת או ההקשר הארכיטקטוני לניתוח...'></textarea>" +
-  "</div>";
-  openModal(title, html, async function(){
-    try{
-      var ctx = ensureAIActionProjectContext(); if(!ctx) return;
-      var input = gV("aiActionInput").trim();
-      if(!input){ input = ((ctx.project && ctx.project.desc) || ctx.projectName || "").trim(); }
-      if(!input){ notify("נדרש תיאור מערכת או הקשר ארכיטקטוני","warning"); return; }
-      notify("מנתח ארכיטקטורה...","ok");
-      var data = await callAIActionEndpoint("/api/ai/architecture", {input: input, project_context: ctx});
-      showAIActionResult(title, formatArchitectureActionResult(data));
-    }catch(err){
-      notify("פעולת AI נכשלה: "+err.message,"error");
-      closeModal();
-    }
-  }, "🤖 Suggest");
+  notifyAIDisabled();
+  return;
 }
 
 async function runAIReviewReadiness(){
-  try{
-    var ctx = ensureAIActionProjectContext(); if(!ctx) return;
-    notify("מחשב readiness...","ok");
-    var data = await callAIActionEndpoint("/api/ai/review-readiness", {project_context: ctx});
-    showAIActionResult("AI Review Readiness", formatReviewReadinessResult(data));
-  }catch(err){
-    notify("פעולת AI נכשלה: "+err.message,"error");
-  }
+  notifyAIDisabled();
+  return;
 }
 
 function loadProjectDataSnapshot(projectId){
@@ -8332,86 +8186,8 @@ function _aiPopulateData() {
 
 // ── Show the Accept/Reject recommendations modal ──────────────────────────
 function showAIPopulateModal(section) {
-  var data = _aiPopulateData();
-  var items = data[section];
-  if (!items || !items.length) { notify("אין המלצות לסקציה זו","warning"); return; }
-
-  var labels = {
-    arch:"ארכיטקטורה / LRU Blocks", icd:"ICDs — ממשקי מערכת",
-    swReqs:"דרישות תוכנה (SRS L2)", meReqs:"דרישות מכאניות (MRS)",
-    swModules:"מודולי תוכנה", risks:"סיכוני פרויקט"
-  };
-
-  var rows = items.map(function(item, i) {
-    var title = item.name || item.rid || item.desc.substring(0,60);
-    var detail = item.desc || item.desc || "";
-    return "<tr id='airow_"+i+"' style='transition:opacity .3s;'>"+
-      "<td><input type='checkbox' checked id='aicheck_"+i+"' style='width:18px;height:18px;cursor:pointer;'></td>"+
-      "<td style='font-weight:600;font-size:13px;'>"+esc(title)+"</td>"+
-      "<td style='font-size:12px;color:var(--g600);max-width:320px;'>"+esc(detail.substring(0,120)+(detail.length>120?"…":""))+"</td>"+
-      "<td>"+
-        "<button onclick=\"document.getElementById('aicheck_"+i+"').checked=true;document.getElementById('airow_"+i+"').style.background='#f0fdf4';\" style='background:#16a34a;color:#fff;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:11px;margin-right:4px;'>✅ קבל</button>"+
-        "<button onclick=\"document.getElementById('aicheck_"+i+"').checked=false;document.getElementById('airow_"+i+"').style.background='#fef2f2;opacity:0.5';\" style='background:#dc2626;color:#fff;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:11px;'>❌ דחה</button>"+
-      "</td></tr>";
-  }).join("");
-
-  var html = "<div style='max-height:400px;overflow-y:auto;'>"+
-    "<p style='color:var(--g600);font-size:13px;margin-bottom:10px;'>🤖 AI הציע "+items.length+" פריטים על בסיס ה-SPEC/PIDS. סמן / בטל סימון לפי הצורך ולחץ <b>הוסף לפרויקט</b>.</p>"+
-    "<div style='margin-bottom:8px;display:flex;gap:8px;'>"+
-      "<button onclick=\"document.querySelectorAll('[id^=aicheck_]').forEach(function(c){c.checked=true;});\" style='font-size:11px;padding:3px 10px;border:1px solid #ccc;border-radius:4px;cursor:pointer;'>✅ בחר הכל</button>"+
-      "<button onclick=\"document.querySelectorAll('[id^=aicheck_]').forEach(function(c){c.checked=false;});\" style='font-size:11px;padding:3px 10px;border:1px solid #ccc;border-radius:4px;cursor:pointer;'>❌ בטל הכל</button>"+
-    "</div>"+
-    "<table style='width:100%;border-collapse:collapse;font-size:12px;'>"+
-    "<thead><tr style='background:var(--bg2);'><th style='padding:6px;width:30px;'></th><th style='padding:6px;text-align:right;'>שם / מזהה</th><th style='padding:6px;text-align:right;'>תיאור</th><th style='padding:6px;width:100px;'></th></tr></thead>"+
-    "<tbody>"+rows+"</tbody></table></div>";
-
-  openModal("\uD83E\uDD16 AI Populate — " + (labels[section]||section), html, function() {
-    var accepted = 0;
-    items.forEach(function(item, i) {
-      var cb = document.getElementById("aicheck_"+i);
-      if (!cb || !cb.checked) return;
-      accepted++;
-      var newId = uid();
-      if (section === "arch") {
-        DB.arch = DB.arch||[];
-        DB.arch.push({id:newId,name:item.name,type:item.type,subsystem:item.subsystem,
-          interfaces:item.interfaces,desc:item.desc,status:item.status||"TBD"});
-      } else if (section === "icd") {
-        DB.icd = DB.icd||[];
-        DB.icd.push({id:newId,name:item.name,type:item.type,a:item.a,b:item.b,
-          ver:item.ver,status:item.status||"Draft"});
-      } else if (section === "swReqs") {
-        DB.swReqs = DB.swReqs||[];
-        DB.swReqs.push({id:newId,rid:item.rid,level:item.level||"L2",
-          domain:item.category||item.domain||"",desc:item.desc,
-          l0:item.sysRef||item.l0||"",vv:"Test",status:item.status||"Draft"});
-      } else if (section === "meReqs") {
-        DB.meReqs = DB.meReqs||[];
-        DB.meReqs.push({id:newId,rid:item.rid,level:item.level||"L2",
-          domain:item.category||item.domain||"",desc:item.desc,
-          l0:item.sysRef||item.l0||"",vv:"Test",status:item.status||"Draft"});
-      } else if (section === "swModules") {
-        DB.swModules = DB.swModules||[];
-        DB.swModules.push({id:newId,name:item.name,lang:item.lang,owner:item.owner,
-          loc:item.loc||0,cov:item.cov||0,status:item.status||"Draft"});
-      } else if (section === "risks") {
-        DB.risks = DB.risks||[];
-        DB.risks.push({id:newId,desc:item.desc,cat:item.cat,impact:item.impact,
-          sev:item.sev||3,prob:item.prob||2,mitigation:item.mitigation,
-          owner:item.owner,status:item.status||"open"});
-      }
-    });
-    markDirty();
-    // Re-render the affected section
-    if (section==="arch") renderArch();
-    else if (section==="icd") renderICD();
-    else if (section==="swReqs") renderReqs("sw");
-    else if (section==="meReqs") renderReqs("me");
-    else if (section==="swModules") renderSWModules();
-    else if (section==="risks") renderRisks();
-    closeModal();
-    notify("\u2705 "+accepted+" \u05e4\u05e8\u05d9\u05d8\u05d9\u05dd \u05e0\u05d5\u05e1\u05e4\u05d5 \u05dc\u05e4\u05e8\u05d5\u05d9\u05e7\u05d8","ok");
-  }, "\uD83D\uDCE5 \u05d4\u05d5\u05e1\u05e3 \u05dc\u05e4\u05e8\u05d5\u05d9\u05e7\u05d8");
+  notifyAIDisabled();
+  return;
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -18336,6 +18112,14 @@ document.addEventListener("DOMContentLoaded", function(){
   function _aiRecoveryNotice(){
     notify("יכולות AI הושבתו זמנית לצורך התאוששות המערכת", "w");
   }
+  function _removeLegacyAIPagesFromRuntime(){
+    ["page-ai","page-multiproject"].forEach(function(id){
+      var el = document.getElementById(id);
+      if(el && el.parentNode) el.parentNode.removeChild(el);
+    });
+  }
+  _removeLegacyAIPagesFromRuntime();
+  document.addEventListener("DOMContentLoaded", _removeLegacyAIPagesFromRuntime);
   window.aiDocFill = aiDocFill = function(){ _aiRecoveryNotice(); };
   window.openAIRequirementAssistant = openAIRequirementAssistant = function(){ _aiRecoveryNotice(); };
   window.openAIRiskAssistant = openAIRiskAssistant = function(){ _aiRecoveryNotice(); };
