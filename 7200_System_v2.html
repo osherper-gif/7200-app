@@ -3624,6 +3624,7 @@ var DB = {
   lru: [], spares: [],
   discussions: [], lessons: [], deliverables: [],
   closureData: {summary:"",lessons:"",recs:""},
+  aiAudit: [],
   ai: {provider:"local",apiKey:""},
   docRegistry: {}
 };
@@ -7630,6 +7631,16 @@ function openAIRequirementAssistant(defaultType){
   if(!result || result.ok !== true){
     return result;
   }
+  _lastRequirementAssistContext = {
+    type: type,
+    idx: idx,
+    arrName: arrName,
+    requirementId: req && (req.rid || req.id || ""),
+    originalText: inputText,
+    suggestedText: result.requirementAssist && result.requirementAssist.suggestedRewrite || "",
+    validation: _validateRequirement(result.requirementAssist && result.requirementAssist.suggestedRewrite || ""),
+    result: result
+  };
   openModal(
     "Requirement Assist (Suggestion Only)",
     formatRequirementAssistResult(result),
@@ -7905,6 +7916,109 @@ function _buildRequirementAssistRewrite(text, type, domain){
   return sentence + ".";
 }
 
+function ensureAIAuditLog(){
+  if(!DB.aiAudit || !Array.isArray(DB.aiAudit)) DB.aiAudit = [];
+  return DB.aiAudit;
+}
+
+function appendAIAuditEntry(entry){
+  ensureAIAuditLog().push(Object.assign({
+    id: uid(),
+    timestamp: new Date().toISOString()
+  }, entry || {}));
+  markDirty();
+}
+
+function findRequirementAssistDuplicate(arrName, idx, suggestedText){
+  var arr = DB[arrName] || [];
+  var candidate = Object.assign({}, arr[idx] || {}, { desc: suggestedText });
+  var duplicateIndex = -1;
+  arr.some(function(item, itemIdx){
+    if(itemIdx === idx) return false;
+    if(_isDupInDB([item], candidate)){
+      duplicateIndex = itemIdx;
+      return true;
+    }
+    return false;
+  });
+  return duplicateIndex;
+}
+
+function openRequirementEditFromSuggestion(arrName, idx, suggestedText){
+  if(!DB[arrName] || idx < 0 || !DB[arrName][idx]) return false;
+  var item = DB[arrName][idx];
+  var keys = Object.keys(item).filter(function(k){ return k !== "id"; });
+  var validation = _validateRequirement(suggestedText);
+  var note = "<div id='reqAssistApplyNotice' style='background:#eef6ff;border:1px solid rgba(35,160,255,.2);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;line-height:1.6;'>" +
+    "<b>Requirement Assist Apply</b><br>הטקסט המוצע הועתק למסך העריכה בלבד. השמירה תתבצע רק אם תלחץ/י על \"שמור\"." +
+    (validation && validation._vague ? "<br><span style='color:var(--warning);'>אזהרה: הנוסח עדיין דורש חידוד מדיד לפני שמירה.</span>" : "") +
+    "</div>";
+  var html = note + keys.map(function(k){
+    var edit_desc = k==="desc"?"edit_desc":"edit_"+k;
+    var value = k === "desc" ? suggestedText : item[k];
+    return "<div class='form-group' style='margin-bottom:10px;'><label class='form-label'>"+esc(k)+"</label>"+
+      "<input class='form-input' id='"+edit_desc+"' value='"+esc(value||"")+"'></div>";
+  }).join("");
+  openModal("עריכת פריט", html, function(){
+    var editedDesc = gV("edit_desc");
+    var duplicateIndex = findRequirementAssistDuplicate(arrName, idx, editedDesc);
+    if(duplicateIndex >= 0){
+      notify("שמירה נחסמה: הדרישה המוצעת זהה לדרישה קיימת", "w");
+      var feedback = document.getElementById("reqAssistApplyNotice");
+      if(feedback) feedback.innerHTML = "<b>Requirement Assist Apply</b><br><span style='color:var(--danger);'>זוהתה כפילות מול דרישה קיימת. עדכן/י את הנוסח לפני שמירה.</span>";
+      return;
+    }
+    var editedValidation = _validateRequirement(editedDesc);
+    if(editedValidation && editedValidation._vague){
+      notify("הנוסח עדיין עמום. נדרש אישור מפורש להמשך.", "w");
+      if(!confirm("הנוסח עדיין כולל ניסוח עמום. להמשיך ולשמור בכל זאת?")) return;
+    }
+    keys.forEach(function(k){
+      var edit_desc = k==="desc"?"edit_desc":"edit_"+k;
+      DB[arrName][idx][k]=gV(edit_desc);
+    });
+    markDirty();renderPage(getCurrentPage());closeModal();notify("עודכן","ok");
+  });
+  return true;
+}
+
+function applyRequirementAssistSuggestion(){
+  var ctx = _lastRequirementAssistContext;
+  if(!ctx || !ctx.arrName || typeof ctx.idx !== "number"){
+    notify("לא נמצא הקשר בטוח להחלת ההצעה", "w");
+    return false;
+  }
+  if(!DB[ctx.arrName] || !DB[ctx.arrName][ctx.idx]){
+    notify("הדרישה המקורית אינה זמינה עוד", "w");
+    return false;
+  }
+  if(!ctx.suggestedText){
+    notify("לא נמצאה הצעה להחלה", "w");
+    return false;
+  }
+  if(!confirm("להעתיק את הנוסח המוצע למסך העריכה? השמירה עצמה תתבצע רק דרך מסך העריכה.")){
+    return false;
+  }
+  var duplicateIndex = findRequirementAssistDuplicate(ctx.arrName, ctx.idx, ctx.suggestedText);
+  if(duplicateIndex >= 0){
+    notify("ההחלה נחסמה: הנוסח המוצע יוצר כפילות עם דרישה קיימת", "w");
+    var feedback = document.getElementById("reqAssistFeedback");
+    if(feedback) feedback.innerHTML = "<span style='color:var(--danger);'>זוהתה כפילות מול דרישה קיימת. ההצעה לא הוחלה.</span>";
+    return false;
+  }
+  appendAIAuditEntry({
+    actionType: "apply_to_edit_form",
+    source: "requirement_assist_apply",
+    targetRequirementId: ctx.requirementId,
+    targetRequirementIndex: ctx.idx,
+    originalText: ctx.originalText,
+    appliedText: ctx.suggestedText,
+    duplicateBlocked: false,
+    userConfirmed: true
+  });
+  return openRequirementEditFromSuggestion(ctx.arrName, ctx.idx, ctx.suggestedText);
+}
+
 function localRequirementAssist(payload){
   payload = payload || {};
   var text = String(payload.text || "").trim();
@@ -7964,7 +8078,8 @@ function localRequirementAssist(payload){
 
 function formatRequirementAssistResult(result){
   var info = result.requirementAssist || {};
-  return "<div style='display:grid;gap:12px;line-height:1.7;'>" +
+  var canApply = !!(_lastRequirementAssistContext && _lastRequirementAssistContext.arrName && typeof _lastRequirementAssistContext.idx === "number");
+  return "<div id='requirementAssistRoot' style='display:grid;gap:12px;line-height:1.7;'>" +
     "<div><b>Original Requirement</b><div style='margin-top:4px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);white-space:pre-wrap;'>"+esc(info.originalText || "")+"</div></div>" +
     "<div><b>Suggested Rewrite</b><div style='margin-top:4px;padding:10px;border:1px solid rgba(35,160,255,.35);border-radius:10px;background:rgba(35,160,255,.06);white-space:pre-wrap;'>"+esc(info.suggestedRewrite || "")+"</div></div>" +
     "<div><b>Warnings</b>"+renderAIActionList(result.warnings || [])+"</div>" +
@@ -7972,7 +8087,10 @@ function formatRequirementAssistResult(result){
     "<div><b>Quality Notes</b>"+renderAIActionList(info.qualityNotes || [])+"</div>" +
     "<div><b>Domain Suggestion</b><div style='margin-top:4px;'>"+esc(info.domainSuggestion || "")+"</div></div>" +
     "<div><b>Confidence</b><div style='margin-top:4px;'>"+esc(String(result.confidence || 0))+"</div></div>" +
-    "<div style='font-size:12px;color:var(--g600);'>Suggestion only. Nothing is written to the database automatically.</div>" +
+    "<div id='reqAssistFeedback' style='font-size:12px;color:var(--g600);'>Suggestion only. Nothing is written to the database automatically. Apply requires explicit user approval.</div>" +
+    (canApply
+      ? "<div style='display:flex;gap:8px;align-items:center;'><button class='btn btn-primary' id='reqAssistApplyBtn' onclick='applyRequirementAssistSuggestion()'>Apply Suggestion</button><span style='font-size:12px;color:var(--g500);'>ההחלה תעתיק את הטקסט למסך העריכה בלבד.</span></div>"
+      : "<div style='font-size:12px;color:var(--g500);'>מצב read-only: אין הקשר בטוח להחלת ההצעה.</div>") +
   "</div>";
 }
 
@@ -14236,6 +14354,7 @@ window.addEventListener("DOMContentLoaded",function(){
 var _analysisRecs = [];
 var _uploadedFileName = "";
 var _lastAnalysisInput = null;
+var _lastRequirementAssistContext = null;
 
 function ensureDocumentAnalysisUI() {
   var input = document.getElementById("docUploadInput");

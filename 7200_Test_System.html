@@ -951,6 +951,19 @@ var AI_DOCUMENT_REVIEW_TCS = [
   {id:"TC-240",title:"Existing document analysis remains active",cat:"מסמכים",type:"Regression",pri:"High",reqs:"REQ-150",steps:"בדוק ש-runDocumentAnalysisPipeline ו-analysis overlay עדיין עובדים",expected:"ניתוח המסמך הקיים נשאר פעיל",auto:"yes",fn:"checkExistingDocumentAnalysisRuntime"}
 ];
 
+var AI_REQUIREMENT_APPLY_TCS = [
+  {id:"TC-241",title:"Requirement Assist apply action exists",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-123",steps:"בדוק שכפתור Apply Suggestion קיים ב-Requirement Assist",expected:"קיים apply control בטוח בתוך modal ההצעה",auto:"yes",fn:"checkRequirementAssistApplyActionExistsRuntime"},
+  {id:"TC-242",title:"Suggestion generation does not auto-apply",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-123",steps:"בדוק שפתיחת Requirement Assist לא משנה את הדרישה אוטומטית",expected:"אין auto-apply ואין audit על פתיחת suggestion בלבד",auto:"yes",fn:"checkRequirementAssistNoAutoApplyRuntime"},
+  {id:"TC-243",title:"Controlled apply updates only selected requirement",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-123",steps:"בדוק ש-Apply + Save מעדכנים רק את הדרישה הנבחרת",expected:"רק הדרישה הנבחרת מקבלת את הנוסח המוצע",auto:"yes",fn:"checkRequirementAssistControlledApplyRuntime"},
+  {id:"TC-244",title:"Controlled apply does not mutate unrelated requirements",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-123",steps:"בדוק שדרישות אחרות לא משתנות בזמן apply",expected:"אין שינוי בדרישות שאינן היעד",auto:"yes",fn:"checkRequirementAssistNoUnrelatedMutationRuntime"},
+  {id:"TC-245",title:"Duplicate protection blocks unsafe apply",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-123",steps:"בדוק שהחלה נחסמת אם הנוסח יוצר כפילות",expected:"החלה נחסמת והטקסט לא מועתק למסך העריכה",auto:"yes",fn:"checkRequirementAssistDuplicateBlockRuntime"},
+  {id:"TC-246",title:"Audit trail entry created on apply",cat:"מומחה AI",type:"Regression",pri:"High",reqs:"REQ-123",steps:"בדוק שנוצרת רשומת audit בעת Apply מאושר",expected:"רשומת audit נוצרת עם metadata בסיסי",auto:"yes",fn:"checkRequirementAssistAuditCreatedRuntime"},
+  {id:"TC-247",title:"No audit entry on canceled or blocked apply",cat:"מומחה AI",type:"Regression",pri:"High",reqs:"REQ-123",steps:"בדוק שלא נוצרת רשומת audit כאשר apply מבוטל או נחסם",expected:"אין audit שגוי ב-cancel/duplicate block",auto:"yes",fn:"checkRequirementAssistNoFalseAuditRuntime"},
+  {id:"TC-248",title:"Existing requirement flow unaffected after apply support",cat:"דרישות",type:"Regression",pri:"Critical",reqs:"REQ-018",steps:"בדוק שזרימת הדרישות הרגילה עדיין זמינה",expected:"openAddReq/editItem/renderReqs עדיין תקינים",auto:"yes",fn:"checkExistingRequirementFlowRuntime"},
+  {id:"TC-249",title:"Requirement validation remains safe after apply",cat:"דרישות",type:"Regression",pri:"High",reqs:"REQ-123",steps:"בדוק שניתן לעצור שמירה עמומה בלי crash",expected:"validation warning לא שוברת את הזרימה",auto:"yes",fn:"checkRequirementAssistValidationSafeRuntime"},
+  {id:"TC-250",title:"Requirement Assist apply remains offline-only and legacy-free",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-123",steps:"בדוק שמסלול ה-apply לא קורא ל-legacy AI או network",expected:"apply נשאר local-only ומבודד",auto:"yes",fn:"checkRequirementAssistApplyOfflineOnlySource"}
+];
+
 if(TMS.testCases.length < 125){
   TMS.requirements = DEFAULT_REQS.map(function(r){return Object.assign({},r);});
   TMS.testCases    = DEFAULT_TCS.map(function(t){return Object.assign({},t);});
@@ -966,6 +979,7 @@ ensureTestCasesPresent(AI_FOUNDATION_TCS);
 ensureTestCasesPresent(AI_REQUIREMENT_ASSIST_TCS);
 ensureTestCasesPresent(AI_RISK_ASSIST_TCS);
 ensureTestCasesPresent(AI_DOCUMENT_REVIEW_TCS);
+ensureTestCasesPresent(AI_REQUIREMENT_APPLY_TCS);
 saveTMS();
 
 // ═══════════════════════════════════════════════════════════════
@@ -1409,6 +1423,225 @@ var AUTOMATION = {
       if(!validation || typeof validation !== 'object') return _runtimeFail('_validateRequirement הפסיקה להחזיר אובייקט תקין');
       return _runtimePass('זרימת הדרישות הקיימת נשארה זמינה לצד Requirement Assist');
     });
+  },
+  checkRequirementAssistApplyActionExistsRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.openAIRequirementAssistant !== 'function') return _runtimeFail('openAIRequirementAssistant חסרה');
+      var originalReqs = JSON.stringify(w.DB.sysReqs || []);
+      try{
+        if(!w.DB.sysReqs.length){
+          w.DB.sysReqs.push({id:'TEMP-REQ-APPLY',rid:'SYS-TEMP-010',level:'L1',domain:'פונקציונלי',desc:'The system should be fast',l0:'-',vv:'Test',status:'Draft'});
+        }
+        var result = w.openAIRequirementAssistant('sys', 0);
+        var btn = w.document.getElementById('reqAssistApplyBtn');
+        return result && btn ? _runtimePass('כפתור Apply Suggestion זמין בתוך Requirement Assist') : _runtimeFail('כפתור Apply Suggestion לא נמצא');
+      } finally {
+        w.closeModal();
+        w.DB.sysReqs = JSON.parse(originalReqs);
+        w.renderReqs('sys');
+      }
+    });
+  },
+  checkRequirementAssistNoAutoApplyRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.openAIRequirementAssistant !== 'function') return _runtimeFail('openAIRequirementAssistant חסרה');
+      var originalReqs = JSON.stringify(w.DB.sysReqs || []);
+      var originalAudit = JSON.stringify(w.DB.aiAudit || []);
+      try{
+        if(!w.DB.sysReqs.length){
+          w.DB.sysReqs.push({id:'TEMP-REQ-NOAUTO',rid:'SYS-TEMP-011',level:'L1',domain:'פונקציונלי',desc:'The system should be fast',l0:'-',vv:'Test',status:'Draft'});
+        }
+        w.openAIRequirementAssistant('sys', 0);
+        var afterReqs = JSON.stringify(w.DB.sysReqs || []);
+        var afterAudit = JSON.stringify(w.DB.aiAudit || []);
+        return (originalReqs !== '[]' ? afterReqs === originalReqs : w.DB.sysReqs[0].desc === 'The system should be fast') && afterAudit === originalAudit
+          ? _runtimePass('Suggestion generation לא מחילה שינויים אוטומטית')
+          : _runtimeFail('נמצא שינוי אוטומטי בדרישה או ברשומת audit');
+      } finally {
+        w.closeModal();
+        w.DB.sysReqs = JSON.parse(originalReqs);
+        w.DB.aiAudit = JSON.parse(originalAudit);
+        w.renderReqs('sys');
+      }
+    });
+  },
+  checkRequirementAssistControlledApplyRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.openAIRequirementAssistant !== 'function' || typeof w.applyRequirementAssistSuggestion !== 'function' || typeof w.saveModal !== 'function') return _runtimeFail('פונקציות Requirement Assist apply חסרות');
+      var originalReqs = JSON.stringify(w.DB.sysReqs || []);
+      var originalAudit = JSON.stringify(w.DB.aiAudit || []);
+      var oldConfirm = w.confirm;
+      try{
+        w.DB.sysReqs = [
+          {id:'REQ-A1',rid:'SYS-101',level:'L1',domain:'פונקציונלי',desc:'The system should be fast',l0:'-',vv:'Test',status:'Draft'},
+          {id:'REQ-A2',rid:'SYS-102',level:'L1',domain:'פונקציונלי',desc:'The system shall log events',l0:'-',vv:'Analysis',status:'Draft'}
+        ];
+        w.confirm = function(){ return true; };
+        var initial = w.openAIRequirementAssistant('sys', 0);
+        if(!initial || !initial.requirementAssist) return _runtimeFail('לא נוצרה הצעת Requirement Assist');
+        w.applyRequirementAssistSuggestion();
+        if(!w.document.getElementById('reqAssistApplyNotice')) return _runtimeFail('מסך העריכה לא נפתח לאחר apply');
+        w.saveModal();
+        var updated = w.DB.sysReqs[0] && w.DB.sysReqs[0].desc;
+        return updated === initial.requirementAssist.suggestedRewrite
+          ? _runtimePass('Apply + Save עדכנו רק את הדרישה הנבחרת')
+          : _runtimeFail('הדרישה הנבחרת לא עודכנה לנוסח המוצע');
+      } finally {
+        w.confirm = oldConfirm;
+        w.closeModal();
+        w.DB.sysReqs = JSON.parse(originalReqs);
+        w.DB.aiAudit = JSON.parse(originalAudit);
+        w.renderReqs('sys');
+      }
+    });
+  },
+  checkRequirementAssistNoUnrelatedMutationRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.openAIRequirementAssistant !== 'function' || typeof w.applyRequirementAssistSuggestion !== 'function' || typeof w.saveModal !== 'function') return _runtimeFail('פונקציות Requirement Assist apply חסרות');
+      var originalReqs = JSON.stringify(w.DB.sysReqs || []);
+      var originalAudit = JSON.stringify(w.DB.aiAudit || []);
+      var oldConfirm = w.confirm;
+      try{
+        w.DB.sysReqs = [
+          {id:'REQ-B1',rid:'SYS-201',level:'L1',domain:'פונקציונלי',desc:'The system should be fast',l0:'-',vv:'Test',status:'Draft'},
+          {id:'REQ-B2',rid:'SYS-202',level:'L1',domain:'פונקציונלי',desc:'The system shall log events',l0:'-',vv:'Analysis',status:'Draft'}
+        ];
+        var untouched = w.DB.sysReqs[1].desc;
+        w.confirm = function(){ return true; };
+        w.openAIRequirementAssistant('sys', 0);
+        w.applyRequirementAssistSuggestion();
+        w.saveModal();
+        return w.DB.sysReqs[1].desc === untouched
+          ? _runtimePass('דרישות אחרות לא הושפעו מה-apply')
+          : _runtimeFail('נמצא שינוי בדרישה לא קשורה');
+      } finally {
+        w.confirm = oldConfirm;
+        w.closeModal();
+        w.DB.sysReqs = JSON.parse(originalReqs);
+        w.DB.aiAudit = JSON.parse(originalAudit);
+        w.renderReqs('sys');
+      }
+    });
+  },
+  checkRequirementAssistDuplicateBlockRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.openAIRequirementAssistant !== 'function' || typeof w.applyRequirementAssistSuggestion !== 'function') return _runtimeFail('פונקציות Requirement Assist apply חסרות');
+      var originalReqs = JSON.stringify(w.DB.sysReqs || []);
+      var originalAudit = JSON.stringify(w.DB.aiAudit || []);
+      var oldConfirm = w.confirm;
+      try{
+        w.DB.sysReqs = [
+          {id:'REQ-C1',rid:'SYS-301',level:'L1',domain:'פונקציונלי',desc:'The system should be fast',l0:'-',vv:'Test',status:'Draft'},
+          {id:'REQ-C2',rid:'SYS-302',level:'L1',domain:'פונקציונלי',desc:'The system shall be fast under defined operating conditions with measurable acceptance criteria to be defined by engineering review.',l0:'-',vv:'Test',status:'Draft'}
+        ];
+        w.confirm = function(){ return true; };
+        var initial = w.openAIRequirementAssistant('sys', 0);
+        w.applyRequirementAssistSuggestion();
+        var feedback = w.document.getElementById('reqAssistFeedback');
+        var blocked = feedback && feedback.textContent.indexOf('כפילות') >= 0;
+        return blocked && w.DB.sysReqs[0].desc === 'The system should be fast'
+          ? _runtimePass('Duplicate protection חסם apply לא בטוח')
+          : _runtimeFail('Duplicate protection לא חסם apply כפול');
+      } finally {
+        w.confirm = oldConfirm;
+        w.closeModal();
+        w.DB.sysReqs = JSON.parse(originalReqs);
+        w.DB.aiAudit = JSON.parse(originalAudit);
+        w.renderReqs('sys');
+      }
+    });
+  },
+  checkRequirementAssistAuditCreatedRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.openAIRequirementAssistant !== 'function' || typeof w.applyRequirementAssistSuggestion !== 'function') return _runtimeFail('פונקציות Requirement Assist apply חסרות');
+      var originalReqs = JSON.stringify(w.DB.sysReqs || []);
+      var originalAudit = JSON.stringify(w.DB.aiAudit || []);
+      var oldConfirm = w.confirm;
+      try{
+        w.DB.sysReqs = [{id:'REQ-D1',rid:'SYS-401',level:'L1',domain:'פונקציונלי',desc:'The system should be fast',l0:'-',vv:'Test',status:'Draft'}];
+        w.DB.aiAudit = [];
+        w.confirm = function(){ return true; };
+        w.openAIRequirementAssistant('sys', 0);
+        w.applyRequirementAssistSuggestion();
+        var entry = (w.DB.aiAudit || [])[0];
+        return entry && entry.source === 'requirement_assist_apply' && entry.userConfirmed === true && entry.duplicateBlocked === false
+          ? _runtimePass('רשומת audit נוצרה בעת apply מאושר')
+          : _runtimeFail('לא נוצרה רשומת audit תקינה');
+      } finally {
+        w.confirm = oldConfirm;
+        w.closeModal();
+        w.DB.sysReqs = JSON.parse(originalReqs);
+        w.DB.aiAudit = JSON.parse(originalAudit);
+        w.renderReqs('sys');
+      }
+    });
+  },
+  checkRequirementAssistNoFalseAuditRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.openAIRequirementAssistant !== 'function' || typeof w.applyRequirementAssistSuggestion !== 'function') return _runtimeFail('פונקציות Requirement Assist apply חסרות');
+      var originalReqs = JSON.stringify(w.DB.sysReqs || []);
+      var originalAudit = JSON.stringify(w.DB.aiAudit || []);
+      var oldConfirm = w.confirm;
+      try{
+        w.DB.sysReqs = [{id:'REQ-E1',rid:'SYS-501',level:'L1',domain:'פונקציונלי',desc:'The system should be fast',l0:'-',vv:'Test',status:'Draft'}];
+        w.DB.aiAudit = [];
+        w.confirm = function(){ return false; };
+        w.openAIRequirementAssistant('sys', 0);
+        w.applyRequirementAssistSuggestion();
+        if((w.DB.aiAudit || []).length) return _runtimeFail('נוצר audit למרות cancel');
+        w.confirm = function(){ return true; };
+        w.DB.sysReqs.push({id:'REQ-E2',rid:'SYS-502',level:'L1',domain:'פונקציונלי',desc:'The system shall be fast under defined operating conditions with measurable acceptance criteria to be defined by engineering review.',l0:'-',vv:'Test',status:'Draft'});
+        w.openAIRequirementAssistant('sys', 0);
+        w.applyRequirementAssistSuggestion();
+        return (w.DB.aiAudit || []).length === 0
+          ? _runtimePass('לא נוצר audit ב-cancel או ב-duplicate block')
+          : _runtimeFail('נוצר audit שגוי ב-cancel או ב-block');
+      } finally {
+        w.confirm = oldConfirm;
+        w.closeModal();
+        w.DB.sysReqs = JSON.parse(originalReqs);
+        w.DB.aiAudit = JSON.parse(originalAudit);
+        w.renderReqs('sys');
+      }
+    });
+  },
+  checkRequirementAssistValidationSafeRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.openAIRequirementAssistant !== 'function' || typeof w.applyRequirementAssistSuggestion !== 'function' || typeof w.saveModal !== 'function') return _runtimeFail('פונקציות Requirement Assist apply חסרות');
+      var originalReqs = JSON.stringify(w.DB.sysReqs || []);
+      var originalAudit = JSON.stringify(w.DB.aiAudit || []);
+      var oldConfirm = w.confirm;
+      try{
+        w.DB.sysReqs = [{id:'REQ-F1',rid:'SYS-601',level:'L1',domain:'פונקציונלי',desc:'The system should be fast',l0:'-',vv:'Test',status:'Draft'}];
+        var confirms = [true, false];
+        w.confirm = function(){ return confirms.shift(); };
+        w.openAIRequirementAssistant('sys', 0);
+        w.applyRequirementAssistSuggestion();
+        var editDesc = w.document.getElementById('edit_desc');
+        if(!editDesc) return _runtimeFail('מסך העריכה לא נפתח');
+        editDesc.value = 'The system should be fast';
+        w.saveModal();
+        return w.DB.sysReqs[0].desc === 'The system should be fast'
+          ? _runtimePass('Validation warning לא יצר crash ולא שמר ללא אישור')
+          : _runtimeFail('הנוסח נשמר למרות ביטול באזהרת validation');
+      } finally {
+        w.confirm = oldConfirm;
+        w.closeModal();
+        w.DB.sysReqs = JSON.parse(originalReqs);
+        w.DB.aiAudit = JSON.parse(originalAudit);
+        w.renderReqs('sys');
+      }
+    });
+  },
+  checkRequirementAssistApplyOfflineOnlySource: async function(){
+    var src = await loadAppSource();
+    var start = src.indexOf('function applyRequirementAssistSuggestion(');
+    var end = src.indexOf('function localRiskAssist(', start);
+    if(start < 0 || end < 0) return { pass:false, actual:'לא נמצא בלוק apply של Requirement Assist לבדיקת source' };
+    var block = src.substring(start, end);
+    var forbidden = ['offlineAI(', 'callClaude(', 'callOpenAI(', 'callOfflineAIEndpoint(', 'analyzeWithAPI(', 'fetch('];
+    var found = forbidden.filter(function(token){ return block.indexOf(token) >= 0; });
+    return { pass: found.length===0, actual: found.length ? 'Requirement Assist apply עדיין מפנה ל: ' + found.join(', ') : 'Requirement Assist apply נשאר local-only וללא תלות ב-network/legacy AI' };
   },
   checkRiskAssistActionExistsRuntime: async function(){
     return withAppWindow(function(w){
