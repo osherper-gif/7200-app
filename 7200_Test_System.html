@@ -912,7 +912,7 @@ var RECOVERY_REGRESSION_TCS = [
 ];
 
 var AI_FOUNDATION_TCS = [
-  {id:"TC-213",title:"AI feature flags foundation exists",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-119",steps:"בדוק ש-FEATURES קיים ושכל דגלי ה-AI הכבדים כבויים, עם חריגות מבוקרות ל-Requirement Assist ול-Risk Assist בלבד",expected:"aiEnabled כבוי, שאר דגלי ה-AI הכבדים כבויים, ו-aiRequirementAssist/aiRiskAssist נשלטים במפורש",auto:"yes",fn:"checkFeaturesFoundationRuntime"},
+  {id:"TC-213",title:"AI feature flags foundation exists",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-119",steps:"בדוק ש-FEATURES קיים ושכל דגלי ה-AI הכבדים כבויים, עם חריגות מבוקרות ל-Requirement Assist, Risk Assist ו-Document Assist בלבד",expected:"aiEnabled כבוי, שאר דגלי ה-AI הכבדים כבויים, ו-aiRequirementAssist/aiRiskAssist/aiDocAssist נשלטים במפורש",auto:"yes",fn:"checkFeaturesFoundationRuntime"},
   {id:"TC-214",title:"AIFacade exists with run()",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-119",steps:"בדוק ש-AIFacade קיים וש-run היא פונקציה",expected:"AIFacade.run זמין גלובלית",auto:"yes",fn:"checkAIFacadeExistsRuntime"},
   {id:"TC-215",title:"runAIAction wrapper exists",cat:"מומחה AI",type:"Regression",pri:"High",reqs:"REQ-119",steps:"בדוק ש-runAIAction קיים גלובלית",expected:"runAIAction זמין גלובלית",auto:"yes",fn:"checkRunAIActionExistsRuntime"},
   {id:"TC-216",title:"AIFacade disabled response is safe and structured",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-119",steps:"קרא AIFacade.run עבור task שאינו מאופשר ובדוק חוזה תגובה",expected:"ok=false, mode=disabled, reason=AI_DISABLED, trace קיים",auto:"yes",fn:"checkAIFacadeDisabledResponseRuntime"},
@@ -939,6 +939,18 @@ var AI_RISK_ASSIST_TCS = [
   {id:"TC-231",title:"Risk heatmap and rendering remain unaffected",cat:"סיכונים",type:"Regression",pri:"High",reqs:"REQ-101",steps:"בדוק ש-renderRiskHeatmap ו-renderRisks ממשיכים לעבוד",expected:"heatmap וטבלת הסיכונים נבנים כרגיל",auto:"yes",fn:"checkRiskHeatmapUnaffectedRuntime"}
 ];
 
+var AI_DOCUMENT_REVIEW_TCS = [
+  {id:"TC-232",title:"Document Assist action exists",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-122",steps:"בדוק שכפתור Document Assist קיים בהקשר של ניתוח מסמך",expected:"קיים action גלוי ובטוח בתוך analysis overlay",auto:"yes",fn:"checkDocumentAssistActionExistsRuntime"},
+  {id:"TC-233",title:"Document Assist returns structured review response",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-122",steps:"קרא runAIAction('document_review') ובדוק מבנה תגובה",expected:"ok/mode/confidence/recommendations/warnings/trace קיימים",auto:"yes",fn:"checkDocumentAssistStructuredResponseRuntime"},
+  {id:"TC-234",title:"Document Assist does not mutate DB automatically",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-122",steps:"בדוק שהרצת Document Assist אינה משנה את מצב ה-DB או registries",expected:"אין שינוי אוטומטי ב-DB או ב-doc registry",auto:"yes",fn:"checkDocumentAssistNoDBMutationRuntime"},
+  {id:"TC-235",title:"Document Assist does not auto-create requirements",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-122",steps:"בדוק שלא נוצרים אוטומטית sys/sw/me requirements",expected:"אין יצירה אוטומטית של דרישות",auto:"yes",fn:"checkDocumentAssistNoRequirementCreationRuntime"},
+  {id:"TC-236",title:"Document Assist does not auto-create V&V, risks, or actions",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-122",steps:"בדוק שלא נוצרים אוטומטית V&V, risks או actions",expected:"אין יצירה אוטומטית של V&V/risks/actions",auto:"yes",fn:"checkDocumentAssistNoVVOrRiskCreationRuntime"},
+  {id:"TC-237",title:"Document Assist stays offline-only and legacy-free",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-122",steps:"בדוק שהמימוש המקומי לא קורא ל-legacy AI או ל-network",expected:"המימוש נשאר local-only ומבודד",auto:"yes",fn:"checkDocumentAssistOfflineOnlySource"},
+  {id:"TC-238",title:"Document Assist UI opens and closes safely",cat:"מומחה AI",type:"Regression",pri:"High",reqs:"REQ-122",steps:"פתח את UI של Document Assist ובדוק modal open/close",expected:"ה-modal נפתח ונסגר בלי crash",auto:"yes",fn:"checkDocumentAssistUIRuntime"},
+  {id:"TC-239",title:"Existing document flow remains intact",cat:"מסמכים",type:"Regression",pri:"Critical",reqs:"REQ-150",steps:"בדוק ש-openDocUpload, handleDocUpload, openPasteAnalysis ו-runDocumentAnalysisPipeline עדיין זמינים",expected:"זרימת המסמכים הקיימת נשארת תקינה",auto:"yes",fn:"checkExistingDocumentFlowRuntime"},
+  {id:"TC-240",title:"Existing document analysis remains active",cat:"מסמכים",type:"Regression",pri:"High",reqs:"REQ-150",steps:"בדוק ש-runDocumentAnalysisPipeline ו-analysis overlay עדיין עובדים",expected:"ניתוח המסמך הקיים נשאר פעיל",auto:"yes",fn:"checkExistingDocumentAnalysisRuntime"}
+];
+
 if(TMS.testCases.length < 125){
   TMS.requirements = DEFAULT_REQS.map(function(r){return Object.assign({},r);});
   TMS.testCases    = DEFAULT_TCS.map(function(t){return Object.assign({},t);});
@@ -953,6 +965,7 @@ ensureTestCasesPresent(RECOVERY_REGRESSION_TCS);
 ensureTestCasesPresent(AI_FOUNDATION_TCS);
 ensureTestCasesPresent(AI_REQUIREMENT_ASSIST_TCS);
 ensureTestCasesPresent(AI_RISK_ASSIST_TCS);
+ensureTestCasesPresent(AI_DOCUMENT_REVIEW_TCS);
 saveTMS();
 
 // ═══════════════════════════════════════════════════════════════
@@ -1248,11 +1261,12 @@ var AUTOMATION = {
       var missing = keys.filter(function(k){ return !(k in w.FEATURES); });
       if(missing.length) return _runtimeFail('דגלים חסרים: ' + missing.join(', '));
       if(w.FEATURES.aiEnabled !== false) return _runtimeFail('aiEnabled חייב להישאר כבוי כברירת מחדל');
-      var unsafeEnabled = ['aiDocAssist','aiArchitectureAssist','aiMultiProject'].filter(function(k){ return !!w.FEATURES[k]; });
+      var unsafeEnabled = ['aiArchitectureAssist','aiMultiProject'].filter(function(k){ return !!w.FEATURES[k]; });
       if(unsafeEnabled.length) return _runtimeFail('דגלי AI שאינם אמורים להיות פעילים: ' + unsafeEnabled.join(', '));
       if(typeof w.FEATURES.aiRequirementAssist !== 'boolean') return _runtimeFail('aiRequirementAssist חייב להיות דגל בוליאני מפורש');
       if(typeof w.FEATURES.aiRiskAssist !== 'boolean') return _runtimeFail('aiRiskAssist חייב להיות דגל בוליאני מפורש');
-      return _runtimePass('FEATURES קיים, AI כללי כבוי, ו-Requirement Assist/Risk Assist נשלטים בדגלים מפורשים');
+      if(typeof w.FEATURES.aiDocAssist !== 'boolean') return _runtimeFail('aiDocAssist חייב להיות דגל בוליאני מפורש');
+      return _runtimePass('FEATURES קיים, AI כללי כבוי, ו-Requirement Assist/Risk Assist/Document Assist נשלטים בדגלים מפורשים');
     });
   },
   checkAIFacadeExistsRuntime: async function(){
@@ -1520,6 +1534,144 @@ var AUTOMATION = {
         w.DB.risks = JSON.parse(original);
         w.renderRisks();
       }
+    });
+  },
+  checkDocumentAssistActionExistsRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.ensureDocumentAnalysisUI !== 'function') return _runtimeFail('ensureDocumentAnalysisUI חסרה');
+      w.ensureDocumentAnalysisUI();
+      var btn = w.document.getElementById('analysisReviewBtn');
+      return btn ? _runtimePass('כפתור Document Assist זמין ב-analysis overlay') : _runtimeFail('לא נמצא כפתור Document Assist ב-analysis overlay');
+    });
+  },
+  checkDocumentAssistStructuredResponseRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function') return _runtimeFail('runAIAction חסר');
+      var resp;
+      try{
+        resp = w.runAIAction('document_review', { text:'System Requirements Specification\nThe system should be fast.\nInterface: Ethernet.\nSafety: overheat risk.', sourceName:'SRS.txt', inputType:'pasted_text' });
+      }catch(e){
+        return _runtimeFail('runAIAction(document_review) זרק שגיאה: ' + e.message);
+      }
+      var ok = resp &&
+        resp.ok === true &&
+        resp.mode === 'offline' &&
+        typeof resp.confidence === 'number' &&
+        Array.isArray(resp.recommendations) &&
+        Array.isArray(resp.warnings) &&
+        Array.isArray(resp.duplicates) &&
+        resp.trace && resp.trace.source === 'local-document-review' &&
+        resp.documentReview &&
+        typeof resp.documentReview.typeHint === 'string';
+      return ok ? _runtimePass('Document Assist מחזיר מבנה review מובנה ובטוח') : _runtimeFail('תגובה חסרה שדות נדרשים של Document Assist');
+    });
+  },
+  checkDocumentAssistNoDBMutationRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function' || !w.DB) return _runtimeFail('runAIAction או DB חסרים');
+      var before = JSON.stringify({
+        docRegistry: w.DB.docRegistry || {},
+        sysReqs: w.DB.sysReqs || [],
+        swReqs: w.DB.swReqs || [],
+        meReqs: w.DB.meReqs || [],
+        vv: w.DB.vv || [],
+        risks: w.DB.risks || [],
+        actions: w.DB.actions || []
+      });
+      try{
+        w.runAIAction('document_review', { text:'Draft document text with should wording and interface mention', sourceName:'Doc.txt', inputType:'file' });
+      }catch(e){
+        return _runtimeFail('Document Assist זרק שגיאה: ' + e.message);
+      }
+      var after = JSON.stringify({
+        docRegistry: w.DB.docRegistry || {},
+        sysReqs: w.DB.sysReqs || [],
+        swReqs: w.DB.swReqs || [],
+        meReqs: w.DB.meReqs || [],
+        vv: w.DB.vv || [],
+        risks: w.DB.risks || [],
+        actions: w.DB.actions || []
+      });
+      return before === after ? _runtimePass('Document Assist לא משנה את ה-DB או registries אוטומטית') : _runtimeFail('זוהה שינוי אוטומטי ב-DB או ב-doc registry');
+    });
+  },
+  checkDocumentAssistNoRequirementCreationRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function' || !w.DB) return _runtimeFail('runAIAction או DB חסרים');
+      var before = JSON.stringify({sysReqs:w.DB.sysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[]});
+      try{
+        w.runAIAction('document_review', { text:'The system shall respond within 100 ms.', sourceName:'ReqDoc.txt', inputType:'file' });
+      }catch(e){
+        return _runtimeFail('Document Assist זרק שגיאה: ' + e.message);
+      }
+      var after = JSON.stringify({sysReqs:w.DB.sysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[]});
+      return before === after ? _runtimePass('Document Assist לא יוצר דרישות אוטומטית') : _runtimeFail('זוהתה יצירה אוטומטית של דרישות');
+    });
+  },
+  checkDocumentAssistNoVVOrRiskCreationRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function' || !w.DB) return _runtimeFail('runAIAction או DB חסרים');
+      var before = JSON.stringify({vv:w.DB.vv||[], risks:w.DB.risks||[], actions:w.DB.actions||[]});
+      try{
+        w.runAIAction('document_review', { text:'Safety hazard may exist. Verification method not defined.', sourceName:'SafetyDoc.txt', inputType:'pasted_text' });
+      }catch(e){
+        return _runtimeFail('Document Assist זרק שגיאה: ' + e.message);
+      }
+      var after = JSON.stringify({vv:w.DB.vv||[], risks:w.DB.risks||[], actions:w.DB.actions||[]});
+      return before === after ? _runtimePass('Document Assist לא יוצר V&V, risks או actions אוטומטית') : _runtimeFail('זוהתה יצירה אוטומטית של V&V/risks/actions');
+    });
+  },
+  checkDocumentAssistOfflineOnlySource: async function(){
+    var src = await loadAppSource();
+    var start = src.indexOf('function localDocumentReview(');
+    var end = src.indexOf('function formatDocumentReviewResult(', start);
+    if(start < 0 || end < 0) return { pass:false, actual:'לא נמצא בלוק Document Assist לבדיקת source' };
+    var block = src.substring(start, end);
+    var forbidden = ['offlineAI(', 'callClaude(', 'callOpenAI(', 'callOfflineAIEndpoint(', 'analyzeWithAPI(', 'fetch('];
+    var found = forbidden.filter(function(token){ return block.indexOf(token) >= 0; });
+    return { pass: found.length===0, actual: found.length ? 'Document Assist עדיין מפנה ל: ' + found.join(', ') : 'Document Assist נשאר local-only וללא תלות ב-network/legacy AI' };
+  },
+  checkDocumentAssistUIRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.openAIDocumentReview !== 'function' || typeof w.closeModal !== 'function') return _runtimeFail('openAIDocumentReview/closeModal חסרות');
+      w._lastAnalysisInput = { normalizedText:'System Requirements Specification\nThe system should be fast.\nInterface: Ethernet.', sourceName:'SampleDoc.txt', inputType:'pasted_text' };
+      var result;
+      try{
+        result = w.openAIDocumentReview();
+      }catch(e){
+        return _runtimeFail('openAIDocumentReview זרק שגיאה: ' + e.message);
+      }
+      var modal = w.document.getElementById('modal');
+      var body = w.document.getElementById('modalBody');
+      var marker = w.document.getElementById('documentReviewRoot');
+      var opened = modal && modal.classList.contains('open') && body && marker;
+      if(!opened) return _runtimeFail('Modal של Document Assist לא נפתח כמצופה');
+      w.closeModal();
+      if(modal.classList.contains('open')) return _runtimeFail('Modal של Document Assist לא נסגר');
+      return result && result.ok === true ? _runtimePass('Document Assist UI נפתח ונסגר בבטחה') : _runtimeFail('Document Assist לא החזיר תוצאה תקינה');
+    });
+  },
+  checkExistingDocumentFlowRuntime: async function(){
+    return withAppWindow(function(w){
+      var fns = ['openDocUpload','handleDocUpload','openPasteAnalysis','runDocumentAnalysisPipeline','handlePastedTextAnalysis'];
+      var missing = fns.filter(function(name){ return typeof w[name] !== 'function'; });
+      return missing.length ? _runtimeFail('פונקציות מסמכים חסרות: ' + missing.join(', ')) : _runtimePass('זרימת המסמכים הקיימת נשארה זמינה לצד Document Assist');
+    });
+  },
+  checkExistingDocumentAnalysisRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.buildAnalysisSource !== 'function' || typeof w.runDocumentAnalysisPipeline !== 'function' || typeof w.ensureDocumentAnalysisUI !== 'function') return _runtimeFail('פונקציות ניתוח מסמך חסרות');
+      w.ensureDocumentAnalysisUI();
+      var source = w.buildAnalysisSource({ inputType:'pasted_text', sourceName:'RuntimeDoc.txt', rawText:'The system shall respond within 100 ms.\nInterface: Ethernet.\nVerification: Test.' });
+      var result;
+      try{
+        result = w.runDocumentAnalysisPipeline(source);
+      }catch(e){
+        return _runtimeFail('runDocumentAnalysisPipeline זרק שגיאה: ' + e.message);
+      }
+      var overlay = w.document.getElementById('analysisOverlay');
+      var footer = w.document.getElementById('analysisFtr');
+      return result && result.recs && overlay && footer ? _runtimePass('Document analysis הקיים נשאר פעיל וזמין') : _runtimeFail('ניתוח המסמך הקיים לא החזיר תוצאה תקינה');
     });
   },
   checkAIFoundationOfflineStubSource: async function(){
