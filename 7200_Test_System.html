@@ -1643,7 +1643,8 @@ var AUTOMATION = {
       }
       var modal = w.document.getElementById('modal');
       var body = w.document.getElementById('modalBody');
-      var opened = modal && modal.classList.contains('open') && body && body.textContent.indexOf('Document Type Hint') >= 0;
+      var marker = w.document.getElementById('documentReviewRoot');
+      var opened = modal && modal.classList.contains('open') && body && marker;
       if(!opened) return _runtimeFail('Modal של Document Assist לא נפתח כמצופה');
       w.closeModal();
       if(modal.classList.contains('open')) return _runtimeFail('Modal של Document Assist לא נסגר');

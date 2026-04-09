@@ -8225,7 +8225,7 @@ function localDocumentReview(payload){
 
 function formatDocumentReviewResult(result){
   var info = result.documentReview || {};
-  return "<div style='display:grid;gap:12px;line-height:1.7;'>" +
+  return "<div id='documentReviewRoot' style='display:grid;gap:12px;line-height:1.7;'>" +
     "<div><b>Source</b><div style='margin-top:4px;'>"+esc(info.sourceName || "")+" ("+esc(info.inputType || "")+")</div></div>" +
     "<div><b>Detected Type Hint</b><div style='margin-top:4px;'>"+esc(info.typeHint || "")+"</div></div>" +
     "<div><b>Review Summary</b><div style='margin-top:4px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);white-space:pre-wrap;'>"+esc(info.summary || "")+"</div></div>" +
