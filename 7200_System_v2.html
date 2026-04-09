@@ -7716,6 +7716,82 @@ function notifyAIDisabled(){
   notify("יכולות AI הושבתו זמנית לצורך התאוששות המערכת", "w");
 }
 
+// ── AI Foundation v2 (offline-first, disabled by default) ────────────────
+// Future AI integrations in this isolated environment must stay local-only:
+// - no external APIs
+// - no cloud inference
+// - no network-dependent assumptions
+window.FEATURES = window.FEATURES || {
+  aiEnabled: false,
+  aiRequirementAssist: false,
+  aiRiskAssist: false,
+  aiDocAssist: false,
+  aiArchitectureAssist: false,
+  aiMultiProject: false
+};
+const FEATURES = window.FEATURES;
+
+/**
+ * Standard future AI response contract (offline-first stub for now):
+ * {
+ *   ok: boolean,
+ *   mode: "disabled" | "not_implemented",
+ *   reason: string,
+ *   confidence: number,
+ *   recommendations: Array,
+ *   warnings: Array,
+ *   duplicates: Array,
+ *   needsHumanApproval: boolean,
+ *   trace: { source: string, taskType?: string }
+ * }
+ */
+function buildAIFoundationResponse(reason, source, extras){
+  return Object.assign({
+    ok: false,
+    mode: reason === "NOT_IMPLEMENTED_YET" ? "not_implemented" : "disabled",
+    reason: reason,
+    confidence: 0,
+    recommendations: [],
+    warnings: [],
+    duplicates: [],
+    needsHumanApproval: true,
+    trace: { source: source || "ai-foundation" }
+  }, extras || {});
+}
+
+window.AIFacade = window.AIFacade || {
+  run: function(taskType, payload, options){
+    options = options || {};
+    if (!FEATURES.aiEnabled) {
+      notifyAIDisabled();
+      return buildAIFoundationResponse("AI_DISABLED", "ai-foundation-disabled", {
+        trace: { source: "ai-foundation-disabled", taskType: taskType || "" }
+      });
+    }
+    return buildAIFoundationResponse("NOT_IMPLEMENTED_YET", "ai-foundation-stub", {
+      trace: { source: "ai-foundation-stub", taskType: taskType || "" }
+    });
+  }
+};
+var AIFacade = window.AIFacade;
+
+function runAIAction(taskType, payload, options){
+  try {
+    return AIFacade.run(taskType, payload, options || {});
+  } catch (e) {
+    console.error("AI failure", e);
+    notifyAIDisabled();
+    return buildAIFoundationResponse("AI_FAILURE", "runAIAction-catch", {
+      warnings: ["AI wrapper failure"],
+      trace: {
+        source: "runAIAction-catch",
+        taskType: taskType || ""
+      }
+    });
+  }
+}
+window.runAIAction = runAIAction;
+
 function sendAI(){
   notifyAIDisabled();
 }
