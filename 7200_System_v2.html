@@ -7678,6 +7678,28 @@ function openAIArchitectureAssistant(){
   return;
 }
 
+function openAIDocumentReview(){
+  if(!_lastAnalysisInput || !_lastAnalysisInput.normalizedText){
+    notify("לא נמצא תוכן מסמך לבדיקה", "w");
+    return;
+  }
+  var result = runAIAction("document_review", {
+    text: _lastAnalysisInput.normalizedText,
+    sourceName: _lastAnalysisInput.sourceName || _uploadedFileName || "Document",
+    inputType: _lastAnalysisInput.inputType || "unknown"
+  });
+  if(!result || result.ok !== true){
+    return result;
+  }
+  openModal(
+    "Document Assist (Review Only)",
+    formatDocumentReviewResult(result),
+    function(){ closeModal(); },
+    "סגור"
+  );
+  return result;
+}
+
 async function runAIReviewReadiness(){
   notifyAIDisabled();
   return;
@@ -7784,7 +7806,7 @@ window.FEATURES = window.FEATURES || {
   aiEnabled: false,
   aiRequirementAssist: true,
   aiRiskAssist: true,
-  aiDocAssist: false,
+  aiDocAssist: true,
   aiArchitectureAssist: false,
   aiMultiProject: false
 };
@@ -8065,6 +8087,160 @@ function formatRiskAssistResult(result){
   "</div>";
 }
 
+function detectDocumentReviewType(text, filename){
+  var hint = detectDocType(text || "", filename || "");
+  var map = {
+    requirements: "General requirements document",
+    design: "SRS / design-oriented document",
+    test: "Test / verification-related document",
+    risk: "Safety or risk-related document",
+    plan: "Plan / management document",
+    minutes: "Minutes / discussion summary",
+    general: "General engineering document"
+  };
+  return map[hint] || "General engineering document";
+}
+
+function findDocumentGaps(text, typeHint){
+  var t = String(text || "");
+  var gaps = [];
+  if(/SRS|requirements|דרישות/i.test(typeHint + " " + t)){
+    if(!/(?:verification|vv|acceptance|test method|אימות|בדיקה)/i.test(t)) gaps.push("נראה שחסר אזכור ברור של אימות, שיטת בדיקה או קריטריון קבלה.");
+    if(!/(?:interface|icd|api|ממשק)/i.test(t)) gaps.push("ייתכן שחסרה התייחסות לממשקים או ל-ICD נלווה.");
+  }
+  if(/risk|safety|בטיחות|סיכון/i.test(typeHint + " " + t)){
+    if(!/(?:mitigation|control|hazard|risk owner|הפחתה|בעלים|סיכון שיורי)/i.test(t)) gaps.push("נראה שחסרה התייחסות להפחתה, בעלים או בחינת סיכון שיורי.");
+  }
+  if(/test|verification|בדיקה|אימות/i.test(typeHint + " " + t)){
+    if(!/(?:pass|fail|criteria|acceptance|תנאי קבלה|קריטריון)/i.test(t)) gaps.push("נראה שחסרים קריטריוני הצלחה/כשל או תנאי קבלה ברורים.");
+  }
+  if(!/(?:revision|version|author|date|rev|גרסה|תאריך|עורך)/i.test(t)) gaps.push("לא זוהה מידע ברור על גרסה, תאריך או עורך המסמך.");
+  return gaps.slice(0, 6);
+}
+
+function findDocumentQualityIssues(text){
+  var issues = [];
+  var lines = String(text || "").split(/\n/).map(function(line){ return line.trim(); }).filter(Boolean);
+  lines.slice(0, 80).forEach(function(line){
+    var validation = _validateRequirement(line);
+    if(validation && validation._vague) issues.push("נמצא ניסוח עמום אפשרי: " + line.slice(0, 120));
+    if(/(?:should|may|could|אפשר|מומלץ|רצוי|בדרך כלל)/i.test(line) && line.length > 20) issues.push("נמצא ניסוח לא מחייב או אמביוולנטי: " + line.slice(0, 120));
+    if(/(?:shall|must|יידרש|חייב)/i.test(line) && !validation._measurable) issues.push("נראה שיש דרישה ללא קריטריון מדיד מספיק: " + line.slice(0, 120));
+  });
+  return issues.slice(0, 8);
+}
+
+function findPotentialRequirementIssues(text){
+  return String(text || "").split(/\n/).map(function(line){ return line.trim(); }).filter(function(line){
+    return line.length > 20 && /(?:shall|must|יידרש|חייב|המערכת ת|התוכנה ת)/i.test(line);
+  }).slice(0, 6).map(function(line){
+    return "מועמד לבדיקת איכות דרישה: " + line.slice(0, 120);
+  });
+}
+
+function findPotentialInterfaceIssues(text){
+  var items = [];
+  String(text || "").split(/\n/).forEach(function(line){
+    var t = line.trim();
+    if(t.length < 12) return;
+    if(/(?:interface|icd|api|connector|protocol|ethernet|1553|udp|tcp|ממשק|פרוטוקול|מחבר)/i.test(t)) items.push("זוהה תוכן ממשקי שכנראה דורש ICD או review של אינטגרציה: " + t.slice(0, 120));
+  });
+  return items.slice(0, 5);
+}
+
+function buildDocumentReviewVerificationHints(text){
+  var hints = [];
+  if(/(?:shall|must|יידרש|חייב)/i.test(text) && !/(?:test|inspection|analysis|demonstration|verification|בדיקה|אימות|סקירה)/i.test(text)) hints.push("נראה שיש דרישות ללא שיטת אימות או verification method משויך.");
+  if(/(?:acceptance|criteria|threshold|pass|fail|קריטריון|תנאי קבלה)/i.test(text) === false) hints.push("לא זוהו מספיק קריטריוני קבלה או ניסוחי pass/fail.");
+  return hints.slice(0, 4);
+}
+
+function buildDocumentReviewSafetyHints(text){
+  var hints = [];
+  if(/(?:hazard|safety|safe state|critical|risk|failure|בטיחות|מפגע|סיכון|כשל)/i.test(text)) hints.push("התוכן כולל רמזים לבטיחות/סיכונים ולכן כדאי לבצע safety or risk review ייעודי.");
+  if(/(?:thermal|radiation|power fault|overheat|temperature|קרינה|התחממות|טמפרטורה)/i.test(text)) hints.push("ייתכן שקיימים אילוצי בטיחות או סביבה שכדאי לתעד במפורש.");
+  return hints.slice(0, 4);
+}
+
+function buildDocumentReviewSummary(typeHint, gaps, qualityIssues, interfaceHints, verificationHints, safetyHints){
+  var parts = [];
+  parts.push("Detected type hint: " + typeHint + ".");
+  if(gaps.length) parts.push("Potential gaps: " + gaps.length + ".");
+  if(qualityIssues.length) parts.push("Requirement-quality findings: " + qualityIssues.length + ".");
+  if(interfaceHints.length) parts.push("Interface/integration hints: " + interfaceHints.length + ".");
+  if(verificationHints.length) parts.push("Verification hints: " + verificationHints.length + ".");
+  if(safetyHints.length) parts.push("Safety/risk hints: " + safetyHints.length + ".");
+  return parts.join(" ");
+}
+
+function localDocumentReview(payload){
+  payload = payload || {};
+  var text = String(payload.text || "").trim();
+  if(!text){
+    return buildAIFoundationResponse("EMPTY_DOCUMENT_TEXT", "local-document-review", {
+      warnings: ["לא סופק טקסט מסמך לבדיקה."],
+      trace: { source: "local-document-review", taskType: "document_review" }
+    });
+  }
+  var typeHint = detectDocumentReviewType(text, payload.sourceName || "");
+  var gaps = findDocumentGaps(text, typeHint);
+  var qualityIssues = findDocumentQualityIssues(text);
+  var requirementFindings = findPotentialRequirementIssues(text);
+  var interfaceHints = findPotentialInterfaceIssues(text);
+  var verificationHints = buildDocumentReviewVerificationHints(text);
+  var safetyHints = buildDocumentReviewSafetyHints(text);
+  var summary = buildDocumentReviewSummary(typeHint, gaps, qualityIssues, interfaceHints, verificationHints, safetyHints);
+  var confidence = 0.62 + (qualityIssues.length ? 0.06 : 0) + (gaps.length ? 0.04 : 0);
+  confidence = Math.max(0.4, Math.min(0.9, confidence));
+  return {
+    ok: true,
+    mode: "offline",
+    confidence: Number(confidence.toFixed(2)),
+    recommendations: [
+      { type: "summary", title: "Review Summary", text: summary },
+      { type: "doc_type", title: "Document Type Hint", text: typeHint }
+    ],
+    warnings: gaps.concat(qualityIssues.slice(0, 3)),
+    duplicates: [],
+    needsHumanApproval: true,
+    documentReview: {
+      sourceName: payload.sourceName || "Document",
+      inputType: payload.inputType || "unknown",
+      typeHint: typeHint,
+      summary: summary,
+      gaps: gaps,
+      qualityIssues: qualityIssues,
+      requirementFindings: requirementFindings,
+      interfaceHints: interfaceHints,
+      verificationHints: verificationHints,
+      safetyHints: safetyHints
+    },
+    trace: {
+      source: "local-document-review",
+      taskType: "document_review",
+      inputType: payload.inputType || "unknown"
+    }
+  };
+}
+
+function formatDocumentReviewResult(result){
+  var info = result.documentReview || {};
+  return "<div style='display:grid;gap:12px;line-height:1.7;'>" +
+    "<div><b>Source</b><div style='margin-top:4px;'>"+esc(info.sourceName || "")+" ("+esc(info.inputType || "")+")</div></div>" +
+    "<div><b>Detected Type Hint</b><div style='margin-top:4px;'>"+esc(info.typeHint || "")+"</div></div>" +
+    "<div><b>Review Summary</b><div style='margin-top:4px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);white-space:pre-wrap;'>"+esc(info.summary || "")+"</div></div>" +
+    "<div><b>Warnings</b>"+renderAIActionList(result.warnings || [])+"</div>" +
+    "<div><b>Missing Sections / Gaps</b>"+renderAIActionList(info.gaps || [])+"</div>" +
+    "<div><b>Requirement Quality Findings</b>"+renderAIActionList(info.qualityIssues || [])+"</div>" +
+    "<div><b>Candidate Requirement Statements</b>"+renderAIActionList(info.requirementFindings || [])+"</div>" +
+    "<div><b>Interface / Integration Hints</b>"+renderAIActionList(info.interfaceHints || [])+"</div>" +
+    "<div><b>Verification / Testability Hints</b>"+renderAIActionList(info.verificationHints || [])+"</div>" +
+    "<div><b>Safety / Risk Hints</b>"+renderAIActionList(info.safetyHints || [])+"</div>" +
+    "<div><b>Confidence</b><div style='margin-top:4px;'>"+esc(String(result.confidence || 0))+"</div></div>" +
+    "<div style='font-size:12px;color:var(--g600);'>Review only. Nothing is written automatically into DB, registries, requirements, risks, V&V, or actions.</div>" +
+  "</div>";
+}
+
 window.AIFacade = window.AIFacade || {
   run: function(taskType, payload, options){
     options = options || {};
@@ -8073,6 +8249,9 @@ window.AIFacade = window.AIFacade || {
     }
     if (taskType === "risk_assist" && FEATURES.aiRiskAssist) {
       return localRiskAssist(payload || {});
+    }
+    if (taskType === "document_review" && FEATURES.aiDocAssist) {
+      return localDocumentReview(payload || {});
     }
     if (!FEATURES.aiEnabled) {
       notifyAIDisabled();
@@ -14082,6 +14261,7 @@ function ensureDocumentAnalysisUI() {
         '</div>' +
         '<div id="analysisBody" class="modal-body" style="overflow:auto;flex:1;min-height:180px"></div>' +
         '<div id="analysisFtr" class="modal-footer" style="display:none">' +
+          '<button class="btn btn-outline" id="analysisReviewBtn" onclick="openAIDocumentReview()">🧾 Review Only</button>' +
           '<button class="btn" onclick="toggleAllRecs()">בחר/בטל הכל</button>' +
           '<span id="selCount" style="margin-inline-start:auto;color:var(--g500);font-size:12px"></span>' +
           '<button class="btn btn-primary" onclick="applySelectedRecs()">החל המלצות נבחרות</button>' +
