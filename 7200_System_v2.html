@@ -6678,6 +6678,7 @@ function renderRisks(){
   renderTable("risksBody",risks,[],function(r,i){
     var rpn=r.sev*r.prob;
     var rpnC=rpn>=15?"#c62828":rpn>=10?"#e65100":rpn>=6?"#f57f17":"#2e7d32";
+    var assistBtn="<button class='btn btn-xs btn-outline' data-ai-risk-assist='true' onclick='openAIRiskAssistant("+i+")' title='הפק הצעת שיפור לסיכון'>🛡️</button> ";
     return "<td>"+(i+1)+"</td>"+
       "<td style='max-width:250px;font-size:12px;' title='"+esc(r.desc||"")+"'>"+esc((r.desc||"").substring(0,80))+"</td>"+
       "<td style='font-size:11px;'>"+esc(r.cat||"")+"</td>"+
@@ -6688,7 +6689,7 @@ function renderRisks(){
       "<td style='font-size:11px;color:var(--g600);'>"+esc(r.detection||"—")+"</td>"+
       "<td style='font-size:11px;'>"+esc(r.owner||"")+"</td>"+
       "<td>"+ragBadge(r.status||"open")+"</td>"+
-      "<td>"+actionBtns(i,"risks",true)+"</td>";
+      "<td>"+actionBtns(i,"risks",true,assistBtn)+"</td>";
   });
   renderResidualRisks();
 }
@@ -7639,8 +7640,37 @@ function openAIRequirementAssistant(defaultType){
 }
 
 function openAIRiskAssistant(){
-  notifyAIDisabled();
-  return;
+  var idx = typeof arguments[0] === "number" ? arguments[0] : null;
+  var explicitText = typeof arguments[1] === "string" ? arguments[1] : "";
+  var risk = idx !== null && DB.risks && DB.risks[idx] ? DB.risks[idx] : null;
+  var inputText = explicitText || (risk && risk.desc) || "";
+  if(!inputText){
+    notify("לא נמצא סיכון לניתוח", "w");
+    return;
+  }
+  var result = runAIAction("risk_assist", {
+    text: inputText,
+    riskId: risk && risk.id || "",
+    category: risk && (risk.cat || "") || "",
+    impact: risk && (risk.impact || "") || "",
+    mitigation: risk && (risk.mitigation || "") || "",
+    detection: risk && (risk.detection || "") || "",
+    owner: risk && (risk.owner || "") || "",
+    status: risk && (risk.status || "") || "",
+    sev: risk && risk.sev || null,
+    prob: risk && risk.prob || null,
+    source: risk ? "existing_risk" : "manual_text"
+  });
+  if(!result || result.ok !== true){
+    return result;
+  }
+  openModal(
+    "Risk Assist (Suggestion Only)",
+    formatRiskAssistResult(result),
+    function(){ closeModal(); },
+    "סגור"
+  );
+  return result;
 }
 
 function openAIArchitectureAssistant(){
@@ -7753,7 +7783,7 @@ function notifyAIDisabled(){
 window.FEATURES = window.FEATURES || {
   aiEnabled: false,
   aiRequirementAssist: true,
-  aiRiskAssist: false,
+  aiRiskAssist: true,
   aiDocAssist: false,
   aiArchitectureAssist: false,
   aiMultiProject: false
@@ -7924,11 +7954,125 @@ function formatRequirementAssistResult(result){
   "</div>";
 }
 
+function _normalizeRiskStatement(text){
+  var value = String(text || "").trim().replace(/\s+/g, " ");
+  if(!value) return "";
+  if(/^קיים סיכון כי/i.test(value)) return value.replace(/[.;\s]+$/g, "") + ".";
+  if(/^there is a risk/i.test(value)) return value.replace(/[.;\s]+$/g, "") + ".";
+  return "קיים סיכון כי " + value.replace(/^[a-z\u0590-\u05ff]/i, function(ch){ return ch.toLowerCase(); }).replace(/[.;\s]+$/g, "") + ".";
+}
+
+function _detectRiskStatementGaps(payload){
+  var text = String(payload.text || "").trim();
+  var gaps = [];
+  if(text.length < 20) gaps.push("נוסח הסיכון קצר מדי וקשה להבין ממנו את מנגנון הכשל או ההשפעה.");
+  if(!/(?:כי|due to|because|because of|כתוצאה|מאחר|בגלל)/i.test(text)) gaps.push("לא מופיע טריגר ברור או סיבה ישירה לסיכון.");
+  if(!/(?:impact|affect|delay|degrade|cause|result|להשפיע|לעכב|לפגוע|לגרום)/i.test(text) && !payload.impact) gaps.push("לא מופיעה השפעה או תוצאה ברורה של הסיכון.");
+  if(!payload.mitigation) gaps.push("לא מוגדרת כרגע תכנית צמצום קיימת.");
+  if(!payload.detection) gaps.push("לא מוגדרת כרגע דרך גילוי או ניטור מוקדם.");
+  return gaps;
+}
+
+function _suggestRiskDetectionMethods(payload){
+  var text = String(payload.text || "");
+  var out = [];
+  if(/supplier|vendor|procurement|ספק|רכש/i.test(text + " " + (payload.category || ""))) out.push("לעקוב אחרי הסיכון דרך נקודות בקרה מול ספק, סטטוס אספקות ומדדי lead time.");
+  if(/schedule|integration|cdr|pdr|milestone|לו\"ז|אינטגרציה|אבן דרך/i.test(text + " " + (payload.impact || ""))) out.push("להגדיר milestone gate או review תקופתי שמזהה סטייה מוקדמת.");
+  if(/quality|test|verification|bug|defect|quality|בדיקה|תקלה|איכות/i.test(text + " " + (payload.impact || ""))) out.push("להשתמש ב-trend של defects, תוצאות בדיקה וחריגות KPI כטריגר זיהוי.");
+  if(!out.length) out.push("להגדיר review תקופתי, KPI פשוט או נקודת בקרה מדידה שמאותתת על החמרת הסיכון.");
+  return out.slice(0, 3);
+}
+
+function _suggestRiskMitigations(payload){
+  var text = String(payload.text || "");
+  var out = [];
+  if(/supplier|vendor|procurement|ספק|רכש/i.test(text + " " + (payload.category || ""))) out.push("להגדיר תכנית מעקב ספק, חלופה אפשרית ונקודות החלטה במקרה של עיכוב.");
+  if(/schedule|delay|milestone|integration|לו\"ז|עיכוב|אינטגרציה/i.test(text + " " + (payload.impact || ""))) out.push("לפרק את ההפחתה למשימות קצרות עם owner ותאריך יעד לכל אבן דרך קריטית.");
+  if(/quality|defect|bug|failure|איכות|תקלה|כשל/i.test(text + " " + (payload.impact || ""))) out.push("להוסיף פעולת מניעה, בדיקת אימות ממוקדת וקריטריון יציאה ברור.");
+  if(!out.length) out.push("להגדיר owner, פעולה מונעת, תנאי כניסה/יציאה ומועד בדיקה מחדש של הסיכון.");
+  return out.slice(0, 3);
+}
+
+function _suggestResidualRiskQuestions(payload){
+  var notes = [];
+  notes.push("מה יישאר מהסיכון גם אחרי יישום ההפחתה המוצעת?");
+  if(payload.mitigation) notes.push("איך נדע שההפחתה הקיימת באמת מורידה את החשיפה ולא רק מתעדת אותה?");
+  if(payload.sev || payload.prob) notes.push("האם לאחר ההפחתה עדיין נדרשת בחינת residual risk רשמית מול severity/probability המעודכנים?");
+  return notes.slice(0, 3);
+}
+
+function localRiskAssist(payload){
+  payload = payload || {};
+  var text = String(payload.text || "").trim();
+  if(!text){
+    return buildAIFoundationResponse("EMPTY_RISK_TEXT", "local-risk-assist", {
+      warnings: ["לא סופק טקסט סיכון לניתוח."],
+      trace: { source: "local-risk-assist", taskType: "risk_assist" }
+    });
+  }
+  var normalized = _normalizeRiskStatement(text);
+  var gaps = _detectRiskStatementGaps(payload);
+  var detectionSuggestions = _suggestRiskDetectionMethods(payload);
+  var mitigationSuggestions = _suggestRiskMitigations(payload);
+  var residualGuidance = _suggestResidualRiskQuestions(payload);
+  var qualityNotes = [];
+  if(gaps.length) qualityNotes.push("הנוסח המקורי לא מפריד היטב בין מקור הסיכון, ההשפעה ודרך המעקב.");
+  if(!/^קיים סיכון כי/i.test(text)) qualityNotes.push("ההצעה מיישרת את הניסוח למבנה סיכון ברור ועקבי יותר.");
+  qualityNotes.push("ההצעה מפרידה בין ניסוח הסיכון עצמו לבין אמצעי גילוי, צמצום ובחינת שיוריות.");
+  var confidence = 0.6 + (payload.mitigation ? 0.08 : 0) + (payload.detection ? 0.08 : 0) + (payload.impact ? 0.06 : 0) - (gaps.length * 0.05);
+  confidence = Math.max(0.35, Math.min(0.9, confidence));
+  return {
+    ok: true,
+    mode: "offline",
+    confidence: Number(confidence.toFixed(2)),
+    recommendations: [
+      { type: "risk_statement", title: "ניסוח סיכון מוצע", text: normalized },
+      { type: "detection", title: "הצעות גילוי", items: detectionSuggestions },
+      { type: "mitigation", title: "הצעות צמצום", items: mitigationSuggestions }
+    ],
+    warnings: gaps,
+    duplicates: [],
+    needsHumanApproval: true,
+    riskAssist: {
+      originalText: text,
+      suggestedRiskWording: normalized,
+      detectionSuggestions: detectionSuggestions,
+      mitigationSuggestions: mitigationSuggestions,
+      residualGuidance: residualGuidance,
+      qualityNotes: qualityNotes
+    },
+    trace: {
+      source: "local-risk-assist",
+      taskType: "risk_assist",
+      riskId: payload.riskId || "",
+      inputSource: payload.source || "manual"
+    }
+  };
+}
+
+function formatRiskAssistResult(result){
+  var info = result.riskAssist || {};
+  return "<div style='display:grid;gap:12px;line-height:1.7;'>" +
+    "<div><b>Original Risk</b><div style='margin-top:4px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);white-space:pre-wrap;'>"+esc(info.originalText || "")+"</div></div>" +
+    "<div><b>Suggested Risk Wording</b><div style='margin-top:4px;padding:10px;border:1px solid rgba(245,127,23,.35);border-radius:10px;background:rgba(245,127,23,.07);white-space:pre-wrap;'>"+esc(info.suggestedRiskWording || "")+"</div></div>" +
+    "<div><b>Warnings / Gaps</b>"+renderAIActionList(result.warnings || [])+"</div>" +
+    "<div><b>Detection Suggestions</b>"+renderAIActionList(info.detectionSuggestions || [])+"</div>" +
+    "<div><b>Mitigation Suggestions</b>"+renderAIActionList(info.mitigationSuggestions || [])+"</div>" +
+    "<div><b>Residual-Risk Guidance</b>"+renderAIActionList(info.residualGuidance || [])+"</div>" +
+    "<div><b>Quality Notes</b>"+renderAIActionList(info.qualityNotes || [])+"</div>" +
+    "<div><b>Confidence</b><div style='margin-top:4px;'>"+esc(String(result.confidence || 0))+"</div></div>" +
+    "<div style='font-size:12px;color:var(--g600);'>Suggestion only. Nothing is written to DB.risks or DB.residualRisks automatically.</div>" +
+  "</div>";
+}
+
 window.AIFacade = window.AIFacade || {
   run: function(taskType, payload, options){
     options = options || {};
     if (taskType === "requirement_assist" && FEATURES.aiRequirementAssist) {
       return localRequirementAssist(payload || {});
+    }
+    if (taskType === "risk_assist" && FEATURES.aiRiskAssist) {
+      return localRiskAssist(payload || {});
     }
     if (!FEATURES.aiEnabled) {
       notifyAIDisabled();
@@ -18365,6 +18509,7 @@ document.addEventListener("DOMContentLoaded", function(){
   _removeLegacyAIPagesFromRuntime();
   document.addEventListener("DOMContentLoaded", _removeLegacyAIPagesFromRuntime);
   var _requirementAssistEntry = openAIRequirementAssistant;
+  var _riskAssistEntry = openAIRiskAssistant;
   window.aiDocFill = aiDocFill = function(){ _aiRecoveryNotice(); };
   window.openAIRequirementAssistant = openAIRequirementAssistant = function(){
     if(window.FEATURES && window.FEATURES.aiRequirementAssist && typeof _requirementAssistEntry === "function"){
@@ -18372,7 +18517,12 @@ document.addEventListener("DOMContentLoaded", function(){
     }
     _aiRecoveryNotice();
   };
-  window.openAIRiskAssistant = openAIRiskAssistant = function(){ _aiRecoveryNotice(); };
+  window.openAIRiskAssistant = openAIRiskAssistant = function(){
+    if(window.FEATURES && window.FEATURES.aiRiskAssist && typeof _riskAssistEntry === "function"){
+      return _riskAssistEntry.apply(this, arguments);
+    }
+    _aiRecoveryNotice();
+  };
   window.openAIArchitectureAssistant = openAIArchitectureAssistant = function(){ _aiRecoveryNotice(); };
   window.runAIReviewReadiness = runAIReviewReadiness = function(){ _aiRecoveryNotice(); };
   window.showAIPopulateModal = showAIPopulateModal = function(){ _aiRecoveryNotice(); };
