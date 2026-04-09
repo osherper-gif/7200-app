@@ -673,7 +673,7 @@ var DEFAULT_REQS = [
 var DEFAULT_TCS = [
   {id:"TC-001",title:"Auto-save ≤800ms לאחר שינוי",cat:"שמירת נתונים",type:"Functional",pri:"Critical",reqs:"REQ-001",steps:"1. טען האפליקציה\n2. בדוק window._autoSaveTimer\n3. בדוק markDirty signature",expected:"markDirty ו-_autoSaveTimer קיימים",auto:"yes",fn:"checkAutoSave"},
   {id:"TC-002",title:"localStorage נמחק ב-resetAll",cat:"שמירת נתונים",type:"Functional",pri:"Critical",reqs:"REQ-003",steps:"בדוק שresetAll מכיל localStorage.removeItem",expected:"removeItem קיים",auto:"yes",fn:"checkResetAll"},
-  {id:"TC-003",title:"כל 23 עמודות ניווט נטענות",cat:"ניווט ו-UI",type:"UI",pri:"Critical",reqs:"REQ-013",steps:"בדוק שכל 23 page IDs קיימים",expected:"כל עמודות קיימים",auto:"yes",fn:"checkAllPages"},
+  {id:"TC-003",title:"עמודי הניווט הפעילים קיימים ועמודי AI הוסרו",cat:"ניווט ו-UI",type:"UI",pri:"Critical",reqs:"REQ-013",steps:"בדוק שכל page IDs הפעילים קיימים וש-page-ai/page-multiproject לא קיימים",expected:"כל עמודי הניווט הפעילים קיימים ועמודי AI הוסרו",auto:"yes",fn:"checkAllPages"},
   {id:"TC-004",title:"38 טאבים פעילים",cat:"ניווט ו-UI",type:"UI",pri:"High",reqs:"REQ-014",steps:"בדוק שכל 38 tab IDs קיימים",expected:"כל טאבים קיימים",auto:"yes",fn:"checkAllTabs"},
   {id:"TC-005",title:"39 modal functions מוגדרות",cat:"ניווט ו-UI",type:"Functional",pri:"High",reqs:"REQ-017",steps:"בדוק openAdd* functions",expected:"כל modals קיימים",auto:"yes",fn:"checkModalFunctions"},
   {id:"TC-006",title:"_validateRequirement דוחה סובייקטיביות",cat:"ניהול דרישות",type:"Functional",pri:"High",reqs:"REQ-034",steps:"קרא עם 'ברור', 'יפה', 'טוב'",expected:"{valid:false}",auto:"yes",fn:"checkVagueReject"},
@@ -1334,9 +1334,16 @@ var AUTOMATION = {
                  'page-software','page-mechanical','page-safety','page-quality','page-tests',
                  'page-milestones','page-tasks','page-stakeholders','page-discussions','page-settings',
                  'page-flow','page-actions','page-checklist','page-project','page-subcontractors',
-                 'page-lessons','page-closure','page-ai'];
+                 'page-lessons','page-closure'];
     var missing = pages.filter(function(p){ return !src.includes('id="'+p+'"'); });
-    return { pass: missing.length===0, actual: missing.length ? 'חסרים: '+missing.join(', ') : '23/23 עמודות קיימים' };
+    var removed = ['page-ai','page-multiproject'];
+    var stillPresent = removed.filter(function(p){ return src.includes('id="'+p+'"'); });
+    var pass = missing.length===0 && stillPresent.length===0;
+    var actual = [];
+    if(missing.length) actual.push('חסרים: ' + missing.join(', '));
+    if(stillPresent.length) actual.push('עמודי AI עדיין קיימים: ' + stillPresent.join(', '));
+    if(!actual.length) actual.push('24/24 עמודי הניווט הפעילים קיימים ועמודי AI הוסרו');
+    return { pass: pass, actual: actual.join(' | ') };
   },
 
   checkAllTabs: async function(){
