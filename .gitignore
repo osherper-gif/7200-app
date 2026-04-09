@@ -1,0 +1,37 @@
+﻿# Local runtime / generated
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Local server state / logs
+data/
+*.log
+
+# Temp / editor files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Local backups / recovery snapshots
+*.bak
+*.backup
+*.BACKUP_*.html
+*.CORRUPT_BAK_*.html
+*.PRE_*.html
+*.pre_ai_recovery_backup_*.html
+*.bak_*
+
+# Python envs
+.venv/
+venv/
+env/
+
+# Node cache if ever used locally
+node_modules/
+
+7200_System_v2.*.html

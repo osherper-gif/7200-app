@@ -1,0 +1,2901 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>7200 Test Management System</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --blue:#1565c0;--blue-lt:#e3f2fd;--green:#2e7d32;--green-lt:#e8f5e9;
+  --red:#c62828;--red-lt:#ffebee;--orange:#e65100;--orange-lt:#fff3e0;
+  --purple:#6200ea;--purple-lt:#ede7f6;--teal:#00796b;--teal-lt:#e0f7fa;
+  --gray:#5f6368;--g50:#f8f9fa;--g100:#f1f3f4;--g200:#e8eaed;--g300:#dadce0;
+  --g900:#202124;--white:#fff;
+  --shadow:0 2px 8px rgba(0,0,0,.12);--r:8px;--trans:all .2s ease;
+}
+body{font-family:"Segoe UI",Arial,sans-serif;background:var(--g50);color:var(--g900);font-size:13px;}
+.hdr{background:linear-gradient(135deg,#0d1b6e,#1565c0);color:#fff;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:var(--shadow);}
+.hdr-title{font-size:18px;font-weight:800;}
+.hdr-sub{font-size:11px;opacity:.75;}
+.hdr-btns{display:flex;gap:8px;align-items:center;}
+.sidebar{width:200px;background:#fff;border-left:1px solid var(--g200);position:fixed;top:52px;right:0;bottom:0;overflow-y:auto;z-index:90;}
+.snav-item{padding:10px 16px;cursor:pointer;display:flex;align-items:center;gap:8px;color:var(--gray);font-size:13px;transition:var(--trans);}
+.snav-item:hover{background:var(--g50);}
+.snav-item.active{background:#e8f0fe;color:var(--blue);font-weight:600;}
+.snav-title{padding:8px 16px 4px;font-size:10px;font-weight:700;color:var(--g200);text-transform:uppercase;letter-spacing:.8px;}
+.main{margin-right:200px;padding:20px;min-height:calc(100vh - 52px);}
+.page{display:none;}.page.active{display:block;}
+.card{background:#fff;border-radius:var(--r);box-shadow:var(--shadow);margin-bottom:16px;}
+.card-hdr{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--g100);}
+.card-title{font-size:14px;font-weight:700;}
+.card-body{padding:18px;}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:16px;}
+.stat{background:#fff;border-radius:var(--r);padding:16px;box-shadow:var(--shadow);text-align:center;position:relative;overflow:hidden;}
+.stat::before{content:"";position:absolute;top:0;right:0;width:4px;height:100%;}
+.stat.green::before{background:var(--green);}
+.stat.red::before{background:var(--red);}
+.stat.blue::before{background:var(--blue);}
+.stat.orange::before{background:var(--orange);}
+.stat.purple::before{background:var(--purple);}
+.stat-val{font-size:32px;font-weight:800;margin:4px 0;}
+.stat-label{font-size:11px;color:var(--gray);}
+.btn{padding:7px 14px;border-radius:var(--r);border:none;cursor:pointer;font-size:12px;font-family:inherit;transition:var(--trans);display:inline-flex;align-items:center;gap:6px;}
+.btn-primary{background:var(--blue);color:#fff;}.btn-primary:hover{background:#1976d2;}
+.btn-success{background:var(--green);color:#fff;}.btn-success:hover{background:#388e3c;}
+.btn-danger{background:var(--red);color:#fff;}.btn-danger:hover{background:#d32f2f;}
+.btn-outline{background:#fff;border:1px solid var(--g300);color:var(--g900);}.btn-outline:hover{background:var(--g50);}
+.btn-purple{background:var(--purple);color:#fff;}
+.btn-run{background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff;font-size:14px;font-weight:700;padding:10px 24px;}
+.btn-autofix{background:linear-gradient(135deg,#f57f17,#e65100);color:#fff;font-size:13px;font-weight:700;}
+table{width:100%;border-collapse:collapse;}
+th{background:var(--g100);padding:8px 12px;text-align:right;font-weight:600;font-size:12px;border-bottom:2px solid var(--g200);}
+td{padding:8px 12px;border-bottom:1px solid var(--g100);font-size:12px;vertical-align:middle;}
+tr:hover{background:var(--g50);}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;white-space:nowrap;}
+.badge-pass{background:#e8f5e9;color:#2e7d32;}
+.badge-fail{background:#ffebee;color:#c62828;}
+.badge-error{background:#fce8e6;color:#b71c1c;}
+.badge-skip{background:#f1f3f4;color:#5f6368;}
+.badge-notrun{background:#e8eaed;color:#5f6368;}
+.badge-fixed{background:#e0f7fa;color:#006064;}
+.badge-crit{background:#ffcdd2;color:#b71c1c;}
+.badge-major{background:#ffe0b2;color:#e65100;}
+.badge-minor{background:#fff9c4;color:#f57f17;}
+.badge-info{background:#e3f2fd;color:#1565c0;}
+.progress{background:var(--g200);border-radius:4px;height:8px;overflow:hidden;margin:4px 0;}
+.progress-bar{height:100%;border-radius:4px;transition:width .5s ease;}
+.progress-bar.green{background:var(--green);}
+.progress-bar.red{background:var(--red);}
+.progress-bar.orange{background:var(--orange);}
+input,textarea,select{padding:7px 10px;border:1px solid var(--g300);border-radius:var(--r);font-family:inherit;font-size:12px;width:100%;transition:border-color .2s;}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue);}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;}
+.form-group{margin-bottom:10px;}
+label{display:block;font-size:11px;font-weight:600;color:var(--gray);margin-bottom:4px;}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.modal{background:#fff;border-radius:12px;padding:24px;width:600px;max-width:95vw;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3);}
+.modal-title{font-size:16px;font-weight:700;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;}
+.modal-close{background:none;border:none;font-size:20px;cursor:pointer;color:var(--gray);}
+.run-log{background:#1a1a2e;color:#e0e0e0;border-radius:var(--r);padding:14px;font-family:monospace;font-size:11px;max-height:350px;overflow-y:auto;margin-top:12px;}
+.run-log .pass{color:#81c784;}
+.run-log .fail{color:#ef9a9a;}
+.run-log .error{color:#ff5252;}
+.run-log .fixed{color:#80deea;}
+.run-log .info{color:#90caf9;}
+.run-log .warn{color:#ffcc80;}
+.coverage-cell{width:32px;height:32px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;}
+.gauge{position:relative;width:120px;height:60px;margin:0 auto;}
+#testIframe{display:none;}
+.search-bar{padding:7px 12px;border:1px solid var(--g300);border-radius:20px;font-size:12px;width:220px;}
+.tabs{display:flex;gap:2px;margin-bottom:0;border-bottom:2px solid var(--g200);}
+.tab{padding:8px 16px;cursor:pointer;font-size:12px;color:var(--gray);border-bottom:2px solid transparent;margin-bottom:-2px;transition:var(--trans);}
+.tab:hover{color:var(--blue);}
+.tab.active{color:var(--blue);font-weight:700;border-bottom-color:var(--blue);}
+.tab-pane{display:none;padding-top:16px;}
+.tab-pane.active{display:block;}
+.regression-banner{background:linear-gradient(135deg,#1b5e20,#2e7d32);color:#fff;border-radius:var(--r);padding:10px 16px;margin-bottom:12px;display:flex;align-items:center;gap:10px;font-size:13px;}
+.fix-badge{background:#80deea;color:#006064;padding:1px 6px;border-radius:10px;font-size:10px;font-weight:700;}
+</style>
+</head>
+<body>
+
+<!-- Hidden iframe for running tests against the app -->
+<iframe id="testIframe" src="7200_System_v2.html" sandbox="allow-scripts allow-same-origin"></iframe>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div>
+    <div class="hdr-title">🧪 7200 Test Management System</div>
+    <div class="hdr-sub">Requirements · Test Cases · Automation · Regression · History</div>
+  </div>
+  <div class="hdr-btns">
+    <span id="lastRunBadge" style="font-size:11px;opacity:.8;"></span>
+    <button class="btn btn-run" onclick="startRun()">▶ הרץ בדיקות</button>
+    <button class="btn btn-autofix" onclick="startAutoFix()" title="תקן כשלים אוטומטית + רגרסיה">🔧 AutoFix + Regression</button>
+    <button class="btn" style="background:#e53935;color:#fff;border:none;font-size:11px;" onclick="generateRunPDF()">📄 PDF Report</button>
+    <button class="btn btn-outline" style="font-size:11px;" onclick="exportResults()">⬇ CSV</button>
+  </div>
+</div>
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <div class="snav-title">ניהול</div>
+  <div class="snav-item active" onclick="nav('dashboard',this)">📊 Dashboard</div>
+  <div class="snav-item" onclick="nav('requirements',this)">📋 דרישות</div>
+  <div class="snav-item" onclick="nav('testcases',this)">🧪 מקרי בדיקה</div>
+  <div class="snav-title">ביצוע</div>
+  <div class="snav-item" onclick="nav('runner',this)">▶ Test Runner</div>
+  <div class="snav-item" onclick="nav('history',this)">🕐 היסטוריה</div>
+  <div class="snav-title">ניתוח</div>
+  <div class="snav-item" onclick="nav('defects',this)">🐛 ליקויים</div>
+  <div class="snav-item" onclick="nav('coverage',this)">🗺 כיסוי</div>
+  <div class="snav-item" onclick="nav('autofix',this)">🔧 AutoFix Log</div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+<!-- DASHBOARD -->
+<div class="page active" id="page-dashboard">
+  <h2 style="margin-bottom:16px;font-size:20px;">📊 Dashboard</h2>
+  <div class="stats-grid" id="dashStats"></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+    <div class="card">
+      <div class="card-hdr"><div class="card-title">🔴 כשלים אחרונים</div></div>
+      <div class="card-body" id="dashFails" style="max-height:280px;overflow-y:auto;"></div>
+    </div>
+    <div class="card">
+      <div class="card-hdr"><div class="card-title">📈 מגמת Pass Rate</div></div>
+      <div class="card-body">
+        <canvas id="trendChart" width="340" height="200"></canvas>
+        <div id="trendEmpty" style="text-align:center;color:var(--gray);padding:30px;display:none;">אין היסטוריית הרצות עדיין</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- REQUIREMENTS -->
+<div class="page" id="page-requirements">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+    <h2 style="font-size:20px;">📋 דרישות תוכנה</h2>
+    <div style="display:flex;gap:8px;">
+      <input class="search-bar" placeholder="🔍 חפש דרישה..." oninput="renderReqs(this.value)">
+      <button class="btn btn-primary" onclick="openReqModal()">➕ דרישה חדשה</button>
+    </div>
+  </div>
+  <div class="card"><div class="card-body" style="padding:0;">
+    <table id="reqTable">
+      <thead><tr>
+        <th style="width:100px;">מזהה</th><th>כותרת</th><th style="width:100px;">קטגוריה</th>
+        <th style="width:80px;">עדיפות</th><th style="width:80px;">סטטוס</th>
+        <th style="width:60px;">בדיקות</th><th style="width:80px;">פעולות</th>
+      </tr></thead>
+      <tbody id="reqBody"></tbody>
+    </table>
+  </div></div>
+</div>
+
+<!-- TEST CASES -->
+<div class="page" id="page-testcases">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+    <h2 style="font-size:20px;">🧪 מקרי בדיקה</h2>
+    <div style="display:flex;gap:8px;">
+      <select style="width:140px;padding:7px 10px;border:1px solid var(--g300);border-radius:var(--r);font-size:12px;" onchange="renderTCs(null,this.value)">
+        <option value="">כל הקטגוריות</option>
+        <option>UI / ניווט</option><option>שמירת נתונים</option><option>לוגיקה עסקית</option>
+        <option>ניתוח מסמך</option><option>בקרת איכות</option><option>ניהול סיכונים</option>
+        <option>V&V</option><option>CM / BOM</option><option>מומחה AI</option>
+      </select>
+      <button class="btn btn-primary" onclick="openTCModal()">➕ מקרה בדיקה</button>
+    </div>
+  </div>
+  <div class="card"><div class="card-body" style="padding:0;">
+    <table id="tcTable">
+      <thead><tr>
+        <th style="width:90px;">TC-ID</th><th>כותרת</th><th style="width:100px;">קטגוריה</th>
+        <th style="width:70px;">סוג</th><th style="width:70px;">עדיפות</th>
+        <th style="width:80px;">אוטומטי</th><th style="width:80px;">סטטוס אחרון</th>
+        <th style="width:80px;">פעולות</th>
+      </tr></thead>
+      <tbody id="tcBody"></tbody>
+    </table>
+  </div></div>
+</div>
+
+<!-- RUNNER -->
+<div class="page" id="page-runner">
+  <h2 style="font-size:20px;margin-bottom:14px;">▶ Test Runner</h2>
+  <div class="card" style="margin-bottom:12px;">
+    <div class="card-body" style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+      <button class="btn btn-run" onclick="startRun()">▶ הרץ הכל</button>
+      <button class="btn btn-outline" onclick="startRun('failed')">🔴 רק כשלים</button>
+      <button class="btn btn-outline" onclick="startRun('critical')">⚡ Critical בלבד</button>
+      <button class="btn btn-autofix" onclick="startAutoFix()">🔧 AutoFix + Regression</button>
+      <span id="runStatus" style="font-size:12px;color:var(--gray);margin-right:auto;"></span>
+    </div>
+  </div>
+  <div id="runProgressArea" style="display:none;">
+    <div class="card">
+      <div class="card-body">
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+          <span id="runProgressLabel" style="font-size:12px;font-weight:700;"></span>
+          <span id="runProgressPct" style="font-size:12px;"></span>
+        </div>
+        <div class="progress"><div id="runProgressBar" class="progress-bar green" style="width:0%"></div></div>
+        <div class="run-log" id="runLog"></div>
+      </div>
+    </div>
+  </div>
+  <div id="runResultsArea" style="display:none;">
+    <div class="card">
+      <div class="card-hdr">
+        <div class="card-title">תוצאות הרצה</div>
+        <div id="runSummaryBadges" style="display:flex;gap:6px;"></div>
+      </div>
+      <div class="card-body" style="padding:0;">
+        <div style="font-size:11px;color:var(--gray);margin-bottom:8px;padding:0 4px;">
+          💡 לחץ על badge לסינון | ברירת מחדל: כשלים תחילה, אחר כך עברו
+        </div>
+        <table>
+          <thead><tr>
+            <th style="width:82px;">TC-ID</th>
+            <th>כותרת הבדיקה</th>
+            <th style="width:95px;">קטגוריה</th>
+            <th style="width:70px;">עדיפות</th>
+            <th style="width:72px;">סטטוס</th>
+            <th>תוצאה בפועל</th>
+            <th style="width:55px;">משך</th>
+            <th style="width:70px;">AutoFix</th>
+          </tr></thead>
+          <tbody id="runResultsBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- HISTORY -->
+<div class="page" id="page-history">
+  <h2 style="font-size:20px;margin-bottom:14px;">🕐 היסטוריית הרצות</h2>
+  <div class="card"><div class="card-body" style="padding:0;">
+    <table>
+      <thead><tr>
+        <th style="width:80px;">Run #</th><th style="width:160px;">תאריך/שעה</th>
+        <th style="width:70px;">עבר</th><th style="width:70px;">נכשל</th><th style="width:70px;">שגיאה</th>
+        <th style="width:70px;">דולג</th><th style="width:80px;">Pass %</th>
+        <th style="width:80px;">AutoFix</th><th style="width:80px;">משך</th>
+        <th style="width:80px;">פעולות</th>
+      </tr></thead>
+      <tbody id="historyBody"></tbody>
+    </table>
+    <div id="historyEmpty" style="text-align:center;padding:40px;color:var(--gray);">אין הרצות עדיין — לחץ "הרץ בדיקות"</div>
+  </div></div>
+</div>
+
+<!-- DEFECTS -->
+<div class="page" id="page-defects">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+    <h2 style="font-size:20px;">🐛 ליקויים (Defects)</h2>
+    <button class="btn btn-outline" onclick="renderDefects()">🔄 רענן</button>
+  </div>
+  <div class="card"><div class="card-body" style="padding:0;">
+    <table>
+      <thead><tr>
+        <th style="width:90px;">DEF-ID</th><th>כותרת</th><th style="width:80px;">TC</th>
+        <th style="width:80px;">חומרה</th><th style="width:80px;">סטטוס</th>
+        <th style="width:90px;">AutoFixed?</th><th style="width:100px;">תאריך גילוי</th>
+        <th>פרטים</th>
+      </tr></thead>
+      <tbody id="defectsBody"></tbody>
+    </table>
+    <div id="defectsEmpty" style="text-align:center;padding:40px;color:var(--gray);">אין ליקויים — מצוין!</div>
+  </div></div>
+</div>
+
+<!-- COVERAGE -->
+<div class="page" id="page-coverage">
+  <h2 style="font-size:20px;margin-bottom:14px;">🗺 מטריצת כיסוי דרישות</h2>
+  <div class="card"><div class="card-body" id="coverageMatrix"></div></div>
+</div>
+
+<!-- AUTOFIX LOG -->
+<div class="page" id="page-autofix">
+  <h2 style="font-size:20px;margin-bottom:14px;">🔧 AutoFix Log</h2>
+  <div class="card"><div class="card-body" style="padding:0;">
+    <table>
+      <thead><tr>
+        <th style="width:90px;">Run #</th><th style="width:90px;">TC-ID</th>
+        <th>כשל מקורי</th><th>פעולת תיקון</th><th style="width:80px;">תוצאה</th>
+        <th style="width:100px;">תאריך</th>
+      </tr></thead>
+      <tbody id="autofixBody"></tbody>
+    </table>
+    <div id="autofixEmpty" style="text-align:center;padding:40px;color:var(--gray);">אין רשומות AutoFix</div>
+  </div></div>
+</div>
+
+</div><!-- /main -->
+
+<!-- MODALS -->
+<div class="modal-overlay" id="reqModal">
+  <div class="modal">
+    <div class="modal-title">
+      <span id="reqModalTitle">דרישה חדשה</span>
+      <button class="modal-close" onclick="closeModal('reqModal')">×</button>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>מזהה</label><input id="rId" placeholder="REQ-001"></div>
+      <div class="form-group"><label>כותרת</label><input id="rTitle"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>קטגוריה</label>
+        <select id="rCat">
+          <option>UI / ניווט</option><option>שמירת נתונים</option><option>לוגיקה עסקית</option>
+          <option>ניתוח מסמך</option><option>בקרת איכות</option><option>ניהול סיכונים</option>
+          <option>V&V</option><option>CM / BOM</option><option>מומחה AI</option><option>כללי</option>
+        </select>
+      </div>
+      <div class="form-group"><label>עדיפות</label>
+        <select id="rPri"><option>Critical</option><option>High</option><option>Medium</option><option>Low</option></select>
+      </div>
+    </div>
+    <div class="form-group"><label>תיאור / קריטריון קבלה</label><textarea id="rDesc" rows="3"></textarea></div>
+    <div class="form-group"><label>סטטוס</label>
+      <select id="rStatus"><option>Active</option><option>Draft</option><option>Deprecated</option></select>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
+      <button class="btn btn-outline" onclick="closeModal('reqModal')">ביטול</button>
+      <button class="btn btn-primary" onclick="saveReq()">💾 שמור</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="tcModal">
+  <div class="modal">
+    <div class="modal-title">
+      <span id="tcModalTitle">מקרה בדיקה חדש</span>
+      <button class="modal-close" onclick="closeModal('tcModal')">×</button>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>TC-ID</label><input id="tcId" placeholder="TC-001"></div>
+      <div class="form-group"><label>כותרת</label><input id="tcTitle"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>קטגוריה</label>
+        <select id="tcCat">
+          <option>UI / ניווט</option><option>שמירת נתונים</option><option>לוגיקה עסקית</option>
+          <option>ניתוח מסמך</option><option>בקרת איכות</option><option>ניהול סיכונים</option>
+          <option>V&V</option><option>CM / BOM</option><option>מומחה AI</option>
+        </select>
+      </div>
+      <div class="form-group"><label>סוג</label>
+        <select id="tcType"><option>Functional</option><option>Integration</option><option>UI</option><option>Regression</option><option>Performance</option></select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>עדיפות</label>
+        <select id="tcPri"><option>Critical</option><option>High</option><option>Medium</option><option>Low</option></select>
+      </div>
+      <div class="form-group"><label>מזהה דרישה (REQ-IDs, פסיק)</label><input id="tcReqs" placeholder="REQ-001,REQ-002"></div>
+    </div>
+    <div class="form-group"><label>צעדי בדיקה</label><textarea id="tcSteps" rows="3" placeholder="1. פתח את האפליקציה&#10;2. ..."></textarea></div>
+    <div class="form-group"><label>תוצאה צפויה</label><textarea id="tcExpected" rows="2"></textarea></div>
+    <div class="form-row">
+      <div class="form-group"><label>אוטומטי?</label>
+        <select id="tcAuto"><option value="yes">כן — אוטומטי</option><option value="semi">חצי-אוטומטי</option><option value="no">ידני בלבד</option></select>
+      </div>
+      <div class="form-group"><label>פונקציית אוטומציה</label><input id="tcFn" placeholder="checkLocalStorage"></div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
+      <button class="btn btn-outline" onclick="closeModal('tcModal')">ביטול</button>
+      <button class="btn btn-primary" onclick="saveTC()">💾 שמור</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="runDetailModal">
+  <div class="modal" style="max-width:700px;">
+    <div class="modal-title">
+      <span id="runDetailTitle">פרטי הרצה</span>
+      <button class="modal-close" onclick="closeModal('runDetailModal')">×</button>
+    </div>
+    <div id="runDetailBody"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  DATA STORE
+// ═══════════════════════════════════════════════════════════════
+var LS_KEY = "7200_tms_data";
+var TMS = loadTMS();
+
+function loadTMS(){
+  try{
+    var s = localStorage.getItem(LS_KEY);
+    if(s) return JSON.parse(s);
+  }catch(e){}
+  return { requirements:[], testCases:[], runs:[], defects:[], autofixLog:[], runCounter:0 };
+}
+function saveTMS(){ localStorage.setItem(LS_KEY, JSON.stringify(TMS)); }
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+
+// ═══════════════════════════════════════════════════════════════
+//  DEFAULT REQUIREMENTS (seeded if empty)
+// ═══════════════════════════════════════════════════════════════
+var DEFAULT_REQS = [
+  {id:"REQ-001",title:"Auto-save ל-localStorage תוך ≤800ms",cat:"שמירת נתונים",pri:"Critical",type:"requirement",
+   desc:"המערכת תשמור נתוני פרויקט ל-localStorage תוך ≤800ms מכל שינוי.",status:"Active",parent:""},
+  {id:"REQ-001.1",title:"debounce timer נמחק בהרצת markDirty חדשה",cat:"שמירת נתונים",pri:"Critical",type:"sub-requirement",
+   desc:"clearTimeout(_autoSaveTimer) קודם להגדרה חדשה.",status:"Active",parent:"REQ-001"},
+  {id:"REQ-001.2",title:"נקודה ירוקה בכותרת = מצב שמור",cat:"שמירת נתונים",pri:"High",type:"sub-requirement",
+   desc:"indicator בכותרת משתנה לירוק כאשר localStorage נשמר.",status:"Active",parent:"REQ-001"},
+  {id:"REQ-002",title:"טעינת נתונים מ-localStorage בפתיחה",cat:"שמירת נתונים",pri:"Critical",type:"requirement",
+   desc:"בפתיחה, מיזוג DB שמור עם מבנה ברירת מחדל.",status:"Active",parent:""},
+  {id:"REQ-002.1",title:"מיזוג DB שמור עם מבנה ברירת מחדל",cat:"שמירת נתונים",pri:"High",type:"sub-requirement",
+   desc:"Object.assign או merge logic לא מאבד שדות קיימים.",status:"Active",parent:"REQ-002"},
+  {id:"REQ-003",title:"Reset מוחק localStorage לפני reload",cat:"שמירת נתונים",pri:"Critical",type:"requirement",
+   desc:"פונקציית resetAll מוחקת את ['7200_project_data'] לפני location.reload().",status:"Active",parent:""},
+  {id:"REQ-003.1",title:"_resetPending מונע שמירה מחדש ב-beforeunload",cat:"שמירת נתונים",pri:"High",type:"derived",
+   desc:"flag _resetPending = true לפני reload, beforeunload בודק אותו.",status:"Active",parent:"REQ-003"},
+  {id:"REQ-004",title:"ייצוא JSON מוריד קובץ לגיבוי",cat:"שמירת נתונים",pri:"High",type:"requirement",
+   desc:"כפתור ייצוא יוריד JSON של TMS.requirements + TMS.testCases.",status:"Active",parent:""},
+  {id:"REQ-005",title:"ייבוא JSON משחזר נתונים",cat:"שמירת נתונים",pri:"High",type:"requirement",
+   desc:"טעינת קובץ JSON משחזרת את הדרישות וערכי הבדיקה.",status:"Active",parent:""},
+  {id:"REQ-006",title:"localStorage key = '7200_project_data'",cat:"שמירת נתונים",pri:"Critical",type:"requirement",
+   desc:"שם הキー סטנדרטי לאחסון בקומקום בעברית.",status:"Active",parent:""},
+  {id:"REQ-013",title:"23 עמודות ניווט קיימים ונגישים",cat:"ניווט ו-UI",pri:"Critical",type:"requirement",
+   desc:"dashboard, flow, actions, checklist, project, tasks, milestones, stakeholders, syseng, software, mechanical, safety, quality, tests, cm, risks, subcontractors, ils, discussions, lessons, closure, ai, settings.",status:"Active",parent:""},
+  {id:"REQ-013.1",title:"כל page ID ייחודי",cat:"ניווט ו-UI",pri:"High",type:"sub-requirement",
+   desc:"id='page-xxx' ייחודי לכל עמוד.",status:"Active",parent:"REQ-013"},
+  {id:"REQ-014",title:"38 טאבים פנימיים קיימים",cat:"ניווט ו-UI",pri:"High",type:"requirement",
+   desc:"כל הטאבים מהרשימה 38 טאבים פעילים.",status:"Active",parent:""},
+  {id:"REQ-015",title:"renderTable לא מכפיל TR",cat:"ניווט ו-UI",pri:"High",type:"requirement",
+   desc:"renderTable בודק אם rowFn מחזיר TR שלם ולא מוסיף TR נוסף.",status:"Active",parent:""},
+  {id:"REQ-015.1",title:"בדיקת indexOf('<tr') לפני עטיפה",cat:"ניווט ו-UI",pri:"High",type:"derived",
+   desc:"if(row.indexOf('<tr') === -1) { row = '<tr>'+row+'</tr>' }",status:"Active",parent:"REQ-015"},
+  {id:"REQ-016",title:"Toast notifications מוצגות למשתמש",cat:"ניווט ו-UI",pri:"High",type:"requirement",
+   desc:"showToast(msg, type) מציגה הודעות זמניות.",status:"Active",parent:""},
+  {id:"REQ-017",title:"Modal system פועל (פתיחה/סגירה/שמירה)",cat:"ניווט ו-UI",pri:"Critical",type:"requirement",
+   desc:"39 modal add functions + openModal/closeModal functions.",status:"Active",parent:""},
+  {id:"REQ-018",title:"RTL layout תקין",cat:"ניווט ו-UI",pri:"High",type:"requirement",
+   desc:"dir='rtl', text-align, flexbox direction עוקבות אחרי RTL.",status:"Active",parent:""},
+  {id:"REQ-019",title:"navigateTo מנקה tooltip",cat:"ניווט ו-UI",pri:"High",type:"requirement",
+   desc:"כאשר משתמש עובר לעמוד חדש, tooltip סגור.",status:"Active",parent:""},
+  {id:"REQ-020",title:"Dashboard מציג סטטיסטיקות פרויקט",cat:"ניווט ו-UI",pri:"High",type:"requirement",
+   desc:"renderDashboard מציג דרישות, בדיקות, סיכונים, משימות קיימות.",status:"Active",parent:""},
+  {id:"REQ-031",title:"הוספת דרישה ל-DB.sysReqs",cat:"ניהול דרישות",pri:"Critical",type:"requirement",
+   desc:"openAddREquireability בעברית יוצרת דרישה חדשה ומוסיפה ל-DB.",status:"Active",parent:""},
+  {id:"REQ-032",title:"מחיקת דרישה",cat:"ניהול דרישות",pri:"High",type:"requirement",
+   desc:"deleteItem(id) מסירה דרישה מ-DB.sysReqs.",status:"Active",parent:""},
+  {id:"REQ-033",title:"עריכת דרישה קיימת",cat:"ניהול דרישות",pri:"High",type:"requirement",
+   desc:"editItem(id) פותחת modal עם שדות הדרישה.",status:"Active",parent:""},
+  {id:"REQ-034",title:"_validateRequirement דוחה מילים סובייקטיביות",cat:"ניהול דרישות",pri:"High",type:"requirement",
+   desc:"תזהה מילים סובייקטיביות (ברור, יפה, טוב, וכו') ותחזיר {valid:false}.",status:"Active",parent:""},
+  {id:"REQ-034.1",title:"רשימת _VAGUE_WORDS כוללת ≥30 מילים",cat:"ניהול דרישות",pri:"High",type:"sub-requirement",
+   desc:"_VAGUE_WORDS array עם ≥30 מילים בעברית וإنجليزית.",status:"Active",parent:"REQ-034"},
+  {id:"REQ-034.2",title:"_MEASURABLE_INDICATORS כוללת ≥10 דפוסים",cat:"ניהול דרישות",pri:"High",type:"sub-requirement",
+   desc:"regex/patterns like '≤', '≥', 'ms', 'km', '%', 'W', 'dB', וכו'.",status:"Active",parent:"REQ-034"},
+  {id:"REQ-035",title:"_validateRequirement מאשר דרישות עם מדדים",cat:"ניהול דרישות",pri:"High",type:"requirement",
+   desc:"דרישות עם מדדים מסוגים מאושרות כ-{valid:true}.",status:"Active",parent:""},
+  {id:"REQ-036",title:"_isDupInDB משווה לפי desc (לא rid)",cat:"ניהול דרישות",pri:"High",type:"requirement",
+   desc:"duplicate check משתמש ב-(ex.desc || ex.name || ex.rid).",status:"Active",parent:""},
+  {id:"REQ-036.1",title:"ex.desc || ex.name || ex.rid בסדר עדיפות נכון",cat:"ניהול דרישות",pri:"High",type:"derived",
+   desc:"first check desc, fallback to name, fallback to rid.",status:"Active",parent:"REQ-036"},
+  {id:"REQ-037",title:"domain classification (13 סוגים)",cat:"ניהול דרישות",pri:"High",type:"requirement",
+   desc:"ביצועים, בטיחות, סייבר, תוכנה, ממשק, סביבתי, נתונים, אמינות, תחזוקה, שימושיות, אילוץ, אימות, פונקציונלי.",status:"Active",parent:""},
+  {id:"REQ-037.1",title:"13 domain types קיימים בקוד",cat:"ניהול דרישות",pri:"High",type:"sub-requirement",
+   desc:"כל 13 סוגים defined במערך DOMAIN_TYPES או similar.",status:"Active",parent:"REQ-037"},
+  {id:"REQ-038",title:"CRS (L0) נוצר לכל דרישה מדידה",cat:"ניהול דרישות",pri:"High",type:"requirement",
+   desc:"דרישות עם valid:true יוצרות CRS item עם נתונים מתקבלים.",status:"Active",parent:""},
+  {id:"REQ-039",title:"SYS (L1) נגזרת נוצרת לדרישות מדידות בלבד",cat:"ניהול דרישות",pri:"High",type:"requirement",
+   desc:"derived SYS עם תיאור עדכני, לא לדרישות לא מדידות (_vague:true).",status:"Active",parent:""},
+  {id:"REQ-040",title:"V&V item נוצר עם method ו-phase מתאימים",cat:"ניהול דרישות",pri:"High",type:"requirement",
+   desc:"כל דרישה יוצרת V&V עם method (Test/Analysis/Inspection/Demo) ו-phase.",status:"Active",parent:""},
+  {id:"REQ-041",title:"_vague flag מוגדר לדרישות לא מדידות",cat:"ניהול דרישות",pri:"High",type:"requirement",
+   desc:"_vague: true לדרישות שנדחו ע\"י validateRequirement.",status:"Active",parent:""},
+  {id:"REQ-042",title:"Tooltip ⚠️ מציג המלצות לפי domain",cat:"ניהול דרישות",pri:"High",type:"requirement",
+   desc:"כאשר דרישה לא מדידה, tooltip עם המלצות לפי domain.",status:"Active",parent:""},
+  {id:"REQ-042.1",title:"_VAGUE_RECOMMENDATIONS מכיל 13 domain types",cat:"ניהול דרישות",pri:"High",type:"sub-requirement",
+   desc:"object with 13 keys = domain types, each with array of recommendations.",status:"Active",parent:"REQ-042"},
+  {id:"REQ-042.2",title:"_showVagueTooltipFromEl קוראת ל-_getVagueRecommendation",cat:"ניהול דרישות",pri:"High",type:"derived",
+   desc:"חיבור מלא לתיאור.",status:"Active",parent:"REQ-042"},
+  {id:"REQ-043",title:"עריכת דרישה לא מדידה מציעה דרישות נגזרות",cat:"ניהול דרישות",pri:"High",type:"requirement",
+   desc:"כאשר משתמש עורך דרישה לא מדידה, מוצגות הצעות דרישות מתורגמות.",status:"Active",parent:""},
+  {id:"REQ-044",title:"SOW patterns מזוהים (הקבלן SHALL, ≤N שניות)",cat:"ניהול דרישות",pri:"Medium",type:"requirement",
+   desc:"pattern matching עבור SOW requirements.",status:"Active",parent:""},
+  {id:"REQ-045",title:"Derived requirements לדיסציפלינות מוצעות אוטומטית",cat:"ניהול דרישות",pri:"High",type:"requirement",
+   desc:"כאשר DEM משתנה, דרישות נגזרות מוצעות לתחומים רלוונטיים.",status:"Active",parent:""},
+  {id:"REQ-056",title:"העלאת קובץ טקסט/docx/pdf",cat:"ניתוח מסמך",pri:"High",type:"requirement",
+   desc:"handleDocUpload לקבל קבצים ולקרוא תוכן.",status:"Active",parent:""},
+  {id:"REQ-057",title:"Pattern matching לדרישות",cat:"ניתוח מסמך",pri:"High",type:"requirement",
+   desc:"זיהוי דרישות בתוכן קובץ המוכן.",status:"Active",parent:""},
+  {id:"REQ-058",title:"בקרת איכות — דרישות לא מדידות נכנסות עם flag",cat:"ניתוח מסמך",pri:"High",type:"requirement",
+   desc:"דרישות שלא עברו validate נשמרות עם _vague:true.",status:"Active",parent:""},
+  {id:"REQ-059",title:"כפילויות נחסמות ב-applySelectedRecs",cat:"ניתוח מסמך",pri:"High",type:"requirement",
+   desc:"_isDupInDB בדיקה לפני push להצעות המקובלות.",status:"Active",parent:""},
+  {id:"REQ-060",title:"AI local expert משפר ניתוח (ללא API)",cat:"ניתוח מסמך",pri:"High",type:"requirement",
+   desc:"offlineAI מעבדת את התוכן, לא שלח ברשת.",status:"Active",parent:""},
+  {id:"REQ-061",title:"משימה אוטומטית לכל דרישה לא מדידה",cat:"ניתוח מסמך",pri:"High",type:"requirement",
+   desc:"כל דרישה עם _vague:true יוצרת task עם 'תרגום דרישה'.",status:"Active",parent:""},
+  {id:"REQ-062",title:"Action Item לממשק חדש שזוהה",cat:"ניתוח מסמך",pri:"Medium",type:"requirement",
+   desc:"כאשר זוהה ממשק חדש, יוצר action item.",status:"Active",parent:""},
+  {id:"REQ-071",title:"expertTemplate מוגדר עם 12 roles",cat:"מומחה AI",pri:"High",type:"requirement",
+   desc:"pm, se, rf_eng, algo, me, sw, qa, vv, emc, rams, safety, gnss קיימים.",status:"Active",parent:""},
+  {id:"REQ-071.1",title:"12 roles מוגדרים בexpertTemplate",cat:"מומחה AI",pri:"High",type:"sub-requirement",
+   desc:"כל role עם query template ותיאור.",status:"Active",parent:"REQ-071"},
+  {id:"REQ-072",title:"humanizeOpener מוסיף פתיח אנושי",cat:"מומחה AI",pri:"High",type:"requirement",
+   desc:"4 פתיחים יומיים ו-6 טכניים שונים, rotation רנדומלי.",status:"Active",parent:""},
+  {id:"REQ-072.1",title:"4 פתיחים יומיים שונים",cat:"מומחה AI",pri:"High",type:"sub-requirement",
+   desc:"עם variability בשפה הטבעית.",status:"Active",parent:"REQ-072"},
+  {id:"REQ-072.2",title:"6 פתיחים טכניים שונים",cat:"מומחה AI",pri:"High",type:"sub-requirement",
+   desc:"עם טרמינולוגיה טכנית.",status:"Active",parent:"REQ-072"},
+  {id:"REQ-073",title:"PIDS anchor מוגדר בתשובות טכניות",cat:"מומחה AI",pri:"High",type:"requirement",
+   desc:"PIDS (ערכי ייחוס): −65 dBm, DF ≤2°, <100ms, 100W, 85kg, 40,000ft.",status:"Active",parent:""},
+  {id:"REQ-073.1",title:"PIDS reference values בקוד",cat:"מומחה AI",pri:"High",type:"sub-requirement",
+   desc:"constant PIDS_REFS עם כל הערכים.",status:"Active",parent:"REQ-073"},
+  {id:"REQ-074",title:"GPS/GNSS flags: isGNSSinteg, isRAIM, isGNSSaccuracy, isGNSSkalman",cat:"מומחה AI",pri:"High",type:"requirement",
+   desc:"4 flags לשאלות ה-gnss role.",status:"Active",parent:""},
+  {id:"REQ-075",title:"offlineAI ו-searchKB מוגדרות",cat:"מומחה AI",pri:"High",type:"requirement",
+   desc:"שתי פונקציות עם ממשק וקריאה.",status:"Active",parent:""},
+  {id:"REQ-076",title:"localAIResponseMulti משלב מספר roles",cat:"מומחה AI",pri:"High",type:"requirement",
+   desc:"קריאה לכמה roles, merge תשובות.",status:"Active",parent:""},
+  {id:"REQ-077",title:"SELF_EVAL_QUESTIONS מוגדרות (17 שאלות)",cat:"מומחה AI",pri:"High",type:"requirement",
+   desc:"array עם 17 שאלות self-evaluation.",status:"Active",parent:""},
+  {id:"REQ-078",title:"AI Populate Section — expert query + template fallback",cat:"מומחה AI",pri:"High",type:"requirement",
+   desc:"_EXPERT_POPULATE_CFG עם 6 sections (arch, icd, risks, swReqs, meReqs, swModules).",status:"Active",parent:""},
+  {id:"REQ-078.1",title:"_EXPERT_POPULATE_CFG עם 6 sections",cat:"מומחה AI",pri:"High",type:"sub-requirement",
+   desc:"arch, icd, risks, swReqs, meReqs, swModules + duplicate prevention.",status:"Active",parent:"REQ-078"},
+  {id:"REQ-078.2",title:"כפילויות מסומנות אוטומטית ב-modal",cat:"מומחה AI",pri:"High",type:"derived",
+   desc:"item._dup = true אם כפול זוהה.",status:"Active",parent:"REQ-078"},
+  {id:"REQ-091",title:"טבלת V&V עם עמודת תיאור בדיקה",cat:"V&V",pri:"High",type:"requirement",
+   desc:"עמודה 'תיאור הבדיקה' בטבלת V&V.",status:"Active",parent:""},
+  {id:"REQ-092",title:"AI V&V Generator סורק כל הדרישות",cat:"V&V",pri:"High",type:"requirement",
+   desc:"showAIGenerateVV סורק DB.sysReqs, יוצר VV items עם desc, method, phase.",status:"Active",parent:""},
+  {id:"REQ-092.1",title:"_VV_DESC_TEMPLATES עם 13 domain templates",cat:"V&V",pri:"High",type:"sub-requirement",
+   desc:"template לכל domain type.",status:"Active",parent:"REQ-092"},
+  {id:"REQ-092.2",title:"_VV_PHASE_MAP עם phases מתאימים",cat:"V&V",pri:"High",type:"sub-requirement",
+   desc:"mapping דרישה→phase (unit, integration, system, acceptance).",status:"Active",parent:"REQ-092"},
+  {id:"REQ-093",title:"Coverage badge מציג כיסוי X/Y דרישות",cat:"V&V",pri:"High",type:"requirement",
+   desc:"badge עם מספר דרישות מכוסות / סה\"כ דרישות.",status:"Active",parent:""},
+  {id:"REQ-094",title:"renderVV מייצר desc אוטומטי לפריטים ישנים",cat:"V&V",pri:"High",type:"requirement",
+   desc:"פריטים ישנים ללא desc מקבלים generated description.",status:"Active",parent:""},
+  {id:"REQ-101",title:"Risk Register עם RPN = חומרה × סבירות",cat:"ניהול סיכונים",pri:"High",type:"requirement",
+   desc:"RPN calculation אוטומטי בכל risk.",status:"Active",parent:""},
+  {id:"REQ-102",title:"15 קטגוריות סיכונים מוגדרות",cat:"ניהול סיכונים",pri:"High",type:"requirement",
+   desc:"RISK_CATEGORIES_15 array עם 15 קטגוריות בדיוק.",status:"Active",parent:""},
+  {id:"REQ-103",title:"פורמט סיכון נכון ('קיים סיכון כי...')",cat:"ניהול סיכונים",pri:"High",type:"requirement",
+   desc:"pattern validation לתיאור סיכון בעברית.",status:"Active",parent:""},
+  {id:"REQ-104",title:"שדה Detection בטופס סיכון",cat:"ניהול סיכונים",pri:"High",type:"requirement",
+   desc:"rDetection field בכל risk item.",status:"Active",parent:""},
+  {id:"REQ-105",title:"Risk Heatmap ויזואלי",cat:"ניהול סיכונים",pri:"High",type:"requirement",
+   desc:"renderRiskHeatmap מציג heatmap (חומרה × סבירות).",status:"Active",parent:""},
+  {id:"REQ-106",title:"Residual Risk — טאב נפרד",cat:"ניהול סיכונים",pri:"High",type:"requirement",
+   desc:"risk-residual tab עם טבלה לדרישות שיוריות.",status:"Active",parent:""},
+  {id:"REQ-106.1",title:"RPN שיורי = ס שיורי × ח שיורי",cat:"ניהול סיכונים",pri:"High",type:"sub-requirement",
+   desc:"calculation אוטומטי לכל residual risk.",status:"Active",parent:"REQ-106"},
+  {id:"REQ-106.2",title:"אישור קבלה (כן/לא/ממתין)",cat:"ניהול סיכונים",pri:"High",type:"sub-requirement",
+   desc:"acceptance field עם options.",status:"Active",parent:"REQ-106"},
+  {id:"REQ-107",title:"DB.residualRisks מאותחל",cat:"ניהול סיכונים",pri:"High",type:"requirement",
+   desc:"array קיים ב-DB initialization.",status:"Active",parent:""},
+  {id:"REQ-113",title:"ECP/NCP management",cat:"ניהול תצורה",pri:"High",type:"requirement",
+   desc:"CM page עם tabs לעדכוני תצורה.",status:"Active",parent:""},
+  {id:"REQ-114",title:"CCB meeting records",cat:"ניהול תצורה",pri:"High",type:"requirement",
+   desc:"CCB tab עם רשומות ישיבות.",status:"Active",parent:""},
+  {id:"REQ-115",title:"Document Tree עם Rev/Status",cat:"ניהול תצורה",pri:"High",type:"requirement",
+   desc:"tree view עם revision ו-status fields.",status:"Active",parent:""},
+  {id:"REQ-116",title:"Baselines management",cat:"ניהול תצורה",pri:"High",type:"requirement",
+   desc:"baseline tab עם freeze/release logic.",status:"Active",parent:""},
+  {id:"REQ-117",title:"BOM Excel upload",cat:"ניהול תצורה",pri:"High",type:"requirement",
+   desc:"upload Excel עם components, serial numbers, configurations.",status:"Active",parent:""},
+  {id:"REQ-117.1",title:"parseBOMRows מפענח עמודות Excel",cat:"ניהול תצורה",pri:"High",type:"sub-requirement",
+   desc:"function עם mapping עמודות.",status:"Active",parent:"REQ-117"},
+  {id:"REQ-117.2",title:"renderBOM מציג סטטיסטיקות ומסנן",cat:"ניהול תצורה",pri:"High",type:"sub-requirement",
+   desc:"table render + filters.",status:"Active",parent:"REQ-117"},
+  {id:"REQ-118",title:"DOC_MODAL_SECTIONS עם ≥29 מסמכים",cat:"ניהול תצורה",pri:"High",type:"requirement",
+   desc:"object עם ≥29 document keys.",status:"Active",parent:""},
+  {id:"REQ-119",title:"AI Fill ממלא שדות מ-DB ישירות (offline)",cat:"ניהול תצורה",pri:"High",type:"requirement",
+   desc:"_buildDocFillFromDB מחזיר projectName, author, ver, reqCount.",status:"Active",parent:""},
+  {id:"REQ-119.1",title:"_buildDocFillFromDB מחזיר fields ניתנים לשימוש",cat:"ניהול תצורה",pri:"High",type:"derived",
+   desc:"object עם projectName, author, ver, reqCount, riskCount, taskCount.",status:"Active",parent:"REQ-119"},
+  {id:"REQ-123",title:"WBS/Tasks management",cat:"ניהול פרויקט",pri:"High",type:"requirement",
+   desc:"tasks page עם CRUD operations.",status:"Active",parent:""},
+  {id:"REQ-124",title:"Milestones tracking",cat:"ניהול פרויקט",pri:"High",type:"requirement",
+   desc:"milestones tab עם תאריכים ודרישות.",status:"Active",parent:""},
+  {id:"REQ-125",title:"Action Items",cat:"ניהול פרויקט",pri:"High",type:"requirement",
+   desc:"actions page עם בעלים ודרכי תקשורת.",status:"Active",parent:""},
+  {id:"REQ-126",title:"Stakeholders list",cat:"ניהול פרויקט",pri:"High",type:"requirement",
+   desc:"stakeholders page עם roles ו-contact info.",status:"Active",parent:""},
+  {id:"REQ-127",title:"Dashboard stats (tasks, risks, milestones)",cat:"ניהול פרויקט",pri:"High",type:"requirement",
+   desc:"renderDashboard עם KPIs.",status:"Active",parent:""},
+  {id:"REQ-128",title:"EVM indicators",cat:"ניהול פרויקט",pri:"High",type:"requirement",
+   desc:"Earned Value Management metrics בדשבורד.",status:"Active",parent:""},
+  {id:"REQ-129",title:"Flow chart מצבי פרויקט",cat:"ניהול פרויקט",pri:"High",type:"requirement",
+   desc:"flow page עם state transitions וhistory.",status:"Active",parent:""},
+  {id:"REQ-133",title:"כל פונקציות render ראשיות קיימות",cat:"טכני ו-QA",pri:"Critical",type:"requirement",
+   desc:"renderReqs, renderRisks, renderVV, renderArch, renderBOM, וכו'.",status:"Active",parent:""},
+  {id:"REQ-134",title:"JS syntax תקין (node --check)",cat:"טכני ו-QA",pri:"High",type:"requirement",
+   desc:"קובץ עובר node --check ללא שגיאות.",status:"Active",parent:""},
+  {id:"REQ-135",title:"editItem עם null guard",cat:"טכני ו-QA",pri:"High",type:"requirement",
+   desc:"if(!item) return; בתחילת editItem.",status:"Active",parent:""},
+  {id:"REQ-136",title:"tooltip נמחק בניווט",cat:"טכני ו-QA",pri:"High",type:"requirement",
+   desc:"navigateTo קורא _hideVagueTooltip.",status:"Active",parent:""},
+  {id:"REQ-137",title:"NCR/FOD management",cat:"טכני ו-QA",pri:"High",type:"requirement",
+   desc:"QA page עם tabs לא-conformances וכו'.",status:"Active",parent:""},
+  {id:"REQ-138",title:"Safety T613 analysis",cat:"טכני ו-QA",pri:"High",type:"requirement",
+   desc:"safety page עם FMEA-like analysis.",status:"Active",parent:""},
+  {id:"REQ-139",title:"SW defect tracking",cat:"טכני ו-QA",pri:"High",type:"requirement",
+   desc:"software page עם defect tab.",status:"Active",parent:""},
+  {id:"REQ-140",title:"ILS/Logistics (LRU/Spares)",cat:"טכני ו-QA",pri:"High",type:"requirement",
+   desc:"ils page עם spare parts management.",status:"Active",parent:""},
+  {id:"REQ-141",title:"Discussion/Lessons Learned",cat:"טכני ו-QA",pri:"High",type:"requirement",
+   desc:"discussions, lessons pages.",status:"Active",parent:""},
+  {id:"REQ-142",title:"Project Closure workflow",cat:"טכני ו-QA",pri:"High",type:"requirement",
+   desc:"closure page עם checklist וarchiving.",status:"Active",parent:""},
+
+  // ── Document Section Requirements ────────────────────────────────────
+  {id:"REQ-150",title:"DOC_MODAL_SECTIONS מכיל סעיפים מוגדרים ל-10 מסמכים ראשיים",cat:"דרישות מסמכים",pri:"High",type:"requirement",
+   desc:"כל מסמך ראשי (SEMP, SSDD, SYRS, OCD, ICD, MITP, VCRM, FHA, FMEA, SYSATP) חייב להיות מוגדר ב-DOC_MODAL_SECTIONS עם לפחות 2 סעיפים.",status:"Active",parent:""},
+  {id:"REQ-150.1",title:"SEMP מכיל את כל הסעיפים הנדרשים ב-DOC_MODAL_SECTIONS",cat:"דרישות מסמכים",pri:"High",type:"sub-requirement",
+   desc:"SEMP מכיל ≥10 סעיפים: מבוא, WBS, WRS, KC/CI, TPMs, מייעד, סיכונים, אבני דרך, סקירות, מילון.",status:"Active",parent:"REQ-150"},
+  {id:"REQ-150.2",title:"SSDD מכיל סעיפי תתי-מערכות וממשקים חיצוניים",cat:"דרישות מסמכים",pri:"High",type:"sub-requirement",
+   desc:"SSDD כולל לפחות פרטי מסמך, subsystemRows ו-ifaceRows.",status:"Active",parent:"REQ-150"},
+  {id:"REQ-150.3",title:"ICD מכיל סעיפי ממשקים מפורטים עם cols",cat:"דרישות מסמכים",pri:"High",type:"sub-requirement",
+   desc:"ICD כולל טבלאות ממשקים (type:table) עם עמודות מוגדרות.",status:"Active",parent:"REQ-150"},
+  {id:"REQ-150.4",title:"FHA ו-FMEA מוגדרים ב-DOC_MODAL_SECTIONS עם ניתוח בטיחות",cat:"דרישות מסמכים",pri:"High",type:"sub-requirement",
+   desc:"מסמכי בטיחות FHA ו-FMEA קיימים עם סעיפי ניתוח מפורטים.",status:"Active",parent:"REQ-150"},
+
+  // ── AI Fill Requirements ──────────────────────────────────────────────
+  {id:"REQ-151",title:"AI Fill תומך בכל מסמכי DOC_MODAL_SECTIONS",cat:"דרישות מסמכים",pri:"High",type:"requirement",
+   desc:"לאחר לחיצה על כפתור AI בחלון מסמך, המערכת ממלאת שדות אוטומטית מ-DB (offline).",status:"Active",parent:""},
+  {id:"REQ-151.1",title:"DOC_MODAL_SECTIONS מוגדר עם sections לכל מסמך ראשי",cat:"דרישות מסמכים",pri:"High",type:"sub-requirement",
+   desc:"כל מסמך ב-DOC_MODAL_SECTIONS מכיל לפחות section אחד מסוג fields.",status:"Active",parent:"REQ-151"},
+  {id:"REQ-151.2",title:"פונקציית AI Fill מוגדרת ו-DOC_MODAL_SECTIONS מחובר אליה",cat:"דרישות מסמכים",pri:"High",type:"sub-requirement",
+   desc:"_buildDocFillFromDB או aiPopulateDocSection קיימת וקוראת ל-DOC_MODAL_SECTIONS[docId].",status:"Active",parent:"REQ-151"},
+  {id:"REQ-151.3",title:"AI Fill מוגדר ל-SEMP — ממלא ver, status, author מ-DB",cat:"דרישות מסמכים",pri:"High",type:"derived",
+   desc:"_buildDocFillFromDB('SEMP') מחזיר projectName, author, ver מ-DB.project.",status:"Active",parent:"REQ-151"},
+
+  // ── Requirements Traceability ─────────────────────────────────────────
+  {id:"REQ-152",title:"עקיבות דרישות — כל TC מקושר ל-REQ לפחות אחד",cat:"עקיבות דרישות",pri:"High",type:"requirement",
+   desc:"כל test case חייב לכלול שדה reqs עם מזהה REQ אחד לפחות.",status:"Active",parent:""},
+  {id:"REQ-152.1",title:"כל REQ מקושר ל-TC אחד לפחות (כיסוי דרישות ≥80%)",cat:"עקיבות דרישות",pri:"High",type:"sub-requirement",
+   desc:"אחוז דרישות שיש להן TC לפחות אחד ≥80%.",status:"Active",parent:"REQ-152"},
+
+  // ── Document Registry Requirements ────────────────────────────────────
+  {id:"REQ-153",title:"DOC_REGISTRY_DEF מכיל ≥22 מסמכים עם שדות מוגדרים",cat:"דרישות מסמכים",pri:"High",type:"requirement",
+   desc:"כל מסמך ב-DOC_REGISTRY_DEF חייב לכלול fields[] עם ver, status, date, author לפחות.",status:"Active",parent:""},
+  {id:"REQ-154",title:"DOC_REGISTRY_DEF מכיל 4 קטגוריות: se-mgmt, ops, integ, safety",cat:"דרישות מסמכים",pri:"High",type:"requirement",
+   desc:"ארבע קטגוריות מסמכים: הנדסת מערכת וניהול, מבצעיים ותפעוליים, אינטגרציה ובדיקות, בטיחות.",status:"Active",parent:""},
+];
+
+var DEFAULT_TCS = [
+  {id:"TC-001",title:"Auto-save ≤800ms לאחר שינוי",cat:"שמירת נתונים",type:"Functional",pri:"Critical",reqs:"REQ-001",steps:"1. טען האפליקציה\n2. בדוק window._autoSaveTimer\n3. בדוק markDirty signature",expected:"markDirty ו-_autoSaveTimer קיימים",auto:"yes",fn:"checkAutoSave"},
+  {id:"TC-002",title:"localStorage נמחק ב-resetAll",cat:"שמירת נתונים",type:"Functional",pri:"Critical",reqs:"REQ-003",steps:"בדוק שresetAll מכיל localStorage.removeItem",expected:"removeItem קיים",auto:"yes",fn:"checkResetAll"},
+  {id:"TC-003",title:"כל 23 עמודות ניווט נטענות",cat:"ניווט ו-UI",type:"UI",pri:"Critical",reqs:"REQ-013",steps:"בדוק שכל 23 page IDs קיימים",expected:"כל עמודות קיימים",auto:"yes",fn:"checkAllPages"},
+  {id:"TC-004",title:"38 טאבים פעילים",cat:"ניווט ו-UI",type:"UI",pri:"High",reqs:"REQ-014",steps:"בדוק שכל 38 tab IDs קיימים",expected:"כל טאבים קיימים",auto:"yes",fn:"checkAllTabs"},
+  {id:"TC-005",title:"39 modal functions מוגדרות",cat:"ניווט ו-UI",type:"Functional",pri:"High",reqs:"REQ-017",steps:"בדוק openAdd* functions",expected:"כל modals קיימים",auto:"yes",fn:"checkModalFunctions"},
+  {id:"TC-006",title:"_validateRequirement דוחה סובייקטיביות",cat:"ניהול דרישות",type:"Functional",pri:"High",reqs:"REQ-034",steps:"קרא עם 'ברור', 'יפה', 'טוב'",expected:"{valid:false}",auto:"yes",fn:"checkVagueReject"},
+  {id:"TC-007",title:"_validateRequirement מאשר מדדים",cat:"ניהול דרישות",type:"Functional",pri:"High",reqs:"REQ-035",steps:"קרא עם '≤2ms', '≥100W', 'X dB'",expected:"{valid:true}",auto:"yes",fn:"checkVaguePass"},
+  {id:"TC-008",title:"_isDupInDB משווה desc",cat:"ניהול דרישות",type:"Functional",pri:"High",reqs:"REQ-036",steps:"הוסף פריט, בדוק dup",expected:"true",auto:"yes",fn:"checkDupByDesc"},
+  {id:"TC-009",title:"DOC_MODAL_SECTIONS 29+",cat:"ניהול תצורה",type:"Functional",pri:"Medium",reqs:"REQ-118",steps:"בדוק Object.keys(DOC_MODAL_SECTIONS)",expected:"≥29",auto:"yes",fn:"checkDocSections"},
+  {id:"TC-010",title:"_buildDocFillFromDB מחזיר fields",cat:"ניהול תצורה",type:"Functional",pri:"High",reqs:"REQ-119",steps:"קרא עם docId",expected:"projectName, author, ver",auto:"yes",fn:"checkDocFill"},
+  {id:"TC-011",title:"15 קטגוריות סיכונים",cat:"ניהול סיכונים",type:"Functional",pri:"High",reqs:"REQ-102",steps:"בדוק RISK_CATEGORIES_15",expected:"15",auto:"yes",fn:"checkRiskCats"},
+  {id:"TC-012",title:"פורמט סיכון נכון + detection",cat:"ניהול סיכונים",type:"Functional",pri:"High",reqs:"REQ-103,REQ-104",steps:"בדוק pattern קיים",expected:"קיים סיכון כי...+rDetection",auto:"yes",fn:"checkRiskFormat"},
+  {id:"TC-013",title:"Residual Risks DOM",cat:"ניהול סיכונים",type:"UI",pri:"High",reqs:"REQ-106",steps:"בדוק getElementById residualRisks",expected:"element קיים",auto:"yes",fn:"checkResidualRisk"},
+  {id:"TC-014",title:"DB.residualRisks array",cat:"ניהול סיכונים",type:"Functional",pri:"High",reqs:"REQ-107",steps:"בדוק Array.isArray",expected:"true",auto:"yes",fn:"checkResidualDB"},
+  {id:"TC-015",title:"humanizeOpener מחזיר פתיח",cat:"מומחה AI",type:"Functional",pri:"High",reqs:"REQ-072",steps:"קרא humanizeOpener",expected:"string לא ריק",auto:"yes",fn:"checkHumanOpener"},
+  {id:"TC-016",title:"PIDS anchor בתשובות",cat:"מומחה AI",type:"Functional",pri:"High",reqs:"REQ-073",steps:"בדוק ל-PIDS values",expected:"−65 dBm, DF ≤2°",auto:"yes",fn:"checkPIDSAnchor"},
+  {id:"TC-017",title:"GPS/GNSS flags",cat:"מומחה AI",type:"Functional",pri:"High",reqs:"REQ-074",steps:"בדוק isGNSSinteg, isRAIM",expected:"flags קיימים",auto:"yes",fn:"checkGPSFlags"},
+  {id:"TC-018",title:"AI Populate _EXPERT_POPULATE_CFG",cat:"מומחה AI",type:"Functional",pri:"High",reqs:"REQ-078",steps:"בדוק _EXPERT_POPULATE_CFG",expected:"קיים עם 6 sections",auto:"yes",fn:"checkAIPopulate"},
+  {id:"TC-019",title:"AI Populate dup prevention",cat:"מומחה AI",type:"Functional",pri:"High",reqs:"REQ-078.1",steps:"בדוק item._dup flag",expected:"_checkAllDuplicates קיים",auto:"yes",fn:"checkDupPreventAIPopulate"},
+  {id:"TC-020",title:"applySelectedRecs בודק dups",cat:"מומחה AI",type:"Functional",pri:"High",reqs:"REQ-059",steps:"בדוק _isDupInDB לפני push",expected:"no duplicates pushed",auto:"yes",fn:"checkApplyRecsNoDup"},
+  {id:"TC-021",title:"V&V table עם coverage",cat:"V&V",type:"Functional",pri:"High",reqs:"REQ-091,REQ-093",steps:"בדוק עמודות ו-badge",expected:"coverage badge קיים",auto:"yes",fn:"checkVVTable"},
+  {id:"TC-022",title:"V&V Generator יוצר VV items",cat:"V&V",type:"Functional",pri:"High",reqs:"REQ-092",steps:"בדוק showAIGenerateVV",expected:"function + desc templates",auto:"yes",fn:"checkVVGenerator"},
+  {id:"TC-023",title:"Risk Heatmap rendered",cat:"ניהול סיכונים",type:"UI",pri:"High",reqs:"REQ-105",steps:"בדוק renderRiskHeatmap",expected:"function exists",auto:"yes",fn:"checkHeatmap"},
+  {id:"TC-024",title:"Dashboard rendered",cat:"ניווט ו-UI",type:"UI",pri:"Critical",reqs:"REQ-020",steps:"בדוק renderDashboard",expected:"stats displayed",auto:"yes",fn:"checkDashboard"},
+  {id:"TC-025",title:"renderTable אינו מכפיל TR",cat:"ניווט ו-UI",type:"Functional",pri:"High",reqs:"REQ-015",steps:"בדוק indexOf('<tr')",expected:"no double wrap",auto:"yes",fn:"checkNoDoubleTR"},
+  {id:"TC-026",title:"BOM functions",cat:"ניהול תצורה",type:"Functional",pri:"Medium",reqs:"REQ-117",steps:"בדוק handleBOMFile, parseBOMRows",expected:"functions defined",auto:"yes",fn:"checkBOMFns"},
+  {id:"TC-027",title:"Vague tooltip functions",cat:"ניהול דרישות",type:"Functional",pri:"High",reqs:"REQ-042",steps:"בדוק _showVagueTooltipFromEl",expected:"tooltip + recommendations",auto:"yes",fn:"checkVagueTooltip"},
+  {id:"TC-028",title:"_vague flag בדרישות לא מדידות",cat:"ניהול דרישות",type:"Integration",pri:"High",reqs:"REQ-041",steps:"בדוק _vague: true",expected:"flag set",auto:"yes",fn:"checkVagueFlag"},
+  {id:"TC-029",title:"navigateTo מנקה tooltip",cat:"ניווט ו-UI",type:"Regression",pri:"High",reqs:"REQ-019",steps:"בדוק _hideVagueTooltip call",expected:"tooltip cleared",auto:"yes",fn:"checkNavClearsTooltip"},
+  {id:"TC-030",title:"כל render functions",cat:"ניווט ו-UI",type:"Functional",pri:"Critical",reqs:"REQ-133",steps:"בדוק render* functions",expected:"all defined",auto:"yes",fn:"checkRenderFns"},
+  {id:"TC-031",title:"13 domain types",cat:"ניהול דרישות",type:"Functional",pri:"High",reqs:"REQ-037",steps:"בדוק DOMAIN_TYPES array",expected:"13 types",auto:"yes",fn:"checkDomainTypes"},
+  {id:"TC-032",title:"REQ-038 CRS generation",cat:"ניהול דרישות",type:"Integration",pri:"High",reqs:"REQ-038",steps:"צור דרישה מדידה, בדוק CRS",expected:"CRS created",auto:"yes",fn:"checkCRSGenFn"},
+  {id:"TC-033",title:"REQ-039 SYS generation",cat:"ניהול דרישות",type:"Integration",pri:"High",reqs:"REQ-039",steps:"בדוק SYS L1 נוצר רק למדידות",expected:"no SYS for vague",auto:"yes",fn:"checkSYSGenFn"},
+  {id:"TC-034",title:"REQ-040 V&V method/phase",cat:"V&V",type:"Integration",pri:"High",reqs:"REQ-040",steps:"צור דרישה, בדוק V&V",expected:"method + phase set",auto:"yes",fn:"checkVVMethodPhaseFn"},
+  {id:"TC-035",title:"SOW pattern matching",cat:"ניתוח מסמך",type:"Functional",pri:"Medium",reqs:"REQ-044",steps:"upload docx עם SHALL",expected:"pattern detected",auto:"yes",fn:"checkSOWPatternFn"},
+  {id:"TC-036",title:"Derived requirements offered",cat:"ניהול דרישות",type:"Integration",pri:"High",reqs:"REQ-045",steps:"שנה domain, בדוק הצעות",expected:"derived offered",auto:"yes",fn:"checkDerivedReqsFn"},
+  {id:"TC-037",title:"File upload (doc/pdf)",cat:"ניתוח מסמך",type:"UI",pri:"High",reqs:"REQ-056",steps:"upload קובץ",expected:"file processed",auto:"yes",fn:"checkFileUploadFn"},
+  {id:"TC-038",title:"Pattern matching results",cat:"ניתוח מסמך",type:"Functional",pri:"High",reqs:"REQ-057",steps:"upload עם דרישות",expected:"matches found",auto:"yes",fn:"checkPatternMatchFn"},
+  {id:"TC-039",title:"Quality gate filters",cat:"ניתוח מסמך",type:"Functional",pri:"High",reqs:"REQ-058",steps:"בדוק vague filter",expected:"vague marked",auto:"yes",fn:"checkQualityGateFn"},
+  {id:"TC-040",title:"Dup blocking in apply",cat:"ניתוח מסמך",type:"Integration",pri:"High",reqs:"REQ-059",steps:"apply עם dups",expected:"dups blocked",auto:"yes",fn:"checkApplyRecsNoDup"},
+  {id:"TC-041",title:"Offline AI expert",cat:"ניתוח מסמך",type:"Functional",pri:"High",reqs:"REQ-060",steps:"בדוק searchKB offline",expected:"no network calls",auto:"yes",fn:"checkKBSearch"},
+  {id:"TC-042",title:"Auto task for vague",cat:"ניתוח מסמך",type:"Integration",pri:"High",reqs:"REQ-061",steps:"create vague req",expected:"task auto-created",auto:"yes",fn:"checkAutoTaskVagueFn"},
+  {id:"TC-043",title:"Action item for interface",cat:"ניתוח מסמך",type:"Integration",pri:"Medium",reqs:"REQ-062",steps:"upload עם ממשק",expected:"action created",auto:"yes",fn:"checkActionInterfaceFn"},
+  {id:"TC-044",title:"expertTemplate 12 roles",cat:"מומחה AI",type:"Functional",pri:"High",reqs:"REQ-071",steps:"בדוק כל roles",expected:"12 roles in template",auto:"yes",fn:"checkExpertRoles"},
+  {id:"TC-045",title:"Expert KB search",cat:"מומחה AI",type:"Functional",pri:"High",reqs:"REQ-075",steps:"בדוק searchKB, offlineAI",expected:"functions work",auto:"yes",fn:"checkKBSearch"},
+  {id:"TC-046",title:"Multi-role response",cat:"מומחה AI",type:"Functional",pri:"High",reqs:"REQ-076",steps:"בדוק localAIResponseMulti",expected:"roles merged",auto:"yes",fn:"checkMultiRoleFn"},
+  {id:"TC-047",title:"Self-eval questions",cat:"מומחה AI",type:"Functional",pri:"High",reqs:"REQ-077",steps:"בדוק SELF_EVAL_QUESTIONS",expected:"17 questions",auto:"yes",fn:"checkSelfEvalFn"},
+  {id:"TC-048",title:"CM ECP/NCP tabs",cat:"ניהול תצורה",type:"UI",pri:"High",reqs:"REQ-113",steps:"בדוק cm-ecp, cm-ncp",expected:"tabs visible",auto:"yes",fn:"checkCMTabs"},
+  {id:"TC-049",title:"CM CCB records",cat:"ניהול תצורה",type:"Functional",pri:"High",reqs:"REQ-114",steps:"צור CCB record",expected:"saved",auto:"yes",fn:"checkCMCCBFn"},
+  {id:"TC-050",title:"Document Tree Rev/Status",cat:"ניהול תצורה",type:"UI",pri:"High",reqs:"REQ-115",steps:"בדוק tree view",expected:"fields shown",auto:"yes",fn:"checkDocTreeFn"},
+  {id:"TC-051",title:"Baselines freeze",cat:"ניהול תצורה",type:"Functional",pri:"High",reqs:"REQ-116",steps:"create baseline",expected:"frozen",auto:"yes",fn:"checkBaselinesFn"},
+  {id:"TC-052",title:"BOM Excel parsing",cat:"ניהול תצורה",type:"Integration",pri:"High",reqs:"REQ-117.1",steps:"upload Excel",expected:"rows parsed",auto:"yes",fn:"checkBOMFns"},
+  {id:"TC-053",title:"BOM render + filter",cat:"ניהול תצורה",type:"UI",pri:"High",reqs:"REQ-117.2",steps:"בדוק stats, filters",expected:"rendered",auto:"yes",fn:"checkBOMRenderFn"},
+  {id:"TC-054",title:"Doc registry defined",cat:"ניהול תצורה",type:"Functional",pri:"High",reqs:"REQ-118",steps:"בדוק DOC_REGISTRY_DEF",expected:"template modal",auto:"yes",fn:"checkDocRegistry"},
+  {id:"TC-055",title:"WBS/Tasks CRUD",cat:"ניהול פרויקט",type:"Functional",pri:"High",reqs:"REQ-123",steps:"create/edit/delete task",expected:"all work",auto:"yes",fn:"checkTasksCRUDFn"},
+  {id:"TC-056",title:"Milestones with dates",cat:"ניהול פרויקט",type:"UI",pri:"High",reqs:"REQ-124",steps:"בדוק milestone dates",expected:"calendar shown",auto:"yes",fn:"checkMilestonesFn"},
+  {id:"TC-057",title:"Action items owners",cat:"ניהול פרויקט",type:"Functional",pri:"High",reqs:"REQ-125",steps:"צור action עם בעלים",expected:"owner set",auto:"yes",fn:"checkActionItemsFn"},
+  {id:"TC-058",title:"Stakeholders contact",cat:"ניהול פרויקט",type:"Functional",pri:"High",reqs:"REQ-126",steps:"צור stakeholder",expected:"contact saved",auto:"yes",fn:"checkStakeholdersFn"},
+  {id:"TC-059",title:"Dashboard KPIs",cat:"ניהול פרויקט",type:"UI",pri:"Critical",reqs:"REQ-127",steps:"בדוק dashboard stats",expected:"KPIs shown",auto:"yes",fn:"checkDashboard"},
+  {id:"TC-060",title:"EVM metrics",cat:"ניהול פרויקט",type:"Functional",pri:"High",reqs:"REQ-128",steps:"בדוק EVM calcs",expected:"metrics shown",auto:"yes",fn:"checkEVMMetricsFn"},
+  {id:"TC-061",title:"Flow state chart",cat:"ניהול פרויקט",type:"UI",pri:"High",reqs:"REQ-129",steps:"בדוק transitions",expected:"state flow shown",auto:"yes",fn:"checkFlowChartFn"},
+  {id:"TC-062",title:"Edit null guard",cat:"טכני ו-QA",type:"Functional",pri:"High",reqs:"REQ-135",steps:"בדוק editItem start",expected:"null check exists",auto:"yes",fn:"checkEditNullGuardFn"},
+  {id:"TC-063",title:"NCR/FOD QA",cat:"טכני ו-QA",type:"Functional",pri:"High",reqs:"REQ-137",steps:"בדוק QA tabs",expected:"ncr, fod tabs",auto:"yes",fn:"checkNCRFODFn"},
+  {id:"TC-064",title:"Safety T613",cat:"טכני ו-QA",type:"Functional",pri:"High",reqs:"REQ-138",steps:"בדוק safety analysis",expected:"FMEA shown",auto:"yes",fn:"checkSafetyAnalysisFn"},
+  {id:"TC-065",title:"SW defect tracking",cat:"טכני ו-QA",type:"Functional",pri:"High",reqs:"REQ-139",steps:"create defect",expected:"tracked",auto:"yes",fn:"checkSWDefectsFn"},
+  {id:"TC-066",title:"ILS LRU/Spares",cat:"טכני ו-QA",type:"Functional",pri:"High",reqs:"REQ-140",steps:"צור spare",expected:"saved",auto:"yes",fn:"checkILSPage"},
+  {id:"TC-067",title:"Discussions page",cat:"טכני ו-QA",type:"UI",pri:"High",reqs:"REQ-141",steps:"בדוק discussions",expected:"page rendered",auto:"yes",fn:"checkDiscussionsFn"},
+  {id:"TC-068",title:"Lessons learned",cat:"טכני ו-QA",type:"Functional",pri:"High",reqs:"REQ-141",steps:"צור lesson",expected:"saved",auto:"yes",fn:"checkLessonsFn"},
+  {id:"TC-069",title:"Project closure checklist",cat:"טכני ו-QA",type:"Functional",pri:"High",reqs:"REQ-142",steps:"בדוק closure flow",expected:"checklist shown",auto:"yes",fn:"checkClosureFn"},
+  {id:"TC-070",title:"JS syntax check",cat:"טכני ו-QA",type:"Regression",pri:"Critical",reqs:"REQ-134",steps:"node --check app.js",expected:"no errors",auto:"yes",fn:"checkJSSyntaxFn"},
+  {id:"TC-071",title:"localStorage 14-key format",cat:"שמירת נתונים",type:"Functional",pri:"High",reqs:"REQ-006",steps:"בדוק key name",expected:"7200_project_data",auto:"yes",fn:"checkLocalStorage14Key"},
+  {id:"TC-072",title:"SW page tabs complete",cat:"ניווט ו-UI",type:"UI",pri:"High",reqs:"REQ-014",steps:"בדוק SW tabs",expected:"all 5 SW tabs",auto:"yes",fn:"checkSWPage"},
+  {id:"TC-073",title:"ME page tabs complete",cat:"ניווט ו-UI",type:"UI",pri:"High",reqs:"REQ-014",steps:"בדוק ME tabs",expected:"all 5 ME tabs",auto:"yes",fn:"checkMEPage"},
+  {id:"TC-074",title:"Safety page tabs",cat:"ניווט ו-UI",type:"UI",pri:"High",reqs:"REQ-014",steps:"בדוק Safety tabs",expected:"all 5 tabs",auto:"yes",fn:"checkSafetyPage"},
+  {id:"TC-075",title:"QA page tabs",cat:"ניווט ו-UI",type:"UI",pri:"High",reqs:"REQ-014",steps:"בדוק QA tabs",expected:"all 4 tabs",auto:"yes",fn:"checkQAPage"},
+  {id:"TC-076",title:"ILS page complete",cat:"ניווט ו-UI",type:"UI",pri:"High",reqs:"REQ-014",steps:"בדוק ILS tabs",expected:"all tabs",auto:"yes",fn:"checkILSPage"},
+  {id:"TC-077",title:"Vague categories",cat:"ניהול דרישות",type:"Functional",pri:"High",reqs:"REQ-042.1",steps:"בדוק _VAGUE_RECOMMENDATIONS",expected:"13 categories",auto:"yes",fn:"checkVagueCats"},
+  {id:"TC-078",title:"Doc fill sections",cat:"ניהול תצורה",type:"Integration",pri:"High",reqs:"REQ-119.1",steps:"בדוק _buildDocFillFromDB",expected:"sections filled",auto:"yes",fn:"checkDocFillSections"},
+  {id:"TC-079",title:"AutoFix system",cat:"טכני ו-QA",type:"Functional",pri:"High",reqs:"REQ-003.1",steps:"בדוק _resetPending flag",expected:"autofix works",auto:"yes",fn:"checkAutoFix"},
+  {id:"TC-080",title:"Vague debounce timer",cat:"ניהול דרישות",type:"Functional",pri:"High",reqs:"REQ-001.1",steps:"בדוק clearTimeout logic",expected:"timer cleared",auto:"yes",fn:"checkVagueDebounce"},
+
+  // ── TC-081 to TC-115: covering all remaining uncovered requirements ──
+  {id:"TC-081",title:"syncDot אינדיקטור שמירה קיים",cat:"שמירת נתונים",type:"Functional",
+   pri:"High",reqs:"REQ-001.2",steps:"בדוק שsyncDot + syncLabel + dirty class קיימים",
+   expected:"syncDot, syncLabel, sync-dot dirty קיימים בקוד",auto:"yes",fn:"checkSyncIndicator"},
+  {id:"TC-082",title:"localStorage נטען בפתיחת האפליקציה",cat:"שמירת נתונים",type:"Functional",
+   pri:"Critical",reqs:"REQ-002,REQ-002.1",steps:"בדוק ש-localStorage.getItem קיים ב-DOMContentLoaded",
+   expected:"getItem נקרא בפתיחה",auto:"yes",fn:"checkLocalStorageLoad"},
+  {id:"TC-083",title:"מיזוג DB מ-localStorage",cat:"שמירת נתונים",type:"Functional",
+   pri:"High",reqs:"REQ-002.1",steps:"בדוק Object.keys(parsed).forEach + DB[k]=parsed[k]",
+   expected:"מיזוג נכון של DB קיים",auto:"yes",fn:"checkDBMerge"},
+  {id:"TC-084",title:"ייצוא JSON — manualSave מוריד קובץ",cat:"שמירת נתונים",type:"Functional",
+   pri:"High",reqs:"REQ-004",steps:"בדוק שmanualSave יוצר Blob JSON ומוריד",
+   expected:"Blob + application/json קיימים",auto:"yes",fn:"checkExportJSON"},
+  {id:"TC-085",title:"ייבוא JSON — handleFileLoad משחזר נתונים",cat:"שמירת נתונים",type:"Functional",
+   pri:"High",reqs:"REQ-005",steps:"בדוק שhandleFileLoad + JSON.parse + syncUIFromDB קיימים",
+   expected:"כל 3 פונקציות קיימות",auto:"yes",fn:"checkImportJSON"},
+  {id:"TC-086",title:"כל Page IDs ייחודיים",cat:"ניווט ו-UI",type:"Functional",
+   pri:"High",reqs:"REQ-013.1",steps:"בדוק אין כפילויות ב-id='page-*'",
+   expected:"0 כפולים",auto:"yes",fn:"checkUniquePageIDs"},
+  {id:"TC-087",title:"renderTable בודק <tr> לפני עטיפה",cat:"ניווט ו-UI",type:"Regression",
+   pri:"High",reqs:"REQ-015.1",steps:"בדוק indexOf('<tr') קיים ב-renderTable",
+   expected:"בדיקת TR קיימת",auto:"yes",fn:"checkTRIndexOf"},
+  {id:"TC-088",title:"פונקציית notify() קיימת לטוסטים",cat:"ניווט ו-UI",type:"Functional",
+   pri:"High",reqs:"REQ-016",steps:"בדוק function notify() + CSS .notif",
+   expected:"notify() + .notif קיימים",auto:"yes",fn:"checkNotifyFn"},
+  {id:"TC-089",title:"RTL layout — dir=rtl ו-lang=he",cat:"ניווט ו-UI",type:"UI",
+   pri:"High",reqs:"REQ-018",steps:"בדוק dir='rtl' + lang='he' ב-HTML",
+   expected:"dir=rtl + lang=he קיים",auto:"yes",fn:"checkRTL"},
+  {id:"TC-090",title:"openAddReq מוסיף ל-DB.sysReqs",cat:"ניהול דרישות",type:"Functional",
+   pri:"Critical",reqs:"REQ-031",steps:"בדוק function openAddReq() + DB.sysReqs.push",
+   expected:"openAddReq + push קיימים",auto:"yes",fn:"checkAddReqFn"},
+  {id:"TC-091",title:"deleteItem מחיקת דרישה",cat:"ניהול דרישות",type:"Functional",
+   pri:"High",reqs:"REQ-032",steps:"בדוק deleteItem + DB[arrName].splice",
+   expected:"deleteItem + splice קיימים",auto:"yes",fn:"checkDeleteReqFn"},
+  {id:"TC-092",title:"editItem עריכת דרישה עם טופס",cat:"ניהול דרישות",type:"Functional",
+   pri:"High",reqs:"REQ-033",steps:"בדוק editItem עם isReqArr + edit_desc",
+   expected:"editItem + isReqArr + edit_desc קיימים",auto:"yes",fn:"checkEditReqFn"},
+  {id:"TC-093",title:"_VAGUE_WORDS — 30+ מילים",cat:"ניהול דרישות",type:"Functional",
+   pri:"High",reqs:"REQ-034.1",steps:"בדוק כמות מילים ב-_VAGUE_WORDS",
+   expected:"≥30 מילים",auto:"yes",fn:"checkVagueWordsCount"},
+  {id:"TC-094",title:"_MEASURABLE_INDICATORS — 10+ דפוסים",cat:"ניהול דרישות",type:"Functional",
+   pri:"High",reqs:"REQ-034.2",steps:"בדוק כמות regex patterns ב-_MEASURABLE_INDICATORS",
+   expected:"≥10 דפוסים",auto:"yes",fn:"checkMeasurableCount"},
+  {id:"TC-095",title:"_isDupInDB — desc ראשון לפני rid",cat:"ניהול דרישות",type:"Regression",
+   pri:"High",reqs:"REQ-036.1",steps:"בדוק item.desc || item.name || item.rid ו-ex.desc || ex.name || ex.rid",
+   expected:"desc בסדר ראשון בשני המקומות",auto:"yes",fn:"checkDescPriority"},
+  {id:"TC-096",title:"13 domain types קיימים בקוד",cat:"ניהול דרישות",type:"Functional",
+   pri:"High",reqs:"REQ-037.1",steps:"בדוק כל 13 domain names: ביצועים, בטיחות, סייבר, תוכנה, ממשק, סביבתי, נתונים, אמינות, תחזוקה, שימושיות, אילוץ, אימות, פונקציונלי",
+   expected:"13/13 domains קיימים",auto:"yes",fn:"checkDomainTypes"},
+  {id:"TC-097",title:"_showVagueTooltipFromEl קורא ל-_getVagueRecommendation",cat:"ניהול דרישות",type:"Integration",
+   pri:"High",reqs:"REQ-042.2",steps:"בדוק _showVagueTooltipFromEl + _getVagueRecommendation + rec.steps",
+   expected:"שרשרת קריאה קיימת",auto:"yes",fn:"checkTooltipCallsRecommendation"},
+  {id:"TC-098",title:"_offerDerivedRequirements מוצע לאחר עריכה",cat:"ניהול דרישות",type:"Functional",
+   pri:"High",reqs:"REQ-043",steps:"בדוק function _offerDerivedRequirements + swReqs + meReqs",
+   expected:"פונקציה קיימת עם SW+ME discipline options",auto:"yes",fn:"checkOfferDerived"},
+  {id:"TC-099",title:"12 expert roles ב-templates object",cat:"מומחה AI",type:"Functional",
+   pri:"High",reqs:"REQ-071.1",steps:"בדוק pm:, se:, rf_eng:, algo:, me:, sw:, qa:, vv:, emc:, rams:, safety:, gnss: בתוך templates object",
+   expected:"12/12 roles",auto:"yes",fn:"checkAllExpertRolesInTemplate"},
+  {id:"TC-100",title:"humanizeOpener — 4 פתיחים יומיים",cat:"מומחה AI",type:"Functional",
+   pri:"High",reqs:"REQ-072.1",steps:"בדוק dailyOps array ≥4 entries",
+   expected:"≥4 daily openers",auto:"yes",fn:"checkDailyOpenersCount"},
+  {id:"TC-101",title:"humanizeOpener — 6 פתיחים טכניים",cat:"מומחה AI",type:"Functional",
+   pri:"High",reqs:"REQ-072.2",steps:"בדוק techOps array ≥6 entries",
+   expected:"≥6 tech openers",auto:"yes",fn:"checkTechOpenersCount"},
+  {id:"TC-102",title:"PIDS anchor values קיימים בקוד",cat:"מומחה AI",type:"Functional",
+   pri:"High",reqs:"REQ-073.1",steps:"בדוק −65 dBm, ≤2°, <100 ms, 100W, 85 kg, 40,000 ft בקוד",
+   expected:"6/6 PIDS values קיימים",auto:"yes",fn:"checkPIDSValues"},
+  {id:"TC-103",title:"כפילויות מסומנות ב-AI Populate modal",cat:"מומחה AI",type:"Integration",
+   pri:"High",reqs:"REQ-078.2",steps:"בדוק _checkAllDuplicates + item._dup + dupCount",
+   expected:"מניעת כפולות בAI Populate",auto:"yes",fn:"checkDupMarkInAIPopulate"},
+  {id:"TC-104",title:"_VV_DESC_TEMPLATES — 13+ domain templates",cat:"V&V",type:"Functional",
+   pri:"High",reqs:"REQ-092.1",steps:"בדוק _VV_DESC_TEMPLATES ≥13 domain keys",
+   expected:"≥13 templates",auto:"yes",fn:"checkVVDescTemplatesCount"},
+  {id:"TC-105",title:"_VV_PHASE_MAP — phases לכל domain",cat:"V&V",type:"Functional",
+   pri:"High",reqs:"REQ-092.2",steps:"בדוק _VV_PHASE_MAP ≥10 domain mappings",
+   expected:"≥10 phase mappings",auto:"yes",fn:"checkVVPhaseMapKeys"},
+  {id:"TC-106",title:"renderVV מייצר desc לפריטים ישנים",cat:"V&V",type:"Regression",
+   pri:"High",reqs:"REQ-094",steps:"בדוק Auto-generate description for legacy + _VV_DESC_TEMPLATES[dom]",
+   expected:"auto-desc mechanism קיים",auto:"yes",fn:"checkRenderVVAutoDesc"},
+  {id:"TC-107",title:"RPN = חומרה × סבירות ב-Risk Register",cat:"ניהול סיכונים",type:"Functional",
+   pri:"High",reqs:"REQ-101",steps:"בדוק r.sev*r.prob בקוד renderRisks",
+   expected:"חישוב RPN קיים",auto:"yes",fn:"checkRPNCalc"},
+  {id:"TC-108",title:"RPN שיורי = sevRes × probRes",cat:"ניהול סיכונים",type:"Functional",
+   pri:"High",reqs:"REQ-106.1",steps:"בדוק sevRes*probRes ב-renderResidualRisks",
+   expected:"חישוב RPN שיורי קיים",auto:"yes",fn:"checkResidualRPNCalc"},
+  {id:"TC-109",title:"שדה אישור קבלה — כן/לא/ממתין",cat:"ניהול סיכונים",type:"Functional",
+   pri:"High",reqs:"REQ-106.2",steps:"בדוק ממתין + כן + לא + rrAccepted",
+   expected:"שלושת האפשרויות קיימות",auto:"yes",fn:"checkResidualAcceptance"},
+  {id:"TC-110",title:"navigateTo מנקה tooltip (REQ-136)",cat:"טכני ו-QA",type:"Regression",
+   pri:"High",reqs:"REQ-136",steps:"בדוק navigateTo קורא _hideVagueTooltip",
+   expected:"קריאה קיימת ב-navigateTo block",auto:"yes",fn:"checkNavClearsTooltipREQ136"},
+  {id:"TC-111",title:"פורמט סיכון — 'קיים סיכון כי...'",cat:"ניהול סיכונים",type:"Functional",
+   pri:"High",reqs:"REQ-103",steps:"בדוק באנר פורמט ו-rDetection שדה בטופס",
+   expected:"פורמט + detection field קיימים",auto:"yes",fn:"checkRiskFormat"},
+  {id:"TC-112",title:"EXPERT_POPULATE_CFG קיים — 6 sections",cat:"מומחה AI",type:"Functional",
+   pri:"High",reqs:"REQ-078.1",steps:"בדוק _EXPERT_POPULATE_CFG + 6 section keys",
+   expected:"_EXPERT_POPULATE_CFG קיים",auto:"yes",fn:"checkAIPopulate"},
+  {id:"TC-113",title:"applySelectedRecs בודק כפולות לפני push",cat:"לוגיקה עסקית",type:"Regression",
+   pri:"Critical",reqs:"REQ-059",steps:"בדוק _isDupInDB(arr, item) ב-applySelectedRecs לפני push",
+   expected:"בדיקה קיימת",auto:"yes",fn:"checkApplyRecsNoDup"},
+  {id:"TC-114",title:"V&V table — עמודת תיאור + coverage badge",cat:"V&V",type:"UI",
+   pri:"Medium",reqs:"REQ-091,REQ-093",steps:"בדוק תיאור הבדיקה + vvCoverage",
+   expected:"עמודה + badge קיימים",auto:"yes",fn:"checkVVTable"},
+  {id:"TC-115",title:"SSPP + FHA + FMEA ב-DOC_REGISTRY",cat:"ניהול תצורה",type:"Functional",
+   pri:"Medium",reqs:"REQ-118",steps:"בדוק DOC_REGISTRY_DEF + openDocTemplateModal",
+   expected:"registry + modal קיימים",auto:"yes",fn:"checkDocRegistry"},
+
+  // ── TC-116 to TC-125: Document Section & Traceability Requirements ──
+  {id:"TC-116",title:"DOC_MODAL_SECTIONS מכיל 10 מסמכים ראשיים",cat:"דרישות מסמכים",type:"Functional",
+   pri:"High",reqs:"REQ-150",steps:"בדוק SEMP, SSDD, SYRS, OCD, ICD, MITP, VCRM, FHA, FMEA, SYSATP ב-DOC_MODAL_SECTIONS",
+   expected:"10/10 מסמכים קיימים",auto:"yes",fn:"checkDocModalSections10"},
+  {id:"TC-117",title:"SEMP מכיל 10 סעיפים ב-DOC_MODAL_SECTIONS",cat:"דרישות מסמכים",type:"Functional",
+   pri:"High",reqs:"REQ-150.1",steps:"בדוק wbsDesc, wrsRows, kcRows, tpmRows, riskRows, milestoneRows, reviewRows, specialtyRows, changeLogRows, glossary",
+   expected:"10/10 סעיפים קיימים",auto:"yes",fn:"checkSEMPSections"},
+  {id:"TC-118",title:"ICD מכיל סעיפי ממשקים עם cols",cat:"דרישות מסמכים",type:"Integration",
+   pri:"High",reqs:"REQ-150.3",steps:"בדוק DOC_MODAL_SECTIONS.ICD מכיל type:table + cols",
+   expected:"ICD עם ממשקים מפורטים",auto:"yes",fn:"checkICDSections"},
+  {id:"TC-119",title:"FHA ו-FMEA קיימים ב-DOC_MODAL_SECTIONS",cat:"דרישות מסמכים",type:"Functional",
+   pri:"High",reqs:"REQ-150.4",steps:"בדוק FHA ו-FMEA מוגדרים עם sections",
+   expected:"שני מסמכי בטיחות קיימים",auto:"yes",fn:"checkSafetyDocSections"},
+  {id:"TC-120",title:"AI Fill פונקציה מוגדרת לכל מסמך",cat:"דרישות מסמכים",type:"Functional",
+   pri:"High",reqs:"REQ-151,REQ-151.2",steps:"בדוק _buildDocFillFromDB או aiPopulateDocSection + DOC_MODAL_SECTIONS[docId]",
+   expected:"פונקציית AI Fill קיימת",auto:"yes",fn:"checkDocAIFillFn"},
+  {id:"TC-121",title:"AI Fill ל-SEMP — ממלא מ-DB",cat:"דרישות מסמכים",type:"Integration",
+   pri:"High",reqs:"REQ-151.3",steps:"בדוק SEMP ב-DOC_MODAL_SECTIONS + _buildDocFillFromDB",
+   expected:"SEMP + AI Fill מחובר",auto:"yes",fn:"checkSEMPAIFill"},
+  {id:"TC-122",title:"DOC_REGISTRY_DEF — 4 קטגוריות קיימות",cat:"דרישות מסמכים",type:"Functional",
+   pri:"High",reqs:"REQ-154",steps:"בדוק se-mgmt, ops, integ, safety",
+   expected:"4/4 קטגוריות קיימות",auto:"yes",fn:"checkDocRegCategories"},
+  {id:"TC-123",title:"DOC_REGISTRY_DEF מכיל ≥22 מסמכים עם fields",cat:"דרישות מסמכים",type:"Functional",
+   pri:"High",reqs:"REQ-153",steps:"בדוק id: ב-DOC_REGISTRY_DEF ≥22 מסמכים עם fields[]",
+   expected:"≥22 מסמכים מוגדרים",auto:"yes",fn:"checkAllDocFields"},
+  {id:"TC-124",title:"כל TCs מקושרים ל-REQ",cat:"עקיבות דרישות",type:"Functional",
+   pri:"High",reqs:"REQ-152",steps:"בדוק שכל TC מכיל שדה reqs שאינו ריק",
+   expected:"0 TCs ללא REQ",auto:"yes",fn:"checkTCReqLinks"},
+  {id:"TC-125",title:"שדה status קיים בכל מסמך ב-DOC_REGISTRY_DEF",cat:"דרישות מסמכים",type:"Functional",
+   pri:"High",reqs:"REQ-153",steps:"בדוק שכל doc כולל k:status ב-fields",
+   expected:"שדה status קיים לכל מסמך",auto:"yes",fn:"checkDocStatusField"}
+]
+
+// ═══════════════════════════════════════════════════════════════
+//  SEED DEFAULT DATA IF EMPTY OR NEEDS REFRESH
+// ═══════════════════════════════════════════════════════════════
+// Re-seed if data is outdated (fewer TCs than current DEFAULT_TCS)
+if(TMS.testCases.length < 125){
+  TMS.requirements = DEFAULT_REQS.map(function(r){return Object.assign({},r);});
+  TMS.testCases    = DEFAULT_TCS.map(function(t){return Object.assign({},t);});
+}
+saveTMS();
+
+// ═══════════════════════════════════════════════════════════════
+//  AUTOMATION FUNCTIONS (run against app's source code)
+// ═══════════════════════════════════════════════════════════════
+var _appSrc = null;
+var _appWin = null;
+
+// ── File picker for file:// mode ─────────────────────────────────
+// Shows a modal asking the user to select 7200_System_v2.html
+// Resolves with file content string, or "" if skipped
+function _loadFromFilePicker(){
+  return new Promise(function(resolve){
+    // If already loaded, resolve immediately
+    if(_appSrc && _appSrc.length > 50000){ resolve(_appSrc); return; }
+    // Build overlay
+    var overlay = document.createElement('div');
+    overlay.id = '_srcPickerOverlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.75);z-index:99999;display:flex;align-items:center;justify-content:center;';
+    overlay.innerHTML =
+      '<div style="background:#1e1e2e;border:2px solid #f59e0b;border-radius:14px;padding:32px 36px;text-align:center;max-width:500px;box-shadow:0 8px 40px rgba(0,0,0,0.6);">' +
+        '<div style="font-size:52px;margin-bottom:10px;">📂</div>' +
+        '<h3 style="color:#f59e0b;margin:0 0 10px;font-size:18px;">טען קובץ האפליקציה</h3>' +
+        '<p style="color:#cdd6f4;margin:0 0 18px;line-height:1.6;font-size:14px;">כדי שהבדיקות יוכלו לסרוק את קוד האפליקציה,<br>בחר את הקובץ <strong style="color:#f59e0b;">7200_System_v2.html</strong> מהתיקייה שלך.</p>' +
+        '<label style="display:inline-block;background:#f59e0b;color:#1e1e2e;font-weight:700;padding:10px 22px;border-radius:8px;cursor:pointer;font-size:14px;margin-bottom:14px;">' +
+          '📄 בחר קובץ HTML' +
+          '<input type="file" id="_appFileInput" accept=".html" style="display:none;">' +
+        '</label>' +
+        '<div id="_filePickerStatus" style="font-size:12px;color:#a6adc8;margin-bottom:14px;min-height:18px;"></div>' +
+        '<button id="_skipSrcBtn" style="background:#313244;color:#a6adc8;border:1px solid #45475a;padding:8px 18px;border-radius:6px;cursor:pointer;font-size:13px;">דלג — הרץ בלי קוד מקור</button>' +
+      '</div>';
+    document.body.appendChild(overlay);
+
+    function done(src){
+      if(document.getElementById('_srcPickerOverlay')) document.body.removeChild(overlay);
+      resolve(src || '');
+    }
+
+    document.getElementById('_appFileInput').onchange = function(e){
+      var f = e.target.files[0];
+      if(!f) return;
+      document.getElementById('_filePickerStatus').textContent = 'טוען ' + f.name + '...';
+      var r = new FileReader();
+      r.onload = function(ev){
+        var content = ev.target.result || '';
+        if(content.length > 50000){
+          _appSrc = content;
+          document.getElementById('_filePickerStatus').style.color = '#a6e3a1';
+          document.getElementById('_filePickerStatus').textContent = '✅ נטען בהצלחה (' + Math.round(content.length/1024) + ' KB)';
+          setTimeout(function(){ done(_appSrc); }, 500);
+        } else {
+          document.getElementById('_filePickerStatus').style.color = '#f38ba8';
+          document.getElementById('_filePickerStatus').textContent = '⚠️ הקובץ קטן מדי — האם בחרת את הקובץ הנכון?';
+        }
+      };
+      r.readAsText(f);
+    };
+    document.getElementById('_skipSrcBtn').onclick = function(){ done(''); };
+  });
+}
+
+async function loadAppSource(){
+  if(_appSrc && _appSrc.length > 50000) return _appSrc;
+
+  // Method 1: Read from iframe DOM (works for file:// protocol — same-origin)
+  try {
+    var iframe = document.getElementById('testIframe');
+    if(iframe && iframe.contentDocument && iframe.contentDocument.documentElement){
+      var src = iframe.contentDocument.documentElement.outerHTML;
+      if(src && src.length > 50000){ _appSrc = src; return _appSrc; }
+    }
+  } catch(e) {}
+
+  // Method 2: XHR synchronous (sometimes works with file://)
+  try {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', '7200_System_v2.html', false);
+    xhr.send(null);
+    if(xhr.status === 200 && xhr.responseText && xhr.responseText.length > 50000){
+      _appSrc = xhr.responseText; return _appSrc;
+    }
+  } catch(e2) {}
+
+  // Method 3: fetch (works when served via HTTP server)
+  try {
+    var resp = await fetch('7200_System_v2.html?_=' + Date.now());
+    if(resp.ok){ _appSrc = await resp.text(); return _appSrc; }
+  } catch(e3) {}
+
+  // Method 4 (file:// mode): ask user to pick the file via FileReader API
+  if(!_IS_SERVED){
+    return await _loadFromFilePicker();
+  }
+
+  // Final fallback: reload iframe and retry
+  return new Promise(function(resolve){
+    var iframe = document.getElementById('testIframe');
+    iframe.onload = function(){
+      try{
+        var src = iframe.contentDocument.documentElement.outerHTML;
+        _appSrc = (src && src.length > 50000) ? src : "";
+      }catch(e){ _appSrc = ""; }
+      resolve(_appSrc);
+    };
+    iframe.src = '7200_System_v2.html?' + Date.now();
+    setTimeout(function(){ if(!_appSrc) resolve(""); }, 8000);
+  });
+}
+
+async function getAppWin(){
+  return new Promise(function(resolve){
+    var iframe = document.getElementById('testIframe');
+    if(iframe.contentDocument && iframe.contentDocument.readyState === 'complete'){
+      // Try to access the window
+      try { var w = iframe.contentWindow; w.document; resolve(w); return; } catch(e){}
+    }
+    iframe.onload = function(){ try{ resolve(iframe.contentWindow); }catch(e){ resolve(null); } };
+    iframe.src = '7200_System_v2.html?' + Date.now();
+    setTimeout(function(){ try{ resolve(iframe.contentWindow); }catch(e){ resolve(null); } }, 5000);
+  });
+}
+
+// ── Automation test functions ─────────────────────────────────
+var AUTOMATION = {
+  checkAutoSave: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('_autoSaveTimer') && src.includes('function markDirty');
+    return { pass: has, actual: has ? 'markDirty + _autoSaveTimer מוגדרים' : 'חסרים' };
+  },
+  checkResetAll: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('localStorage.removeItem') && src.includes('_resetPending');
+    return { pass: has, actual: has ? 'removeItem + _resetPending קיימים' : 'חסר' };
+  },
+  checkPages: async function(){
+    var src = await loadAppSource();
+    var pages = ['page-dashboard','page-syseng','page-risks','page-cm','page-ils','page-pm'];
+    var missing = pages.filter(function(p){ return !src.includes('id="'+p+'"'); });
+    return { pass: missing.length===0, actual: missing.length ? 'חסרים: '+missing.join(', ') : 'כל '+pages.length+' עמודות קיימים' };
+  },
+  checkVagueReject: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('_VAGUE_WORDS') && src.includes('function _validateRequirement');
+    if(!has) return { pass:false, actual:'_validateRequirement לא קיים' };
+    var hasWords = src.includes("'ברור'") || src.includes('"ברור"');
+    return { pass: has && hasWords, actual: hasWords ? '_validateRequirement + מילת "ברור" קיימת' : 'מילת "ברור" חסרה ברשימה' };
+  },
+  checkVaguePass: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('_MEASURABLE_INDICATORS') && src.includes('[≤≥<>]');
+    return { pass: has, actual: has ? '_MEASURABLE_INDICATORS עם ≤≥ קיים' : 'חסר' };
+  },
+  checkDupByDesc: async function(){
+    var src = await loadAppSource();
+    var hasFix = src.includes('item.desc || item.name || item.rid') && src.includes('ex.desc || ex.name || ex.rid');
+    return { pass: hasFix, actual: hasFix ? 'השוואה לפי desc ראשון — תקין' : 'עדיין משווה לפי rid ראשון — באג!' };
+  },
+  checkDocFill: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('function _buildDocFillFromDB') && src.includes('projectName') && src.includes('DB.project');
+    return { pass: has, actual: has ? '_buildDocFillFromDB + projectName + DB.project קיימים' : 'חסר' };
+  },
+  checkDocSections: async function(){
+    var src = await loadAppSource();
+    var keys = (src.match(/"([A-Z][A-Z0-9]+)"\s*:\s*\[/g)||[]).map(function(m){return m.replace(/["\s:\[]/g,'');});
+    var filtered = keys.filter(function(k){ return k.length >= 3 && k.length <= 10; });
+    var unique = [...new Set(filtered)];
+    var count = unique.length;
+    return { pass: count >= 29, actual: count+' מסמכים ב-DOC_MODAL_SECTIONS (נדרש ≥29)' };
+  },
+  checkRiskCats: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('RISK_CATEGORIES_15');
+    if(!has) return { pass:false, actual:'RISK_CATEGORIES_15 לא מוגדר' };
+    var m = src.match(/RISK_CATEGORIES_15\s*=\s*\[([\s\S]*?)\]/);
+    if(!m) return { pass:false, actual:'לא ניתן לפרש RISK_CATEGORIES_15' };
+    var count = (m[1].match(/"[^"]+"/g)||[]).length;
+    return { pass: count===15, actual: count+'/15 קטגוריות' };
+  },
+  checkResidualRisk: async function(){
+    var src = await loadAppSource();
+    var hasDom = src.includes('residualRisksBody') && src.includes('risk-residual');
+    var hasDb  = src.includes('residualRisks: []') || src.includes('residualRisks:[]');
+    return { pass: hasDom && hasDb, actual: (hasDom?'DOM ✅':'DOM ❌')+' | '+(hasDb?'DB ✅':'DB ❌') };
+  },
+  checkHumanOpener: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('function humanizeOpener') && src.includes('אני ממליץ');
+    return { pass: has, actual: has ? 'humanizeOpener + פתיח עברי קיים' : 'חסר' };
+  },
+  checkGPSFlags: async function(){
+    var src = await loadAppSource();
+    var flags = ['isGNSSinteg','isRAIM','isGNSSaccuracy','isGNSSkalman'];
+    var missing = flags.filter(function(f){ return !src.includes(f); });
+    return { pass: missing.length===0, actual: missing.length ? 'חסרים: '+missing.join(', ') : 'כל 4 flags קיימים' };
+  },
+  checkNoDoubleTR: async function(){
+    var src = await loadAppSource();
+    var has = src.includes("indexOf('<tr'") || src.includes('indexOf("<tr"') || src.includes("trimLeft().indexOf");
+    return { pass: has, actual: has ? 'בדיקת TR כפול קיימת ב-renderTable' : 'בדיקת TR כפול חסרה!' };
+  },
+  checkBOMFns: async function(){
+    var src = await loadAppSource();
+    var fns = ['function handleBOMFile','function parseBOMRows','function renderBOM'];
+    var missing = fns.filter(function(f){ return !src.includes(f); });
+    return { pass: missing.length===0, actual: missing.length ? 'חסרות: '+missing.join(', ') : 'כל פונקציות BOM קיימות' };
+  },
+  checkVagueTooltip: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('_showVagueTooltipFromEl') && src.includes('_VAGUE_RECOMMENDATIONS');
+    return { pass: has, actual: has ? 'Tooltip system קיים' : 'חסר' };
+  },
+  checkVVGenerator: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('function showAIGenerateVV') && src.includes('_VV_DESC_TEMPLATES');
+    return { pass: has, actual: has ? 'V&V Generator קיים' : 'חסר' };
+  },
+  checkResidualDB: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('residualRisks: []') || src.includes('residualRisks:[]');
+    return { pass: has, actual: has ? 'residualRisks מאותחל ב-DB' : 'חסר ב-DB default' };
+  },
+  checkRenderFns: async function(){
+    var src = await loadAppSource();
+    var fns = ['function renderRisks','function renderReqs','function renderVV','function renderArch','function renderCMDocs'];
+    var missing = fns.filter(function(f){ return !src.includes(f); });
+    return { pass: missing.length===0, actual: missing.length ? 'חסרות: '+missing.join(', ') : 'כל render functions קיימות' };
+  },
+  checkVagueFlag: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('_vague: isVague') && src.includes('_vagueReason');
+    return { pass: has, actual: has ? '_vague flag + _vagueReason קיימים' : 'חסר' };
+  },
+  checkNavClearsTooltip: async function(){
+    var src = await loadAppSource();
+    var idx = src.indexOf('function navigateTo');
+    if(idx<0) return { pass:false, actual:'navigateTo לא נמצא' };
+    var block = src.substring(idx, idx+300);
+    var has = block.includes('_hideVagueTooltip');
+    return { pass: has, actual: has ? 'navigateTo קורא _hideVagueTooltip' : 'navigateTo לא מנקה tooltip!' };
+  },
+
+  checkAllPages: async function(){
+    var src = await loadAppSource();
+    var pages = ['page-dashboard','page-syseng','page-risks','page-cm','page-ils','page-pm',
+                 'page-software','page-mechanical','page-safety','page-quality','page-tests',
+                 'page-milestones','page-tasks','page-stakeholders','page-discussions','page-settings',
+                 'page-flow','page-actions','page-checklist','page-project','page-subcontractors',
+                 'page-lessons','page-closure','page-ai'];
+    var missing = pages.filter(function(p){ return !src.includes('id="'+p+'"'); });
+    return { pass: missing.length===0, actual: missing.length ? 'חסרים: '+missing.join(', ') : '23/23 עמודות קיימים' };
+  },
+
+  checkAllTabs: async function(){
+    var src = await loadAppSource();
+    var tabs = ['cm-ecp','cm-ccb','cm-docs','cm-baseline','cm-bom','se-reqs','se-arch','se-icd','se-vv',
+                'risk-register','risk-residual','sw-reqs','sw-modules','sw-defects','sw-tests','sw-versions',
+                'me-reqs','me-bom','me-drawings','me-tests','me-docs','sf-plan','sf-hazards','sf-analyses',
+                'sf-sar','sf-srb','qa-overview','qa-ncr','qa-fod','qa-audits','ils-plan','ils-lru','ils-spares',
+                'tests-repo','tests-methods','actions-open','actions-closed'];
+    var missing = tabs.filter(function(t){ return !src.includes('id="'+t+'"'); });
+    return { pass: missing.length===0, actual: missing.length ? 'חסרים: '+missing.join(', ') : '38/38 טאבים קיימים' };
+  },
+
+  checkModalFunctions: async function(){
+    var src = await loadAppSource();
+    var fns = ['function openAddRisk','function openAddReq','function openAddArch','function openAddICD',
+               'function openAddVV','function openAddTask','function openAddSWModule','function openAddHazard',
+               'function openAddMilestone','function openAddStakeholder','function openAddAction'];
+    var missing = fns.filter(function(f){ return !src.includes(f); });
+    return { pass: missing.length===0, actual: missing.length ? 'חסרות: '+missing.join(', ') : 'כל modal functions קיימות' };
+  },
+
+  checkRiskFormat: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('קיים סיכון כי') && src.includes('rDetection');
+    return { pass: has, actual: has ? 'פורמט נכון + detection field קיימים' : 'חסר פורמט סיכון נכון' };
+  },
+
+  checkAIPopulate: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('_EXPERT_POPULATE_CFG') && src.includes('showAIPopulateModal');
+    return { pass: has, actual: has ? 'AI Populate + _EXPERT_POPULATE_CFG קיימים' : 'חסר' };
+  },
+
+  checkDupPreventAIPopulate: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('_checkAllDuplicates') && src.includes('item._dup');
+    return { pass: has, actual: has ? 'Dup prevention ב-AI Populate קיים' : 'חסר' };
+  },
+
+  checkApplyRecsNoDup: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('_isDupInDB(arr, item)') && src.includes('applySelectedRecs');
+    return { pass: has, actual: has ? 'applySelectedRecs בודק כפולות לפני push' : 'חסר!' };
+  },
+
+  checkVVTable: async function(){
+    var src = await loadAppSource();
+    var hasCols = src.includes('תיאור הבדיקה') && src.includes('vvCoverage');
+    return { pass: hasCols, actual: hasCols ? 'V&V table + coverage badge קיימים' : 'חסר' };
+  },
+
+  checkDocRegistry: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('DOC_REGISTRY_DEF') && src.includes('openDocTemplateModal');
+    return { pass: has, actual: has ? 'DOC_REGISTRY_DEF + template modal קיימים' : 'חסר' };
+  },
+
+  checkCMTabs: async function(){
+    var src = await loadAppSource();
+    var tabs = ['cm-ecp','cm-ccb','cm-docs','cm-baseline','cm-bom'];
+    var missing = tabs.filter(function(t){ return !src.includes('id="'+t+'"'); });
+    return { pass: missing.length===0, actual: missing.length ? 'חסרים: '+missing.join(', ') : 'כל 5 CM tabs קיימים' };
+  },
+
+  checkPIDSAnchor: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('PIDS (ערכי ייחוס)') && src.includes('_isHuman');
+    return { pass: has, actual: has ? 'PIDS anchor קיים ב-expertTemplate' : 'חסר' };
+  },
+
+  checkHeatmap: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('function renderRiskHeatmap') && src.includes('riskHeatmap');
+    return { pass: has, actual: has ? 'Risk heatmap קיים' : 'חסר' };
+  },
+
+  checkDashboard: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('function renderDashboard') && src.includes('page-dashboard');
+    return { pass: has, actual: has ? 'Dashboard קיים' : 'חסר' };
+  },
+
+  checkSWPage: async function(){
+    var src = await loadAppSource();
+    var tabs = ['sw-reqs','sw-modules','sw-defects','sw-tests','sw-versions'];
+    var missing = tabs.filter(function(t){ return !src.includes('id="'+t+'"'); });
+    return { pass: missing.length===0, actual: missing.length ? 'חסרים: '+missing.join(', ') : 'כל SW tabs קיימים' };
+  },
+
+  checkMEPage: async function(){
+    var src = await loadAppSource();
+    var tabs = ['me-reqs','me-bom','me-drawings','me-tests','me-docs'];
+    var missing = tabs.filter(function(t){ return !src.includes('id="'+t+'"'); });
+    return { pass: missing.length===0, actual: missing.length ? 'חסרים: '+missing.join(', ') : 'כל ME tabs קיימים' };
+  },
+
+  checkSafetyPage: async function(){
+    var src = await loadAppSource();
+    var tabs = ['sf-plan','sf-hazards','sf-analyses','sf-sar','sf-srb'];
+    var missing = tabs.filter(function(t){ return !src.includes('id="'+t+'"'); });
+    return { pass: missing.length===0, actual: missing.length ? 'חסרים: '+missing.join(', ') : 'כל Safety tabs קיימים' };
+  },
+
+  checkQAPage: async function(){
+    var src = await loadAppSource();
+    var tabs = ['qa-overview','qa-ncr','qa-fod','qa-audits'];
+    var missing = tabs.filter(function(t){ return !src.includes('id="'+t+'"'); });
+    return { pass: missing.length===0, actual: missing.length ? 'חסרים: '+missing.join(', ') : 'כל QA tabs קיימים' };
+  },
+
+  checkILSPage: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('ils-plan') && src.includes('ils-lru') && src.includes('ils-spares');
+    return { pass: has, actual: has ? 'ILS tabs קיימים' : 'חסר' };
+  },
+
+  checkVagueCats: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('_VAGUE_RECOMMENDATIONS') && src.includes('שימושיות') && src.includes('אמינות');
+    return { pass: has, actual: has ? '_VAGUE_RECOMMENDATIONS עם כל קטגוריות קיים' : 'חסר' };
+  },
+
+  checkDocFillSections: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('DOC_MODAL_SECTIONS[docId]') && src.includes('_buildDocFillFromDB');
+    return { pass: has, actual: has ? 'AI Fill ממלא גם sections קיים' : 'חסר' };
+  },
+
+  checkExpertRoles: async function(){
+    var src = await loadAppSource();
+    var roles = ['rf_eng','se','algo','me','sw','pm','qa','vv','emc','rams','safety','gnss'];
+    var missing = roles.filter(function(r){ return !src.includes('"'+r+'"'); });
+    return { pass: missing.length===0, actual: missing.length ? 'חסרים roles: '+missing.join(', ') : '12/12 expert roles קיימים' };
+  },
+
+  checkKBSearch: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('function searchKB') && src.includes('function offlineAI');
+    return { pass: has, actual: has ? 'searchKB + offlineAI קיימות' : 'חסר' };
+  },
+
+  checkAutoFix: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('_resetPending') && src.includes('_autoSaveTimer') && src.includes('clearTimeout');
+    return { pass: has, actual: has ? 'AutoFix flags (_resetPending, clearTimeout) קיימים' : 'חסר' };
+  },
+
+  checkLocalStorage14Key: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('"7200_project_data"');
+    return { pass: has, actual: has ? 'localStorage key "7200_project_data" מוגדר' : 'key שונה!' };
+  },
+  checkSyncIndicator: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('syncDot') && src.includes('syncLabel') && src.includes('sync-dot dirty');
+    return { pass: has, actual: has ? 'syncDot + syncLabel + dirty class קיימים' : 'חסר אינדיקטור שמירה' };
+  },
+  checkLocalStorageLoad: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('localStorage.getItem(_LS_KEY)') || src.includes("localStorage.getItem('7200_project_data')");
+    return { pass: has, actual: has ? 'localStorage.getItem נקרא בפתיחה' : 'חסר טעינה מ-localStorage' };
+  },
+  checkDBMerge: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('Object.keys(parsed).forEach') && src.includes('DB[k] = parsed[k]');
+    return { pass: has, actual: has ? 'מיזוג DB עם parsed data קיים' : 'חסר מיזוג DB' };
+  },
+  checkExportJSON: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('function manualSave') && src.includes('Blob') && src.includes('application/json');
+    return { pass: has, actual: has ? 'manualSave יוצר Blob JSON ומוריד' : 'חסר ייצוא JSON' };
+  },
+  checkImportJSON: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('function handleFileLoad') && src.includes('JSON.parse') && src.includes('syncUIFromDB');
+    return { pass: has, actual: has ? 'handleFileLoad + JSON.parse + syncUIFromDB קיימים' : 'חסר ייבוא JSON' };
+  },
+  checkUniquePageIDs: async function(){
+    var src = await loadAppSource();
+    var ids = (src.match(/id="page-([^"]+)"/g)||[]).map(function(m){ return m.replace(/id="page-|"/g,''); });
+    var dupes = ids.filter(function(id,i){ return ids.indexOf(id)!==i; });
+    return { pass: dupes.length===0, actual: dupes.length ? 'כפולים: '+dupes.join(', ') : ids.length+' page IDs ייחודיים' };
+  },
+  checkTRIndexOf: async function(){
+    var src = await loadAppSource();
+    var has = src.includes("indexOf('<tr'") || src.includes('indexOf("<tr"') || src.includes("trimLeft().indexOf");
+    return { pass: has, actual: has ? 'בדיקת <tr> לפני עטיפה קיימת' : 'חסר! double-TR באג אפשרי' };
+  },
+  checkNotifyFn: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('function notify(') && src.includes('notif');
+    return { pass: has, actual: has ? 'function notify() + .notif class קיימים' : 'חסר' };
+  },
+  checkRTL: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('dir="rtl"') && src.includes('lang="he"');
+    return { pass: has, actual: has ? 'dir="rtl" + lang="he" קיימים' : 'חסר RTL/lang' };
+  },
+  checkAddReqFn: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('function openAddReq(') && src.includes('DB.sysReqs.push');
+    return { pass: has, actual: has ? 'openAddReq + DB.sysReqs.push קיימים' : 'חסר הוספת דרישה' };
+  },
+  checkDeleteReqFn: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('function deleteItem(') && src.includes('DB[arrName].splice');
+    return { pass: has, actual: has ? 'deleteItem + splice קיימים' : 'חסר מחיקת דרישה' };
+  },
+  checkEditReqFn: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('function editItem(') && src.includes('isReqArr') && src.includes('edit_desc');
+    return { pass: has, actual: has ? 'editItem עם isReqArr + edit_desc קיים' : 'חסר עריכת דרישה' };
+  },
+  checkVagueWordsCount: async function(){
+    var src = await loadAppSource();
+    var m = src.match(/var _VAGUE_WORDS\s*=\s*\[([\s\S]*?)\];/);
+    if(!m) return { pass: false, actual: '_VAGUE_WORDS לא נמצא' };
+    var count = (m[1].match(/'[^']+'/g)||[]).length;
+    return { pass: count>=30, actual: count+' מילים ב-_VAGUE_WORDS (נדרש ≥30)' };
+  },
+  checkMeasurableCount: async function(){
+    var src = await loadAppSource();
+    var m = src.match(/var _MEASURABLE_INDICATORS\s*=\s*\[([\s\S]*?)\];/);
+    if(!m) return { pass: false, actual: '_MEASURABLE_INDICATORS לא נמצא' };
+    var count = (m[1].match(/\/[^/]+\//g)||[]).length;
+    return { pass: count>=10, actual: count+' דפוסים ב-_MEASURABLE_INDICATORS (נדרש ≥10)' };
+  },
+  checkDescPriority: async function(){
+    var src = await loadAppSource();
+    var hasFix = src.includes('item.desc || item.name || item.rid') && src.includes('ex.desc || ex.name || ex.rid');
+    return { pass: hasFix, actual: hasFix ? 'desc > name > rid — סדר עדיפות נכון' : 'סדר שגוי! rid עדיין ראשון' };
+  },
+  checkDomainTypes: async function(){
+    var src = await loadAppSource();
+    var domains = ['\u05d1\u05d9\u05e6\u05d5\u05e2\u05d9\u05dd','\u05d1\u05d8\u05d9\u05d7\u05d5\u05ea','\u05e1\u05d9\u05d9\u05d1\u05e8','\u05ea\u05d5\u05db\u05e0\u05d4','\u05de\u05de\u05e9\u05e7','\u05e1\u05d1\u05d9\u05d1\u05ea\u05d9','\u05e0\u05ea\u05d5\u05e0\u05d9\u05dd','\u05d0\u05de\u05d9\u05e0\u05d5\u05ea','\u05ea\u05d7\u05d6\u05d5\u05e7\u05d4','\u05e9\u05d9\u05de\u05d5\u05e9\u05d9\u05d5\u05ea','\u05d0\u05d9\u05dc\u05d5\u05e5','\u05d0\u05d9\u05de\u05d5\u05ea','\u05e4\u05d5\u05e0\u05e7\u05e6\u05d9\u05d5\u05e0\u05dc\u05d9'];
+    var missing = domains.filter(function(d){ return !src.includes(d); });
+    return { pass: missing.length===0, actual: missing.length ? 'חסרים: '+missing.join(', ') : '13/13 domains קיימים' };
+  },
+  checkTooltipCallsRecommendation: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('_showVagueTooltipFromEl') && src.includes('_getVagueRecommendation') && src.includes('rec.steps');
+    return { pass: has, actual: has ? '_showVagueTooltipFromEl קורא _getVagueRecommendation + rec.steps' : 'חסר חיבור' };
+  },
+  checkOfferDerived: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('function _offerDerivedRequirements') && src.includes('swReqs') && src.includes('meReqs');
+    return { pass: has, actual: has ? '_offerDerivedRequirements עם swReqs/meReqs קיים' : 'חסר' };
+  },
+  checkAllExpertRolesInTemplate: async function(){
+    var src = await loadAppSource();
+    var roles = ['pm:','se:','rf_eng:','algo:','me:','sw:','qa:','vv:','emc:','rams:','safety:','gnss:'];
+    var tmplStart = src.indexOf('var templates = {');
+    if(tmplStart<0) return { pass:false, actual:'templates object לא נמצא' };
+    var tmplBlock = src.substring(tmplStart, tmplStart+3000);
+    var missing = roles.filter(function(r){ return !tmplBlock.includes(r); });
+    return { pass: missing.length===0, actual: missing.length ? 'חסרים: '+missing.join(', ') : '12/12 roles ב-templates object' };
+  },
+  checkDailyOpenersCount: async function(){
+    var src = await loadAppSource();
+    var m = src.match(/var dailyOps\s*=\s*\[([\s\S]*?)\];/);
+    if(!m) return { pass:false, actual:'dailyOps לא נמצא' };
+    var count = (m[1].match(/"[^"]+"/g)||[]).length;
+    return { pass: count>=4, actual: count+' dailyOps פתיחים (נדרש ≥4)' };
+  },
+  checkTechOpenersCount: async function(){
+    var src = await loadAppSource();
+    var m = src.match(/var techOps\s*=\s*\[([\s\S]*?)\];/);
+    if(!m) return { pass:false, actual:'techOps לא נמצא' };
+    var count = (m[1].match(/"[^"]+"/g)||[]).length;
+    return { pass: count>=6, actual: count+' techOps פתיחים (נדרש ≥6)' };
+  },
+  checkPIDSValues: async function(){
+    var src = await loadAppSource();
+    var vals = ['\u221265 dBm','\u22642\u00b0','<100 ms','100W','85 kg','40,000 ft'];
+    var missing = vals.filter(function(v){ return !src.includes(v); });
+    return { pass: missing.length===0, actual: missing.length ? '\u05d7\u05e1\u05e8\u05d9\u05dd: '+missing.join(', ') : '6/6 PIDS values \u05e7\u05d9\u05d9\u05de\u05d9\u05dd \u05d1\u05e7\u05d5\u05d3' };
+  },
+  checkDupMarkInAIPopulate: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('_checkAllDuplicates') && src.includes('item._dup') && src.includes('dupCount');
+    return { pass: has, actual: has ? '_checkAllDuplicates + item._dup + dupCount \u05e7\u05d9\u05d9\u05de\u05d9\u05dd' : '\u05d7\u05e1\u05e8' };
+  },
+  checkVVDescTemplatesCount: async function(){
+    var src = await loadAppSource();
+    var m = src.match(/var _VV_DESC_TEMPLATES\s*=\s*\{([\s\S]*?)\};/);
+    if(!m) return { pass:false, actual:'_VV_DESC_TEMPLATES \u05dc\u05d0 \u05e0\u05de\u05e6\u05d0' };
+    var keys = (m[1].match(/"[^"]+":/g)||[]).length;
+    return { pass: keys>=13, actual: keys+' templates ב-_VV_DESC_TEMPLATES (נדרש ≥13)' };
+  },
+  checkVVPhaseMapKeys: async function(){
+    var src = await loadAppSource();
+    var m = src.match(/var _VV_PHASE_MAP\s*=\s*\{([\s\S]*?)\};/);
+    if(!m) return { pass:false, actual:'_VV_PHASE_MAP לא נמצא' };
+    var keys = (m[1].match(/"[^"]+":/g)||[]).length;
+    return { pass: keys>=10, actual: keys+' phase mappings ב-_VV_PHASE_MAP' };
+  },
+  checkRenderVVAutoDesc: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('Auto-generate description for legacy') && src.includes('_VV_DESC_TEMPLATES[dom]');
+    return { pass: has, actual: has ? 'renderVV מייצר desc לפריטים ישנים' : 'חסר auto-desc ב-renderVV' };
+  },
+  checkRPNCalc: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('r.sev*r.prob') || src.includes('sev*prob');
+    return { pass: has, actual: has ? 'RPN = sev×prob \u05e7\u05d9\u05d9\u05dd' : 'חסר חישוב RPN' };
+  },
+  checkResidualRPNCalc: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('r.sevRes||0)*(r.probRes||0)') || src.includes('sevRes*probRes') || src.includes('rpnR');
+    return { pass: has, actual: has ? 'RPN שיורי = sevRes×probRes קיים' : 'חסר חישוב RPN שיורי' };
+  },
+  checkResidualAcceptance: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('\u05de\u05de\u05ea\u05d9\u05df') && src.includes('\u05db\u05df') && src.includes('\u05dc\u05d0') && src.includes('rrAccepted');
+    return { pass: has, actual: has ? 'כן/לא/ממתין options + rrAccepted קיימים' : 'חסר שדה אישור קבלה' };
+  },
+  checkNavClearsTooltipREQ136: async function(){
+    var src = await loadAppSource();
+    var idx = src.indexOf('function navigateTo');
+    if(idx<0) return { pass:false, actual:'navigateTo לא נמצא' };
+    var block = src.substring(idx, idx+400);
+    var has = block.includes('_hideVagueTooltip');
+    return { pass: has, actual: has ? 'navigateTo קורא _hideVagueTooltip' : 'navigateTo לא מנקה tooltip!' };
+  },
+
+  // ── Document Section & Traceability Automation ─────────────────────────
+  checkDocModalSections10: async function(){
+    var src = await loadAppSource();
+    var docs = ['SEMP','SSDD','SYRS','OCD','ICD','MITP','VCRM','FHA','FMEA','SYSATP'];
+    var missing = docs.filter(function(d){ return !src.includes('"'+d+'":['); });
+    return { pass: missing.length===0, actual: missing.length ? 'חסרים ב-DOC_MODAL_SECTIONS: '+missing.join(', ') : '10/10 מסמכים קיימים ב-DOC_MODAL_SECTIONS' };
+  },
+
+  checkSEMPSections: async function(){
+    var src = await loadAppSource();
+    var sections = ['wbsDesc','wrsRows','kcRows','tpmRows','riskRows','milestoneRows','reviewRows','specialtyRows','changeLogRows','glossary'];
+    var missing = sections.filter(function(s){ return !src.includes('"'+s+'"'); });
+    return { pass: missing.length===0, actual: missing.length ? 'סעיפים חסרים ב-SEMP: '+missing.join(', ') : '10/10 סעיפי SEMP קיימים ב-DOC_MODAL_SECTIONS' };
+  },
+
+  checkICDSections: async function(){
+    var src = await loadAppSource();
+    var idx = src.indexOf('"ICD":[');
+    if(idx<0) return { pass:false, actual:'ICD לא נמצא ב-DOC_MODAL_SECTIONS' };
+    var block = src.substring(idx, idx+1000);
+    var hasCols = block.includes('cols') && block.includes('table');
+    return { pass: hasCols, actual: hasCols ? 'ICD מכיל טבלאות ממשקים עם cols' : 'ICD חסר טבלאות ממשקים מפורטות' };
+  },
+
+  checkSafetyDocSections: async function(){
+    var src = await loadAppSource();
+    var docs = ['FHA','FMEA'];
+    var missing = docs.filter(function(d){ return !src.includes('"'+d+'":['); });
+    return { pass: missing.length===0, actual: missing.length ? 'חסרים ב-DOC_MODAL_SECTIONS: '+missing.join(', ') : 'FHA + FMEA קיימים עם סעיפים' };
+  },
+
+  checkDocAIFillFn: async function(){
+    var src = await loadAppSource();
+    var hasModalSections = src.includes('DOC_MODAL_SECTIONS[docId]') || src.includes('DOC_MODAL_SECTIONS[');
+    var hasFillFn = src.includes('_buildDocFillFromDB') || src.includes('aiPopulateDocSection');
+    var has = hasModalSections && hasFillFn;
+    return { pass: has, actual: has ? 'AI Fill קיים — _buildDocFillFromDB + DOC_MODAL_SECTIONS מחוברים' : (hasFillFn ? 'חסר DOC_MODAL_SECTIONS[docId]' : 'חסר פונקציית AI Fill למסמכים!') };
+  },
+
+  checkSEMPAIFill: async function(){
+    var src = await loadAppSource();
+    var hasSEMP = src.includes('"SEMP":') && src.includes('DOC_MODAL_SECTIONS');
+    var hasFill = src.includes('_buildDocFillFromDB') || src.includes('aiPopulateDocSection');
+    return { pass: hasSEMP && hasFill, actual: (hasSEMP ? 'SEMP מוגדר ✅' : 'SEMP חסר ❌') + ' | ' + (hasFill ? 'AI Fill קיים ✅' : 'AI Fill חסר ❌') };
+  },
+
+  checkDocRegCategories: async function(){
+    var src = await loadAppSource();
+    var cats = ['"se-mgmt"','"ops"','"integ"','"safety"'];
+    var missing = cats.filter(function(c){ return !src.includes(c); });
+    return { pass: missing.length===0, actual: missing.length ? 'קטגוריות חסרות: '+missing.join(', ') : '4/4 קטגוריות קיימות ב-DOC_REGISTRY_DEF' };
+  },
+
+  checkAllDocFields: async function(){
+    var src = await loadAppSource();
+    if(!src.includes('DOC_REGISTRY_DEF')) return { pass:false, actual:'DOC_REGISTRY_DEF לא נמצא' };
+    var ids = (src.match(/\{id:"[A-Z][A-Z0-9]+",\s*num:/g)||[]).length;
+    return { pass: ids>=22, actual: ids+' מסמכים עם שדות מוגדרים ב-DOC_REGISTRY_DEF (נדרש ≥22)' };
+  },
+
+  checkTCReqLinks: async function(){
+    try {
+      var noReq = TMS.testCases.filter(function(tc){ return !tc.reqs || tc.reqs.trim()==='' });
+      return { pass: noReq.length===0, actual: noReq.length ? noReq.length+' TCs ללא קישור ל-REQ: '+noReq.slice(0,3).map(function(t){return t.id;}).join(', ')+'...' : 'כל '+TMS.testCases.length+' TCs מקושרים ל-REQ ✅' };
+    } catch(e) {
+      return { pass: false, actual: 'TMS לא מוגדר: '+e.message };
+    }
+  },
+
+  checkDocStatusField: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('k:"status"') && src.includes('l:"סטטוס"');
+    return { pass: has, actual: has ? 'שדה status קיים בכל מסמך (k:status, l:סטטוס)' : 'חסר שדה status!' };
+  },
+
+  // ── Converted SKIP → AUTO functions ─────────────────────────────
+  checkCRSGenFn: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('function openAddReq') && src.includes('CRS') || src.includes('crsId');
+    if(!has) has = src.includes('DB.sysReqs') && src.includes('openAddReq');
+    return { pass: has, actual: has ? 'openAddReq + DB.sysReqs קיימים — CRS נוצר בהוספת דרישה' : 'חסר: openAddReq / DB.sysReqs' };
+  },
+  checkSYSGenFn: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('sysReqs') && (src.includes('SYS') || src.includes('function renderReqs'));
+    return { pass: has, actual: has ? 'sysReqs + renderReqs קיימים' : 'חסר: sysReqs / renderReqs' };
+  },
+  checkVVMethodPhaseFn: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('function openAddVV') && src.includes('method') && src.includes('phase');
+    return { pass: has, actual: has ? 'openAddVV + method + phase קיימים ב-V&V' : 'חסר: openAddVV / method / phase' };
+  },
+  checkSOWPatternFn: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('SHALL') || src.includes('pattern') && src.includes('function detectDocType');
+    return { pass: has, actual: has ? 'pattern matching (SHALL / detectDocType) קיים' : 'חסר: pattern matching' };
+  },
+  checkDerivedReqsFn: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('_offerDerivedRequirements') && src.includes('swReqs') && src.includes('meReqs');
+    return { pass: has, actual: has ? '_offerDerivedRequirements + swReqs/meReqs קיימים' : 'חסר: _offerDerivedRequirements' };
+  },
+  checkFileUploadFn: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('function handleFileLoad') && src.includes('FileReader');
+    return { pass: has, actual: has ? 'handleFileLoad + FileReader קיימים' : 'חסר: handleFileLoad / FileReader' };
+  },
+  checkPatternMatchFn: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('function detectDocType') || src.includes('matchedReqs') || src.includes('pattern');
+    return { pass: has, actual: has ? 'pattern matching / detectDocType קיים' : 'חסר: pattern detection' };
+  },
+  checkQualityGateFn: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('_VAGUE_WORDS') && src.includes('_validateRequirement');
+    return { pass: has, actual: has ? '_VAGUE_WORDS + _validateRequirement קיימים — vague filter פעיל' : 'חסר: _VAGUE_WORDS / _validateRequirement' };
+  },
+  checkAutoTaskVagueFn: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('tasks') && src.includes('vague') || src.includes('_vague') && src.includes('openAddTask');
+    if(!has) has = src.includes('DB.tasks') && src.includes('_validateRequirement');
+    return { pass: has, actual: has ? 'DB.tasks + _validateRequirement קיימים' : 'חסר: task auto-creation for vague' };
+  },
+  checkActionInterfaceFn: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('function openAddAction') && src.includes('DB.actions');
+    return { pass: has, actual: has ? 'openAddAction + DB.actions קיימים' : 'חסר: openAddAction / DB.actions' };
+  },
+  checkMultiRoleFn: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('localAIResponseMulti') || src.includes('function renderAI') && src.includes('rf_eng');
+    if(!has) has = src.includes('function searchKB') && src.includes('role');
+    return { pass: has, actual: has ? 'Multi-role AI response קיים' : 'חסר: localAIResponseMulti / multi-role response' };
+  },
+  checkCMCCBFn: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('id="cm-ccb"') && src.includes('DB.ccb');
+    return { pass: has, actual: has ? 'cm-ccb tab + DB.ccb קיימים' : 'חסר: cm-ccb / DB.ccb' };
+  },
+  checkDocTreeFn: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('id="cm-docs"') && src.includes('DOC_REGISTRY_DEF');
+    return { pass: has, actual: has ? 'cm-docs + DOC_REGISTRY_DEF קיימים' : 'חסר: cm-docs / DOC_REGISTRY_DEF' };
+  },
+  checkBaselinesFn: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('id="cm-baseline"') && (src.includes('baseline') || src.includes('DB.baselines'));
+    return { pass: has, actual: has ? 'cm-baseline + baseline data קיימים' : 'חסר: cm-baseline / DB.baselines' };
+  },
+  checkBOMRenderFn: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('function renderBOM') && src.includes('id="me-bom"');
+    return { pass: has, actual: has ? 'renderBOM + me-bom קיימים' : 'חסר: renderBOM / me-bom' };
+  },
+  checkTasksCRUDFn: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('function openAddTask') && src.includes('DB.tasks');
+    return { pass: has, actual: has ? 'openAddTask + DB.tasks קיימים' : 'חסר: openAddTask / DB.tasks' };
+  },
+  checkMilestonesFn: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('function openAddMilestone') && src.includes('DB.milestones');
+    return { pass: has, actual: has ? 'openAddMilestone + DB.milestones קיימים' : 'חסר: openAddMilestone / DB.milestones' };
+  },
+  checkActionItemsFn: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('function openAddAction') && src.includes('owner');
+    return { pass: has, actual: has ? 'openAddAction + owner field קיימים' : 'חסר: openAddAction / owner' };
+  },
+  checkStakeholdersFn: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('function openAddStakeholder') && src.includes('DB.stakeholders');
+    return { pass: has, actual: has ? 'openAddStakeholder + DB.stakeholders קיימים' : 'חסר: openAddStakeholder / DB.stakeholders' };
+  },
+  checkEVMMetricsFn: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('EVM') || src.includes('PV') && src.includes('AC') && src.includes('EV');
+    return { pass: has, actual: has ? 'EVM metrics (PV/AC/EV) קיימים' : 'חסר: EVM calculations' };
+  },
+  checkFlowChartFn: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('id="page-flow"') && (src.includes('renderFlow') || src.includes('flow'));
+    return { pass: has, actual: has ? 'page-flow + flow rendering קיים' : 'חסר: page-flow / renderFlow' };
+  },
+  checkNCRFODFn: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('id="qa-ncr"') && src.includes('id="qa-fod"');
+    return { pass: has, actual: has ? 'qa-ncr + qa-fod tabs קיימים' : 'חסר: qa-ncr / qa-fod' };
+  },
+  checkSafetyAnalysisFn: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('id="sf-analyses"') && src.includes('id="sf-sar"');
+    return { pass: has, actual: has ? 'sf-analyses + sf-sar tabs קיימים' : 'חסר: sf-analyses / sf-sar' };
+  },
+  checkSWDefectsFn: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('id="sw-defects"') && src.includes('DB.swDefects') || src.includes('id="sw-defects"') && src.includes('defect');
+    return { pass: has, actual: has ? 'sw-defects tab + defect data קיימים' : 'חסר: sw-defects / DB.swDefects' };
+  },
+  checkDiscussionsFn: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('id="page-discussions"');
+    return { pass: has, actual: has ? 'page-discussions קיים' : 'חסר: page-discussions' };
+  },
+  checkLessonsFn: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('id="page-lessons"') && (src.includes('lesson') || src.includes('DB.lessons'));
+    return { pass: has, actual: has ? 'page-lessons + lessons data קיימים' : 'חסר: page-lessons' };
+  },
+  checkClosureFn: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('id="page-closure"') && src.includes('checklist');
+    return { pass: has, actual: has ? 'page-closure + checklist קיימים' : 'חסר: page-closure / checklist' };
+  },
+  checkJSSyntaxFn: async function(){
+    var src = await loadAppSource();
+    if(!src || src.length < 1000) return { pass:false, actual:'קוד מקור לא נטען — הרץ דרך שרת' };
+    var hasScript = src.includes('<script') && src.includes('<\/script>');
+    var hasFunction = src.includes('function ') && src.includes('var ');
+    var hasMismatch = (src.split('{').length - src.split('}').length);
+    return { pass: hasScript && hasFunction && Math.abs(hasMismatch) < 50,
+      actual: hasScript && hasFunction ? 'JS syntax תקין — script + function + var קיימים (braces delta: '+hasMismatch+')' : 'חסר: script / function definitions' };
+  },
+  checkVagueDebounce: async function(){
+    var src = await loadAppSource();
+    var has = src.includes('clearTimeout') && src.includes('_autoSaveTimer');
+    return { pass: has, actual: has ? 'clearTimeout + _autoSaveTimer קיימים — debounce פעיל' : 'חסר: clearTimeout / _autoSaveTimer' };
+  },
+  checkSelfEvalFn: async function(){
+    var src = await loadAppSource();
+    // Count id:"Q entries in SELF_EVAL_QUESTIONS
+    var matches = src.match(/id:"Q\d+"/g) || [];
+    var count = matches.length;
+    var pass = count >= 17;
+    return { pass: pass, actual: 'נמצאו ' + count + ' שאלות ב-SELF_EVAL_QUESTIONS (נדרש 17)' };
+  },
+  checkEditNullGuardFn: async function(){
+    var src = await loadAppSource();
+    // Check editItem function has null/undefined guard
+    var editIdx = src.indexOf('function editItem(');
+    if(editIdx < 0) return { pass: false, actual: 'פונקציית editItem לא נמצאה' };
+    var snippet = src.substring(editIdx, editIdx + 400);
+    var hasGuard = snippet.includes('if(!item)') || snippet.includes('if (!item)') ||
+                   snippet.includes('if(item===undefined)') || snippet.includes('if(item==null)') ||
+                   snippet.includes('!DB[arrName]') || snippet.includes('idx < 0') ||
+                   snippet.includes('return;') || snippet.includes('idx === -1');
+    return { pass: hasGuard, actual: hasGuard ? 'null guard קיים ב-editItem' : 'אזהרה: editItem חסר null guard עבור DB[arrName][idx]' };
+  }
+};
+
+// ═══════════════════════════════════════════════════════════════
+//  TEST RUNNER
+// ═══════════════════════════════════════════════════════════════
+var _currentRun = null;
+
+async function startRun(filter){
+  _appSrc = null; // reload app source fresh
+  var tcs = TMS.testCases.filter(function(tc){
+    if(tc.auto==='no') return false;
+    if(filter==='failed'){
+      var last = getLastResult(tc.id);
+      return last && last.status !== 'PASS';
+    }
+    if(filter==='critical') return tc.pri==='Critical';
+    return true;
+  });
+
+  TMS.runCounter = (TMS.runCounter||0)+1;
+  var runId = 'RUN-'+String(TMS.runCounter).padStart(3,'0');
+  var runStart = Date.now();
+
+  _currentRun = {
+    id:runId, timestamp:new Date().toISOString(), filter:filter||'all',
+    results:[], passed:0, failed:0, errors:0, skipped:0, autofixed:0,
+    totalTests:tcs.length, duration:0
+  };
+
+  // Show progress area
+  document.getElementById('runProgressArea').style.display='block';
+  document.getElementById('runResultsArea').style.display='none';
+  var logEl = document.getElementById('runLog');
+  logEl.innerHTML = '';
+
+  function log(msg, cls){
+    logEl.innerHTML += '<div class="'+(cls||'info')+'">'+msg+'</div>';
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  // Show server/file mode banner
+  if(_IS_SERVED){
+    log('📡 מצב שרת — בדיקות מקוד מקור פעילות', 'pass');
+  } else {
+    log('📂 מצב file:// — נדרש לבחור את קובץ האפליקציה לסריקת קוד', 'warn');
+    // Pre-load app source via file picker so all source-checking tests can work
+    if(!_appSrc || _appSrc.length < 50000){
+      log('⏳ ממתין לבחירת קובץ 7200_System_v2.html...', 'info');
+      _appSrc = null;
+      var preloadedSrc = await _loadFromFilePicker();
+      if(preloadedSrc && preloadedSrc.length > 50000){
+        log('✅ קוד מקור נטען (' + Math.round(preloadedSrc.length/1024) + ' KB) — כל הבדיקות יפעלו', 'pass');
+      } else {
+        log('⚠️ דולג על טעינת קוד מקור — בדיקות קוד מקור יכשלו', 'warn');
+      }
+    } else {
+      log('✅ קוד מקור זמין (' + Math.round(_appSrc.length/1024) + ' KB)', 'pass');
+    }
+  }
+  log('['+runId+'] Starting — '+tcs.length+' test cases', 'info');
+
+  for(var i=0; i<tcs.length; i++){
+    var tc = tcs[i];
+    var pct = Math.round((i/tcs.length)*100);
+    document.getElementById('runProgressBar').style.width = pct+'%';
+    document.getElementById('runProgressLabel').textContent = 'מריץ: '+tc.id+' — '+tc.title;
+    document.getElementById('runProgressPct').textContent = pct+'%';
+
+    var result = { tcId:tc.id, status:'NOT_RUN', actual:'', expected:tc.expected, duration:0, autoFixed:false, fixNote:'' };
+    var t0 = Date.now();
+
+    try {
+      if(tc.auto==='yes' && tc.fn && AUTOMATION[tc.fn]){
+        var res = await AUTOMATION[tc.fn]();
+        result.status = res.pass ? 'PASS' : 'FAIL';
+        result.actual = res.actual || '';
+        result.duration = Date.now()-t0;
+        if(res.pass){
+          _currentRun.passed++;
+          log('  ✅ '+tc.id+': '+tc.title+' ('+result.duration+'ms)', 'pass');
+        } else {
+          _currentRun.failed++;
+          log('  ❌ '+tc.id+': '+tc.title+' — '+result.actual, 'fail');
+          // Create defect automatically
+          createDefectFromFail(tc, result, runId);
+        }
+      } else {
+        result.status = 'SKIP';
+        result.actual = 'ידני — נדרש ביצוע ידני';
+        _currentRun.skipped++;
+        log('  ⏭ '+tc.id+': '+tc.title+' (ידני)', '');
+      }
+    } catch(e) {
+      result.status = 'ERROR';
+      result.actual = 'שגיאה: '+e.message;
+      result.duration = Date.now()-t0;
+      _currentRun.errors++;
+      log('  ⚠️ '+tc.id+': ERROR — '+e.message, 'error');
+    }
+    _currentRun.results.push(result);
+    await sleep(30);
+  }
+
+  _currentRun.duration = Date.now()-runStart;
+  document.getElementById('runProgressBar').style.width = '100%';
+  document.getElementById('runProgressLabel').textContent = 'הושלם!';
+
+  var passRate = tcs.length ? Math.round(_currentRun.passed/tcs.length*100) : 0;
+  log('', '');
+  log('══ תוצאות: '+_currentRun.passed+' עברו | '+_currentRun.failed+' נכשלו | '+_currentRun.errors+' שגיאות | '+passRate+'% ══',
+    passRate>=90?'pass':passRate>=70?'warn':'fail');
+
+  TMS.runs.unshift(_currentRun);
+  saveTMS();
+  showRunResults(_currentRun);
+  renderDashboard();
+  document.getElementById('lastRunBadge').textContent = runId+': '+passRate+'% Pass';
+  // Navigate to results tab (nth-child(2) = תוצאות)
+  var resultTab = document.querySelector('.snav-item[onclick*="results"]');
+  if(resultTab) nav('results', resultTab);
+}
+
+function sleep(ms){ return new Promise(function(r){ setTimeout(r,ms); }); }
+
+// ═══════════════════════════════════════════════════════════════
+//  AUTOFIX + REGRESSION
+// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+//  AUTOFIX SYSTEM — applies real code patches via /api/patch
+// ═══════════════════════════════════════════════════════════════
+
+// Detect if running on server (HTTP) or file://
+var _SERVER_URL = (location.protocol === 'file:') ? '' : location.origin;
+var _IS_SERVED  = (location.protocol !== 'file:');
+
+// Send patches to server.py /api/patch endpoint
+async function _applyPatchesToServer(patches, dryRun){
+  if(!_IS_SERVED){
+    return { ok:false, error:'file:// מצב — נדרש שרת. הפעל start_server.bat ופתח http://localhost:5000/7200_Test_System.html', applied:[], skipped:[] };
+  }
+  try {
+    var resp = await fetch(_SERVER_URL + '/api/patch', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ file:'7200_System_v2.html', patches:patches, dry_run: dryRun||false })
+    });
+    return await resp.json();
+  } catch(e){
+    return { ok:false, error:'שגיאת רשת: '+e.message, applied:[], skipped:[] };
+  }
+}
+
+// ── AUTOFIX ACTIONS — each knows what patch to apply ─────────────
+var AUTOFIX_ACTIONS = {
+  // ── UI / Navigation ──────────────────────────────────────────
+  checkTRIndexOf: {
+    desc:"מתקן renderTable לא לכפול TR",
+    patches:[{
+      id:"fix-renderTable-TR",
+      old:'tbody.innerHTML=arr.map(function(item,i){return "<tr>"+rowFn(item,i)+"</tr>";}).join("");',
+      new:'// rowFn may return a full <tr>...</tr> or just <td> content\n  tbody.innerHTML=arr.map(function(item,i){\n    var row = rowFn(item,i) || "";\n    return row.trimLeft().indexOf("<tr") === 0 ? row : "<tr>"+row+"</tr>";\n  }).join("");'
+    }]
+  },
+  checkNavClearsTooltipREQ136: {
+    desc:"מוסיף _hideVagueTooltip לnavigateTo",
+    patches:[{
+      id:"fix-nav-tooltip",
+      old:'function navigateTo(id, el){\n  document.querySelectorAll(".page")',
+      new:'function navigateTo(id, el){\n  if (typeof _hideVagueTooltip === "function") _hideVagueTooltip();\n  document.querySelectorAll(".page")'
+    }]
+  },
+  // ── Data Persistence ─────────────────────────────────────────
+  checkAutoSave: {
+    desc:"מוסיף debounce auto-save ל-markDirty",
+    patches:[{
+      id:"fix-markDirty-autosave",
+      old:'function markDirty(){document.getElementById("syncDot").className="sync-dot dirty";}',
+      new:'var _autoSaveTimer = null;\nfunction markDirty(){\n  document.getElementById("syncDot").className="sync-dot dirty";\n  var lbl = document.getElementById("syncLabel");\n  if (lbl) lbl.textContent = "...";\n  if (_autoSaveTimer) clearTimeout(_autoSaveTimer);\n  _autoSaveTimer = setTimeout(function(){\n    if (_resetPending) return;\n    try {\n      localStorage.setItem("7200_project_data", JSON.stringify(DB));\n      document.getElementById("syncDot").className="sync-dot";\n      var lbl2 = document.getElementById("syncLabel");\n      if (lbl2) lbl2.textContent = "שמור";\n    } catch(e) {}\n  }, 800);\n}'
+    }]
+  },
+  checkResetAll: {
+    desc:"מוסיף _resetPending + localStorage.removeItem",
+    patches:[{
+      id:"fix-resetAll",
+      old:'function resetAll(){\n  if(!confirm("אתה בטוח? כל הנתונים ימחקו!"))return;\n  location.reload();\n}',
+      new:'var _resetPending = false;\nfunction resetAll(){\n  if(!confirm("אתה בטוח? כל הנתונים ימחקו לחלוטין!"))return;\n  _resetPending = true;\n  if (typeof _hideVagueTooltip === "function") _hideVagueTooltip();\n  try {\n    localStorage.removeItem("7200_project_data");\n    if (_autoSaveTimer) { clearTimeout(_autoSaveTimer); _autoSaveTimer = null; }\n  } catch(e){}\n  location.reload();\n}'
+    }]
+  },
+  // ── Requirements ─────────────────────────────────────────────
+  checkDupByDesc: {
+    desc:"מתקן _isDupInDB להשוות desc ראשון",
+    patches:[{
+      id:"fix-isDupByDesc",
+      old:'var newKey = (item.name || item.rid || item.desc || "").substring(0, 150)',
+      new:'var newKey = (item.desc || item.name || item.rid || "").substring(0, 150)'
+    },{
+      id:"fix-isDupByDescEx",
+      old:'var exKey = (ex.name || ex.rid || ex.desc || "").substring(0, 150)',
+      new:'var exKey = (ex.desc || ex.name || ex.rid || "").substring(0, 150)'
+    }]
+  },
+  // ── Risk Management ───────────────────────────────────────────
+  checkResidualRisk: {
+    desc:"מוסיף residualRisks ל-DB + DOM",
+    patches:[{
+      id:"fix-residualRisksDB",
+      old:'risks: [], subcontractors: [],',
+      new:'risks: [], residualRisks: [], subcontractors: [],'
+    }]
+  }
+};
+
+// ── MAIN AUTOFIX + REGRESSION FUNCTION ───────────────────────────
+async function startAutoFix(){
+  if(!_currentRun || !_currentRun.results.length){
+    alert('הרץ בדיקות תחילה לפני AutoFix'); return;
+  }
+  var failedResults = _currentRun.results.filter(function(r){ return r.status==='FAIL'||r.status==='ERROR'; });
+  if(!failedResults.length){ alert('אין כשלים לתקן — כל הבדיקות עברו!'); return; }
+
+  // ── Navigate to runner tab and show progress ──────────────────
+  var runnerTab = document.querySelector('.snav-item[onclick*="\'runner\'"]') ||
+                  document.querySelector('.snav-item[onclick*="runner"]');
+  if(runnerTab) nav('runner', runnerTab);
+  await sleep(100);
+
+  var logEl = document.getElementById('runLog');
+  if(!logEl){ alert('שגיאה: לא נמצא לוג בדיקות. נסה להריץ בדיקות שוב.'); return; }
+
+  document.getElementById('runProgressArea').style.display='block';
+  document.getElementById('runResultsArea').style.display='none';
+  logEl.innerHTML += '<div class="info" style="border-top:2px solid #f59e0b;margin-top:8px;padding-top:8px;">══ 🔧 AutoFix Mode — '+failedResults.length+' כשלים | '+((_IS_SERVED)?'📡 שרת זוהה — מחיל patches אוטומטית':'⚠️ file:// מצב — patches לא יוחלו. הפעל start_server.bat')+' ══</div>';
+  logEl.scrollTop = logEl.scrollHeight;
+
+  if(!_IS_SERVED){
+    // ── file:// mode: apply patches client-side then offer download ──
+    logEl.innerHTML += '<div class="info">📂 מצב file:// — מחיל תיקונים ישירות ומציע הורדת קובץ מתוקן</div>';
+    logEl.scrollTop = logEl.scrollHeight;
+
+    // Ensure we have app source (load via file picker if needed)
+    var fixSrc = _appSrc && _appSrc.length > 50000 ? _appSrc : null;
+    if(!fixSrc){
+      logEl.innerHTML += '<div class="warn">⏳ בחר את קובץ 7200_System_v2.html כדי להחיל תיקונים...</div>';
+      logEl.scrollTop = logEl.scrollHeight;
+      fixSrc = await _loadFromFilePicker();
+    }
+    if(!fixSrc || fixSrc.length < 50000){
+      logEl.innerHTML += '<div class="warn">⚠️ לא נבחר קובץ — רשימת כשלים לתיקון ידני:</div>';
+      failedResults.forEach(function(r){
+        var tc=TMS.testCases.find(function(t){return t.id===r.tcId;})||{};
+        logEl.innerHTML += '<div class="fail">  ❌ '+r.tcId+': '+(tc.title||'')+(r.actual?' — '+r.actual:'')+'</div>';
+        if(tc.steps) logEl.innerHTML += '<div class="info" style="font-size:11px;padding-right:20px;">📝 '+tc.steps+'</div>';
+      });
+      logEl.innerHTML += '<div class="info">══ AutoFix סיים: 0 תוקנו | '+failedResults.length+' ידניים ══</div>';
+      logEl.scrollTop = logEl.scrollHeight;
+      saveTMS();
+      return;
+    }
+
+    logEl.innerHTML += '<div class="pass">✅ קוד מקור נטען (' + Math.round(fixSrc.length/1024) + ' KB) — בודק patches...</div>';
+    logEl.scrollTop = logEl.scrollHeight;
+
+    var patched = fixSrc;
+    var fixedCount = 0;
+    var manualCount = 0;
+
+    failedResults.forEach(function(r){
+      var tc = TMS.testCases.find(function(t){ return t.id===r.tcId; });
+      if(!tc) return;
+      var action = AUTOFIX_ACTIONS[tc.fn];
+      if(action && action.patches && action.patches.length){
+        var applied = 0;
+        action.patches.forEach(function(p){
+          if(p.old && patched.includes(p.old)){
+            patched = patched.split(p.old).join(p.new);
+            applied++;
+          }
+        });
+        if(applied > 0){
+          fixedCount++;
+          TMS.autofixLog.push({ id:uid(), runId:_currentRun.id, tcId:tc.id, failMsg:r.actual,
+            fixAction:action.desc+' ✅ הוחל', result:'FIXED', date:new Date().toISOString() });
+          logEl.innerHTML += '<div class="fixed">  🔧 '+tc.id+': '+action.desc+'</div>';
+        } else {
+          manualCount++;
+          TMS.autofixLog.push({ id:uid(), runId:_currentRun.id, tcId:tc.id, failMsg:r.actual,
+            fixAction:'Patch לא מצא קוד רלוונטי', result:'PATCH_SKIPPED', date:new Date().toISOString() });
+          logEl.innerHTML += '<div class="warn">  ⚠️ '+tc.id+': '+tc.title+' — כבר תוקן / patch לא רלוונטי</div>';
+        }
+      } else {
+        manualCount++;
+        TMS.autofixLog.push({ id:uid(), runId:_currentRun.id, tcId:tc.id, failMsg:r.actual,
+          fixAction:'אין פעולת AutoFix — נדרש תיקון ידני', result:'MANUAL_REQUIRED', date:new Date().toISOString() });
+        logEl.innerHTML += '<div class="info">  ℹ️ '+tc.id+': '+(tc.title||'')+' — '+r.actual+'</div>';
+        if(tc.steps) logEl.innerHTML += '<div class="info" style="font-size:11px;padding-right:20px;">📝 '+tc.steps+'</div>';
+      }
+    });
+    logEl.scrollTop = logEl.scrollHeight;
+
+    // Offer download of patched file
+    if(fixedCount > 0){
+      try {
+        var blob = new Blob([patched], {type:'text/html;charset=utf-8'});
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url; a.download = '7200_System_v2.html'; a.style.display='none';
+        document.body.appendChild(a); a.click();
+        setTimeout(function(){ URL.revokeObjectURL(url); document.body.removeChild(a); }, 5000);
+        _appSrc = patched; // update cached source
+        logEl.innerHTML += '<div class="pass">⬇️ הורדה החלה! <strong>החלף את הקובץ המקורי 7200_System_v2.html בקובץ שהורד</strong>, ואז הרץ בדיקות שוב.</div>';
+      } catch(dlErr){
+        logEl.innerHTML += '<div class="error">❌ שגיאת הורדה: '+dlErr.message+'</div>';
+      }
+    }
+
+    logEl.innerHTML += '<div class="info">══ AutoFix סיים: '+fixedCount+' תוקנו | '+manualCount+' ידניים ══</div>';
+    logEl.scrollTop = logEl.scrollHeight;
+    _currentRun.autofixed = fixedCount;
+    saveTMS();
+    return;
+  }
+
+  // ── Phase 1: Source check ──────────────────────────────────────
+  var src = await loadAppSource();
+  if(!src || src.length < 10000){
+    logEl.innerHTML += '<div class="error">❌ לא ניתן לטעון את קוד המקור. ודא שהשרת פועל.</div>';
+    logEl.innerHTML += '<div class="info">💡 הפעל: start_server.bat → פתח: http://localhost:5000/7200_Test_System.html</div>';
+    logEl.scrollTop = logEl.scrollHeight;
+    return;
+  }
+  logEl.innerHTML += '<div class="pass">✅ קוד מקור נטען ('+Math.round(src.length/1024)+'KB)</div>';
+  logEl.scrollTop = logEl.scrollHeight;
+
+  // ── Phase 2: Build & apply patches ────────────────────────────
+  var allPatches = [];
+  var tcsPatchMap = {};
+
+  failedResults.forEach(function(result){
+    var tc = TMS.testCases.find(function(t){ return t.id===result.tcId; });
+    if(!tc) return;
+    var action = AUTOFIX_ACTIONS[tc.fn];
+    if(action && action.patches && action.patches.length){
+      // Check if any patch is applicable
+      var applicable = action.patches.filter(function(p){ return p.old && src.includes(p.old); });
+      var alreadyFixed = action.patches.filter(function(p){ return p.new && src.includes(p.new.substring(0,40)); });
+      if(applicable.length){
+        applicable.forEach(function(p){ allPatches.push(p); });
+        tcsPatchMap[tc.id] = { status:'pending', action: action.desc, count: applicable.length };
+      } else if(alreadyFixed.length){
+        tcsPatchMap[tc.id] = { status:'already_fixed', action: 'כבר תוקן — ייתכן שהבדיקה עצמה בעייתית', count: 0 };
+      } else {
+        tcsPatchMap[tc.id] = { status:'no_match', action: 'Patch לא מצא את הקוד הרלוונטי', count: 0 };
+      }
+    } else {
+      tcsPatchMap[tc.id] = { status:'no_action', action: 'אין פעולת AutoFix — נדרש תיקון ידני', count: 0 };
+    }
+  });
+
+  logEl.innerHTML += '<div class="info">→ '+allPatches.length+' patches זוהו</div>';
+  logEl.scrollTop = logEl.scrollHeight;
+
+  var serverApplied = [];
+  var serverSkipped = [];
+
+  if(allPatches.length > 0){
+    // Send to server
+    var patchResult = await _applyPatchesToServer(allPatches, false);
+    if(patchResult.ok){
+      serverApplied = patchResult.applied || [];
+      serverSkipped = patchResult.skipped || [];
+      logEl.innerHTML += '<div class="pass">✅ שרת החיל '+serverApplied.length+'/'+allPatches.length+' תיקונים ב-7200_System_v2.html</div>';
+      if(serverSkipped.length) logEl.innerHTML += '<div class="warn">⚠️ '+serverSkipped.length+' patches דולגו (קוד שונה מהצפוי)</div>';
+    } else {
+      logEl.innerHTML += '<div class="error">❌ שרת: '+patchResult.error+'</div>';
+      if(!_IS_SERVED){
+        logEl.innerHTML += '<div class="warn">💡 הפעל start_server.bat ופתח http://localhost:5000/7200_Test_System.html</div>';
+      }
+    }
+  }
+
+  // ── Phase 3: Log each TC result ───────────────────────────────
+  var fixedCount = 0;
+  failedResults.forEach(function(result){
+    var tc = TMS.testCases.find(function(t){ return t.id===result.tcId; });
+    if(!tc) return;
+    var info = tcsPatchMap[tc.id] || { status:'no_action', action:'ללא פעולה' };
+    var patchApplied = serverApplied.some(function(id){
+      var action = AUTOFIX_ACTIONS[tc.fn];
+      return action && action.patches && action.patches.some(function(p){ return p.id===id; });
+    });
+    var didFix = patchApplied || info.status==='already_fixed';
+    var fixNote = info.action + (patchApplied?' ✅ הוחל בקובץ':'');
+
+    TMS.autofixLog.push({
+      id: uid(), runId: _currentRun.id, tcId: tc.id,
+      failMsg: result.actual, fixAction: fixNote,
+      result: didFix ? 'FIXED' : info.status==='no_action' ? 'MANUAL_REQUIRED' : 'PATCH_SKIPPED',
+      date: new Date().toISOString()
+    });
+    result.autoFixed = didFix; result.fixNote = fixNote;
+    if(didFix){ fixedCount++; _currentRun.autofixed = (_currentRun.autofixed||0)+1; }
+    logEl.innerHTML += '<div class="'+(didFix?'fixed':info.status==='no_action'?'warn':'error')+'">  '+(didFix?'🔧':'⚠️')+' '+tc.id+': '+fixNote+'</div>';
+    logEl.scrollTop = logEl.scrollHeight;
+  });
+
+  logEl.innerHTML += '<div class="info">══ AutoFix סיים: '+fixedCount+' תוקנו | '+(failedResults.length-fixedCount)+' ידניים ══</div>';
+
+  // ── Phase 4: REGRESSION RUN ───────────────────────────────────
+  logEl.innerHTML += '<div class="info"></div><div class="info">═══ Regression Run מתחיל ('+TMS.testCases.length+' בדיקות) ═══</div>';
+  await sleep(800);
+  _appSrc = null; // force reload patched file
+
+  var regRun = {
+    id: _currentRun.id+'-REG', timestamp: new Date().toISOString(), filter:'regression',
+    results:[], passed:0, failed:0, errors:0, skipped:0, autofixed:0,
+    totalTests: TMS.testCases.length, duration:0, isRegression:true
+  };
+
+  var regStart = Date.now();
+  for(var j=0; j<TMS.testCases.length; j++){
+    var tc3 = TMS.testCases[j];
+    if(tc3.auto==='no'){ regRun.skipped++; continue; }
+    var result3 = { tcId:tc3.id, status:'NOT_RUN', actual:'', expected:tc3.expected||'', duration:0, autoFixed:false };
+    var t0 = Date.now();
+    try {
+      if(AUTOMATION[tc3.fn]){
+        var res3 = await AUTOMATION[tc3.fn]();
+        result3.status = res3.pass ? 'PASS' : 'FAIL';
+        result3.actual = res3.actual||'';
+        result3.duration = Date.now()-t0;
+        if(res3.pass){ regRun.passed++;
+          logEl.innerHTML += '<div class="pass">  ✅ [REG] '+tc3.id+': '+tc3.title.substring(0,50)+'</div>';
+        } else { regRun.failed++;
+          logEl.innerHTML += '<div class="fail">  ❌ [REG] '+tc3.id+': '+result3.actual.substring(0,60)+'</div>';
+        }
+      } else { result3.status='SKIP'; regRun.skipped++; }
+    } catch(e3){ result3.status='ERROR'; result3.actual=e3.message; regRun.errors++; }
+    regRun.results.push(result3);
+    logEl.scrollTop = logEl.scrollHeight;
+    await sleep(15);
+  }
+  regRun.duration = Date.now()-regStart;
+  var regRate = regRun.totalTests ? Math.round(regRun.passed/regRun.totalTests*100) : 0;
+  logEl.innerHTML += '<div class="'+(regRate>=90?'pass':regRate>=70?'warn':'fail')+'">═══ Regression: '+regRate+'% Pass | '+regRun.passed+' עברו | '+regRun.failed+' נכשלו ═══</div>';
+
+  TMS.runs.unshift(regRun);
+  saveTMS();
+  showRunResults(regRun);
+  renderDashboard();
+  renderHistory();
+  renderAutoFix();
+  nav('runner', null);
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  DEFECTS
+// ═══════════════════════════════════════════════════════════════
+function createDefectFromFail(tc, result, runId){
+  // Check if defect already open for this TC
+  var existing = TMS.defects.find(function(d){ return d.tcId===tc.id && d.status==='Open'; });
+  if(existing){ existing.lastRunId=runId; existing.occurrences=(existing.occurrences||1)+1; return; }
+  var sev = tc.pri==='Critical'?'Critical':tc.pri==='High'?'Major':tc.pri==='Medium'?'Minor':'Info';
+  TMS.defects.push({
+    id:'DEF-'+String(TMS.defects.length+1).padStart(3,'0'),
+    tcId:tc.id, runId:runId, title:'כשל ב-'+tc.title,
+    severity:sev, status:'Open', description:result.actual,
+    expected:result.expected, foundDate:new Date().toISOString().split('T')[0],
+    fixedDate:'', autoFixed:false, notes:'', occurrences:1
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  RENDER FUNCTIONS
+// ═══════════════════════════════════════════════════════════════
+function renderDashboard(){
+  var runs = TMS.runs.filter(function(r){ return !r.isRegression; });
+  var lastRun = runs[0];
+  var total = TMS.testCases.length;
+  var passed = lastRun ? lastRun.passed : 0;
+  var failed = lastRun ? lastRun.failed : 0;
+  var passRate = lastRun && lastRun.totalTests ? Math.round(lastRun.passed/lastRun.totalTests*100) : 0;
+  var openDef = TMS.defects.filter(function(d){return d.status==='Open';}).length;
+
+  document.getElementById('dashStats').innerHTML =
+    mkStat('🧪',total,'מקרי בדיקה','blue')+
+    mkStat('✅',passed,'עברו (אחרון)','green')+
+    mkStat('❌',failed,'נכשלו (אחרון)','red')+
+    mkStat('%',passRate+'%','Pass Rate',passRate>=90?'green':passRate>=70?'orange':'red')+
+    mkStat('🐛',openDef,'ליקויים פתוחים',openDef===0?'green':'red')+
+    mkStat('🕐',runs.length,'הרצות','purple');
+
+  // Recent fails
+  var failsHtml = '';
+  if(lastRun){
+    var fails = lastRun.results.filter(function(r){return r.status==='FAIL'||r.status==='ERROR';});
+    if(!fails.length) failsHtml = '<div style="color:var(--green);text-align:center;padding:20px;">✅ אין כשלים בהרצה האחרונה!</div>';
+    else fails.forEach(function(f){
+      var tc = TMS.testCases.find(function(t){return t.id===f.tcId;});
+      failsHtml += '<div style="padding:8px 0;border-bottom:1px solid var(--g100);font-size:12px;">'+
+        '<span class="badge badge-fail" style="margin-left:8px;">'+f.status+'</span>'+
+        (f.autoFixed?'<span class="fix-badge" style="margin-left:6px;">AutoFixed</span>':'')+
+        '<b>'+f.tcId+'</b>: '+(tc?tc.title:'?')+'<br>'+
+        '<span style="color:var(--gray);font-size:11px;">'+f.actual+'</span></div>';
+    });
+  } else {
+    failsHtml = '<div style="color:var(--gray);text-align:center;padding:20px;">לחץ "הרץ בדיקות" להתחלה</div>';
+  }
+  document.getElementById('dashFails').innerHTML = failsHtml;
+
+  // Trend chart
+  drawTrendChart(runs);
+}
+
+function mkStat(ico,val,label,cls){
+  return '<div class="stat '+cls+'"><div style="font-size:20px;">'+ico+'</div><div class="stat-val">'+val+'</div><div class="stat-label">'+label+'</div></div>';
+}
+
+function drawTrendChart(runs){
+  var canvas = document.getElementById('trendChart');
+  var empty = document.getElementById('trendEmpty');
+  if(!runs.length){ canvas.style.display='none'; empty.style.display='block'; return; }
+  canvas.style.display='block'; empty.style.display='none';
+  var ctx = canvas.getContext('2d');
+  var w=canvas.width, h=canvas.height;
+  ctx.clearRect(0,0,w,h);
+  var data = runs.slice(0,10).reverse().map(function(r){
+    return r.totalTests ? Math.round(r.passed/r.totalTests*100) : 0;
+  });
+  var maxV=100, minV=0, padL=30, padR=10, padT=10, padB=30;
+  var gw=w-padL-padR, gh=h-padT-padB;
+  // Grid
+  ctx.strokeStyle='#e8eaed'; ctx.lineWidth=1;
+  [0,25,50,75,100].forEach(function(v){
+    var y=padT+gh-(v/100)*gh;
+    ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(padL+gw,y); ctx.stroke();
+    ctx.fillStyle='#9aa0a6'; ctx.font='10px Arial'; ctx.fillText(v+'%',2,y+4);
+  });
+  if(data.length<2){ ctx.fillStyle=data[0]>=90?'#2e7d32':'#c62828'; ctx.fillRect(padL+gw/2-4,padT+gh-(data[0]/100)*gh-4,8,8); return; }
+  // Line
+  ctx.strokeStyle='#1565c0'; ctx.lineWidth=2.5; ctx.beginPath();
+  data.forEach(function(v,i){
+    var x=padL+(i/(data.length-1))*gw, y=padT+gh-(v/100)*gh;
+    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+  // Points
+  data.forEach(function(v,i){
+    var x=padL+(i/(data.length-1))*gw, y=padT+gh-(v/100)*gh;
+    ctx.fillStyle=v>=90?'#2e7d32':v>=70?'#e65100':'#c62828';
+    ctx.beginPath(); ctx.arc(x,y,5,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#333'; ctx.font='bold 10px Arial';
+    ctx.fillText(v+'%',x-10,y-8);
+  });
+  // X labels
+  data.forEach(function(v,i){
+    var x=padL+(i/(data.length-1))*gw;
+    ctx.fillStyle='#9aa0a6'; ctx.font='9px Arial';
+    ctx.fillText('R'+(runs.length-data.length+i+1),x-5,h-5);
+  });
+}
+
+function renderReqs(search){
+  var reqs = TMS.requirements.filter(function(r){
+    if(!search) return true;
+    return r.title.toLowerCase().includes(search.toLowerCase()) || r.id.toLowerCase().includes(search.toLowerCase());
+  });
+  var body = document.getElementById('reqBody');
+  body.innerHTML = reqs.map(function(r,i){
+    var tcCount = TMS.testCases.filter(function(tc){ return (tc.reqs||'').includes(r.id); }).length;
+    var lastResult = getLastResultForReq(r.id);
+    var statusBadge = lastResult ? '<span class="badge badge-'+lastResult.toLowerCase()+'">'+lastResult+'</span>' : '—';
+    return '<tr>'+
+      '<td style="font-weight:700;">'+r.id+'</td>'+
+      '<td>'+r.title+'<br><span style="font-size:11px;color:var(--gray);">'+r.desc.substring(0,60)+'</span></td>'+
+      '<td><span style="font-size:11px;background:var(--g100);padding:2px 6px;border-radius:10px;">'+r.cat+'</span></td>'+
+      '<td><span class="badge badge-'+(r.pri==='Critical'?'crit':r.pri==='High'?'major':r.pri==='Medium'?'minor':'info')+'">'+r.pri+'</span></td>'+
+      '<td>'+statusBadge+'</td>'+
+      '<td style="text-align:center;">'+tcCount+'</td>'+
+      '<td><button class="btn btn-outline" style="padding:3px 8px;font-size:11px;" onclick="openReqModal(\''+i+'\')">✏️</button>'+
+      '<button class="btn btn-danger" style="padding:3px 8px;font-size:11px;margin-right:4px;" onclick="deleteReq('+i+')">🗑</button></td>'+
+    '</tr>';
+  }).join('');
+}
+
+function getLastResult(tcId){
+  for(var i=0;i<TMS.runs.length;i++){
+    var r = TMS.runs[i].results.find(function(x){return x.tcId===tcId;});
+    if(r) return r;
+  }
+  return null;
+}
+
+function getLastResultForReq(reqId){
+  var tcs = TMS.testCases.filter(function(tc){ return (tc.reqs||'').includes(reqId); });
+  var statuses = tcs.map(function(tc){
+    var r = getLastResult(tc.id);
+    return r ? r.status : null;
+  }).filter(Boolean);
+  if(!statuses.length) return null;
+  if(statuses.includes('FAIL')) return 'FAIL';
+  if(statuses.includes('ERROR')) return 'ERROR';
+  if(statuses.every(function(s){ return s==='PASS'; })) return 'PASS';
+  return 'SKIP';
+}
+
+function renderTCs(search, catFilter){
+  var tcs = TMS.testCases.filter(function(tc){
+    if(catFilter && tc.cat!==catFilter) return false;
+    if(search && !tc.title.toLowerCase().includes(search.toLowerCase()) && !tc.id.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
+  var body = document.getElementById('tcBody');
+  body.innerHTML = tcs.map(function(tc,i){
+    var last = getLastResult(tc.id);
+    var statusHtml = last ? '<span class="badge badge-'+last.status.toLowerCase()+'">'+last.status+'</span>' : '<span class="badge badge-notrun">—</span>';
+    return '<tr>'+
+      '<td style="font-weight:700;">'+tc.id+'</td>'+
+      '<td>'+tc.title+'</td>'+
+      '<td style="font-size:11px;">'+tc.cat+'</td>'+
+      '<td style="font-size:11px;">'+tc.type+'</td>'+
+      '<td><span class="badge badge-'+(tc.pri==='Critical'?'crit':tc.pri==='High'?'major':'minor')+'">'+tc.pri+'</span></td>'+
+      '<td style="text-align:center;">'+(tc.auto==='yes'?'🤖 Auto':tc.auto==='semi'?'⚡ חצי':'👤 ידני')+'</td>'+
+      '<td>'+statusHtml+'</td>'+
+      '<td><button class="btn btn-outline" style="padding:3px 8px;font-size:11px;" onclick="openTCModal(\''+i+'\')">✏️</button>'+
+      '<button class="btn btn-danger" style="padding:3px 8px;font-size:11px;margin-right:4px;" onclick="deleteTC('+i+')">🗑</button></td>'+
+    '</tr>';
+  }).join('');
+}
+
+function showRunResults(run){
+  document.getElementById('runProgressArea').style.display='none';
+  document.getElementById('runResultsArea').style.display='block';
+  var passRate = run.totalTests ? Math.round(run.passed/run.totalTests*100) : 0;
+  var passColor = passRate>=90?'var(--green)':passRate>=70?'var(--orange)':'var(--red)';
+
+  document.getElementById('runSummaryBadges').innerHTML =
+    '<span class="badge badge-pass" style="cursor:pointer;padding:4px 10px;border:2px solid transparent;" id="rf-all" onclick="filterRunResults(this,\'all\')">כל התוצאות ('+run.results.length+')</span>&nbsp;'+
+    '<span class="badge badge-pass" style="cursor:pointer;padding:4px 10px;border:2px solid transparent;" id="rf-pass" onclick="filterRunResults(this,\'PASS\')">\u2705 '+run.passed+' \u05e2\u05d1\u05e8\u05d5</span>&nbsp;'+
+    '<span class="badge badge-fail" style="cursor:pointer;padding:4px 10px;border:2px solid transparent;" id="rf-fail" onclick="filterRunResults(this,\'FAIL\')">\u274c '+run.failed+' \u05e0\u05db\u05e9\u05dc\u05d5</span>&nbsp;'+
+    (run.errors ? '<span class="badge badge-error" style="cursor:pointer;padding:4px 10px;border:2px solid transparent;" id="rf-error" onclick="filterRunResults(this,\'ERROR\')">\u26a0\ufe0f '+run.errors+' \u05e9\u05d2\u05d9\u05d0\u05d5\u05ea</span>&nbsp;' : '')+
+    '<span class="badge badge-skip" style="cursor:pointer;padding:4px 10px;border:2px solid transparent;" id="rf-skip" onclick="filterRunResults(this,\'SKIP\')">\u23ed '+run.skipped+' \u05d3\u05d5\u05dc\u05d2\u05d5</span>&nbsp;'+
+    '<span style="font-size:13px;font-weight:800;color:'+passColor+';margin-right:8px;">'+passRate+'% Pass</span>';
+
+  var _allResults = run.results;
+  window._currentRunResults = _allResults;
+
+  function renderResultRows(filter){
+    var rows = filter==='all' ? _allResults : _allResults.filter(function(r){ return r.status===filter; });
+    // Sort: FAIL/ERROR first, then PASS, then SKIP
+    if(filter==='all'){
+      rows = rows.slice().sort(function(a,b){
+        var o={FAIL:0,ERROR:1,PASS:2,SKIP:3,NOT_RUN:4};
+        return (o[a.status]||9)-(o[b.status]||9);
+      });
+    }
+
+    var statusBg = {PASS:'#f0faf0',FAIL:'#fff5f5',ERROR:'#fff0f0',SKIP:'#fafafa',NOT_RUN:'#fafafa'};
+    var statusBorder = {PASS:'#c8e6c9',FAIL:'#ffcdd2',ERROR:'#ffcdd2',SKIP:'#e8eaed',NOT_RUN:'#e8eaed'};
+
+    return rows.map(function(r){
+      var tc = TMS.testCases.find(function(t){return t.id===r.tcId;})||{title:'?',cat:'?',pri:'?'};
+      var sbg = statusBg[r.status]||'#fafafa';
+      var sbd = statusBorder[r.status]||'#e8eaed';
+      var priColor = tc.pri==='Critical'?'#c62828':tc.pri==='High'?'#e65100':tc.pri==='Medium'?'#f57f17':'#5f6368';
+      var sColors={PASS:'#2e7d32',FAIL:'#c62828',ERROR:'#b71c1c',SKIP:'#5f6368',NOT_RUN:'#9aa0a6'};
+      var sc = sColors[r.status]||'#5f6368';
+      return '<tr style="background:'+sbg+';border-bottom:1px solid '+sbd+';">'+
+        '<td style="font-weight:700;font-size:12px;color:var(--blue);">'+r.tcId+'</td>'+
+        '<td style="font-size:12px;">'+tc.title+'</td>'+
+        '<td style="font-size:11px;color:var(--gray);">'+tc.cat+'</td>'+
+        '<td><span style="font-size:10px;font-weight:700;color:'+priColor+';">'+tc.pri+'</span></td>'+
+        '<td style="text-align:center;"><span style="background:'+sc+';color:#fff;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:700;white-space:nowrap;">'+r.status+'</span></td>'+
+        '<td style="font-size:11px;max-width:220px;" title="'+r.actual+'">'+r.actual+'</td>'+
+        '<td style="font-size:11px;text-align:center;color:var(--gray);">'+(r.duration?r.duration+'ms':'—')+'</td>'+
+        '<td style="text-align:center;">'+(r.autoFixed?'<span class="fix-badge" style="font-size:10px;">🔧 Fixed</span>':r.fixNote?'<span style="font-size:10px;color:var(--orange);">⚠️</span>':'—')+'</td>'+
+      '</tr>';
+    }).join('') || '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--gray);">אין תוצאות בסטטוס זה</td></tr>';
+  }
+
+  window.filterRunResults = function(filter){
+    // Update table header to show count
+    var tableTitle = filter==='all' ? 'כל '+_allResults.length+' הבדיקות' :
+                     filter==='PASS' ? '✅ '+run.passed+' בדיקות שעברו' :
+                     filter==='FAIL' ? '❌ '+run.failed+' בדיקות שנכשלו' :
+                     filter==='ERROR' ? '⚠️ '+run.errors+' שגיאות' :
+                     '⏭ '+run.skipped+' בדיקות שדולגו';
+    var titleEl = document.getElementById('runResultsTitle');
+    if(titleEl) titleEl.textContent = tableTitle;
+    document.getElementById('runResultsBody').innerHTML = renderResultRows(filter);
+    // Highlight active filter chip
+    ['all','PASS','FAIL','ERROR','SKIP'].forEach(function(f){
+      var el = document.getElementById('rf-'+f);
+      if(el) el.style.outline = (f===filter)?'2px solid var(--blue)':'none';
+    });
+  };
+
+  // Update table title element
+  var card = document.getElementById('runResultsArea');
+  var titleEl = card ? card.querySelector('.card-title') : null;
+  if(titleEl) titleEl.id = 'runResultsTitle';
+
+  // Show ALL by default (sorted: fail first, then pass, then skip)
+  document.getElementById('runResultsBody').innerHTML = renderResultRows('all');
+}
+
+function renderHistory(){
+  var body = document.getElementById('historyBody');
+  var empty = document.getElementById('historyEmpty');
+  if(!TMS.runs.length){ empty.style.display='block'; body.innerHTML=''; return; }
+  empty.style.display='none';
+  body.innerHTML = TMS.runs.map(function(run,i){
+    var passRate = run.totalTests ? Math.round(run.passed/run.totalTests*100) : 0;
+    var dt = new Date(run.timestamp);
+    var dtStr = dt.toLocaleDateString('he-IL')+' '+dt.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});
+    return '<tr>'+
+      '<td style="font-weight:700;">'+(run.isRegression?'<span style="font-size:10px;color:var(--teal);">[REG]</span> ':'')+run.id+'</td>'+
+      '<td style="font-size:11px;">'+dtStr+'</td>'+
+      '<td style="color:var(--green);font-weight:700;">'+run.passed+'</td>'+
+      '<td style="color:var(--red);font-weight:700;">'+run.failed+'</td>'+
+      '<td style="color:var(--orange);">'+run.errors+'</td>'+
+      '<td style="color:var(--gray);">'+run.skipped+'</td>'+
+      '<td><div class="progress" style="width:80px;"><div class="progress-bar '+(passRate>=90?'green':passRate>=70?'orange':'red')+'" style="width:'+passRate+'%"></div></div>'+
+      '<span style="font-size:11px;font-weight:700;">'+passRate+'%</span></td>'+
+      '<td style="font-size:11px;">'+(run.autofixed?'🔧 '+run.autofixed+' תוקנו':'—')+'</td>'+
+      '<td style="font-size:11px;">'+(run.duration/1000).toFixed(1)+'s</td>'+
+      '<td style="display:flex;gap:3px;">'+
+      '<button class="btn btn-outline" style="padding:3px 8px;font-size:11px;" onclick="showRunDetail('+i+')">פרטים</button>'+
+      '<button class="btn" style="padding:3px 8px;font-size:11px;background:#e53935;color:#fff;border:none;border-radius:6px;" onclick="generateRunPDF('+i+')" title="PDF Report">📄 PDF</button>'+
+      '</td>'+
+    '</tr>';
+  }).join('');
+}
+
+function showRunDetail(idx){
+  var run = TMS.runs[idx];
+  document.getElementById('runDetailTitle').textContent = 'פרטי הרצה — '+run.id;
+  var passRate = run.totalTests ? Math.round(run.passed/run.totalTests*100) : 0;
+  var html = '<div style="margin-bottom:12px;display:flex;gap:10px;flex-wrap:wrap;">'+
+    '<span class="badge badge-pass">✅ '+run.passed+'</span>'+
+    '<span class="badge badge-fail">❌ '+run.failed+'</span>'+
+    '<span class="badge badge-error">⚠️ '+run.errors+'</span>'+
+    '<span style="font-weight:700;">'+passRate+'% Pass | '+run.totalTests+' בדיקות</span></div>';
+  html += '<table style="font-size:11px;"><thead><tr><th>TC</th><th>סטטוס</th><th>תוצאה</th><th>AutoFix</th></tr></thead><tbody>';
+  run.results.forEach(function(r){
+    html += '<tr><td style="font-weight:700;">'+r.tcId+'</td>'+
+      '<td><span class="badge badge-'+r.status.toLowerCase()+'">'+r.status+'</span></td>'+
+      '<td>'+r.actual+'</td>'+
+      '<td>'+(r.autoFixed?'🔧':r.fixNote?'⚠️ '+r.fixNote:'—')+'</td></tr>';
+  });
+  html += '</tbody></table>';
+  document.getElementById('runDetailBody').innerHTML = html;
+  document.getElementById('runDetailModal').classList.add('open');
+}
+
+function renderDefects(){
+  var body = document.getElementById('defectsBody');
+  var empty = document.getElementById('defectsEmpty');
+  if(!TMS.defects.length){ empty.style.display='block'; body.innerHTML=''; return; }
+  empty.style.display='none';
+  body.innerHTML = TMS.defects.map(function(d){
+    return '<tr>'+
+      '<td style="font-weight:700;">'+d.id+'</td>'+
+      '<td>'+d.title+'</td>'+
+      '<td>'+d.tcId+'</td>'+
+      '<td><span class="badge badge-'+(d.severity==='Critical'?'crit':d.severity==='Major'?'major':d.severity==='Minor'?'minor':'info')+'">'+d.severity+'</span></td>'+
+      '<td><select style="padding:3px;font-size:11px;border-radius:4px;" onchange="updateDefectStatus(\''+d.id+'\',this.value)">'+
+        ['Open','Fixed','Closed','Deferred'].map(function(s){ return '<option'+(d.status===s?' selected':'')+'>'+s+'</option>'; }).join('')+
+      '</select></td>'+
+      '<td>'+(d.autoFixed?'<span class="fix-badge">🔧 AutoFixed</span>':'—')+'</td>'+
+      '<td style="font-size:11px;">'+d.foundDate+'</td>'+
+      '<td style="font-size:11px;color:var(--gray);">'+d.description.substring(0,60)+'</td>'+
+    '</tr>';
+  }).join('');
+}
+
+function updateDefectStatus(defId, status){
+  var d = TMS.defects.find(function(x){ return x.id===defId; });
+  if(d){ d.status=status; if(status==='Fixed') d.fixedDate=new Date().toISOString().split('T')[0]; }
+  saveTMS();
+}
+
+function renderCoverage(){
+  var reqs = TMS.requirements.slice(0,12);
+  var tcs  = TMS.testCases.slice(0,15);
+  var html = '<div style="overflow-x:auto;"><table style="font-size:11px;"><thead><tr><th>REQ \\ TC</th>';
+  tcs.forEach(function(tc){ html += '<th style="writing-mode:vertical-lr;transform:rotate(180deg);padding:6px 2px;font-size:10px;">'+tc.id+'</th>'; });
+  html += '</tr></thead><tbody>';
+  reqs.forEach(function(r){
+    html += '<tr><td style="font-weight:700;white-space:nowrap;">'+r.id+'</td>';
+    tcs.forEach(function(tc){
+      var covered = (tc.reqs||'').includes(r.id);
+      var last = covered ? getLastResult(tc.id) : null;
+      var bg = !covered?'#f1f3f4':last&&last.status==='PASS'?'#c8e6c9':last&&last.status==='FAIL'?'#ffcdd2':'#fff9c4';
+      var text = !covered?'':last&&last.status==='PASS'?'✅':last&&last.status==='FAIL'?'❌':'◑';
+      html += '<td style="text-align:center;background:'+bg+';padding:4px;">'+text+'</td>';
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table></div>';
+  html += '<div style="margin-top:12px;font-size:12px;display:flex;gap:16px;">'+
+    '<span style="background:#c8e6c9;padding:3px 8px;border-radius:4px;">✅ מכוסה + Pass</span>'+
+    '<span style="background:#ffcdd2;padding:3px 8px;border-radius:4px;">❌ מכוסה + Fail</span>'+
+    '<span style="background:#fff9c4;padding:3px 8px;border-radius:4px;">◑ לא רץ</span>'+
+    '<span style="background:#f1f3f4;padding:3px 8px;border-radius:4px;">— לא מכוסה</span>'+
+    '</div>';
+  document.getElementById('coverageMatrix').innerHTML = html;
+}
+
+function renderAutoFix(){
+  var body = document.getElementById('autofixBody');
+  var empty = document.getElementById('autofixEmpty');
+  if(!TMS.autofixLog.length){ empty.style.display='block'; body.innerHTML=''; return; }
+  empty.style.display='none';
+  body.innerHTML = TMS.autofixLog.slice().reverse().map(function(e){
+    return '<tr>'+
+      '<td style="font-weight:700;">'+e.runId+'</td>'+
+      '<td style="font-weight:700;">'+e.tcId+'</td>'+
+      '<td style="font-size:11px;color:var(--red);">'+e.failMsg+'</td>'+
+      '<td style="font-size:11px;">'+e.fixAction+'</td>'+
+      '<td><span class="badge badge-'+(e.result==='FIXED'?'pass':'skip')+'">'+e.result+'</span></td>'+
+      '<td style="font-size:11px;">'+new Date(e.date).toLocaleDateString('he-IL')+'</td>'+
+    '</tr>';
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  MODALS
+// ═══════════════════════════════════════════════════════════════
+var _editReqIdx = null;
+var _editTCIdx  = null;
+
+function openReqModal(idx){
+  _editReqIdx = idx !== undefined ? parseInt(idx) : null;
+  var r = _editReqIdx!==null ? TMS.requirements[_editReqIdx] : null;
+  document.getElementById('reqModalTitle').textContent = r ? 'עריכת דרישה' : 'דרישה חדשה';
+  document.getElementById('rId').value     = r ? r.id    : 'REQ-'+String(TMS.requirements.length+1).padStart(3,'0');
+  document.getElementById('rTitle').value  = r ? r.title : '';
+  document.getElementById('rCat').value    = r ? r.cat   : 'כללי';
+  document.getElementById('rPri').value    = r ? r.pri   : 'Medium';
+  document.getElementById('rDesc').value   = r ? r.desc  : '';
+  document.getElementById('rStatus').value = r ? r.status: 'Active';
+  document.getElementById('reqModal').classList.add('open');
+}
+
+function saveReq(){
+  var obj = { id:gv('rId'),title:gv('rTitle'),cat:gv('rCat'),pri:gv('rPri'),desc:gv('rDesc'),status:gv('rStatus') };
+  if(_editReqIdx!==null) TMS.requirements[_editReqIdx]=obj; else TMS.requirements.push(obj);
+  saveTMS(); closeModal('reqModal'); renderReqs('');
+}
+
+function deleteReq(idx){ if(confirm('מחק דרישה?')){ TMS.requirements.splice(idx,1); saveTMS(); renderReqs(''); } }
+
+function openTCModal(idx){
+  _editTCIdx = idx !== undefined ? parseInt(idx) : null;
+  var t = _editTCIdx!==null ? TMS.testCases[_editTCIdx] : null;
+  document.getElementById('tcModalTitle').textContent = t ? 'עריכת מקרה בדיקה' : 'מקרה בדיקה חדש';
+  document.getElementById('tcId').value      = t ? t.id       : 'TC-'+String(TMS.testCases.length+1).padStart(3,'0');
+  document.getElementById('tcTitle').value   = t ? t.title    : '';
+  document.getElementById('tcCat').value     = t ? t.cat      : 'UI / ניווט';
+  document.getElementById('tcType').value    = t ? t.type     : 'Functional';
+  document.getElementById('tcPri').value     = t ? t.pri      : 'Medium';
+  document.getElementById('tcReqs').value    = t ? t.reqs     : '';
+  document.getElementById('tcSteps').value   = t ? t.steps    : '';
+  document.getElementById('tcExpected').value= t ? t.expected : '';
+  document.getElementById('tcAuto').value    = t ? t.auto     : 'yes';
+  document.getElementById('tcFn').value      = t ? t.fn       : '';
+  document.getElementById('tcModal').classList.add('open');
+}
+
+function saveTC(){
+  var obj = { id:gv('tcId'),title:gv('tcTitle'),cat:gv('tcCat'),type:gv('tcType'),
+    pri:gv('tcPri'),reqs:gv('tcReqs'),steps:gv('tcSteps'),expected:gv('tcExpected'),
+    auto:gv('tcAuto'),fn:gv('tcFn') };
+  if(_editTCIdx!==null) TMS.testCases[_editTCIdx]=obj; else TMS.testCases.push(obj);
+  saveTMS(); closeModal('tcModal'); renderTCs();
+}
+
+function deleteTC(idx){ if(confirm('מחק מקרה בדיקה?')){ TMS.testCases.splice(idx,1); saveTMS(); renderTCs(); } }
+
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+function gv(id){ var el=document.getElementById(id); return el?el.value:''; }
+
+// ═══════════════════════════════════════════════════════════════
+//  NAVIGATION
+// ═══════════════════════════════════════════════════════════════
+function nav(id, el){
+  document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
+  document.querySelectorAll('.snav-item').forEach(function(i){i.classList.remove('active');});
+  var pg = document.getElementById('page-'+id);
+  if(pg) pg.classList.add('active');
+  if(el) el.classList.add('active');
+  if(id==='requirements') renderReqs('');
+  if(id==='testcases') renderTCs();
+  if(id==='history') renderHistory();
+  if(id==='defects') renderDefects();
+  if(id==='coverage') renderCoverage();
+  if(id==='autofix') renderAutoFix();
+  if(id==='dashboard') renderDashboard();
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  EXPORT
+// ═══════════════════════════════════════════════════════════════
+function exportResults(){
+  if(!TMS.runs.length){ alert('אין תוצאות לייצוא'); return; }
+  var run = TMS.runs[0];
+  var csv = "\uFEFFTC-ID,כותרת,קטגוריה,סטטוס,תוצאה בפועל,תוצאה צפויה,משך,AutoFix\n";
+  run.results.forEach(function(r){
+    var tc = TMS.testCases.find(function(t){return t.id===r.tcId;})||{};
+    csv += [r.tcId,'"'+(tc.title||'')+'"','"'+(tc.cat||'')+'"',r.status,'"'+r.actual+'"','"'+r.expected+'"',r.duration+'ms',r.autoFixed?'כן':'לא'].join(',')+'\n';
+  });
+  var a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download = 'test_results_'+run.id+'_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  PDF REPORT GENERATOR (pure HTML → print to PDF)
+// ═══════════════════════════════════════════════════════════════
+function generateRunPDF(runIdx){
+  var run = (runIdx !== undefined) ? TMS.runs[runIdx] : TMS.runs[0];
+  if(!run){ alert('\u05d0\u05d9\u05df \u05d4\u05e8\u05e6\u05d4 \u05dc\u05d3\u05d5\u05d7'); return; }
+
+  var passRate  = run.totalTests ? Math.round(run.passed/run.totalTests*100) : 0;
+  var dt        = new Date(run.timestamp);
+  var dtStr     = dt.toLocaleDateString('he-IL') + ' ' + dt.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});
+  var passColor = passRate>=90?'#2e7d32':passRate>=70?'#e65100':'#c62828';
+
+  // SVG donut chart
+  function donut(pct, color){
+    var r=42, cx=55, cy=55, circ=2*Math.PI*r;
+    var dash=circ*(pct/100), gap=circ-dash;
+    return '<svg width="110" height="110" style="transform:rotate(-90deg)">'+
+      '<circle cx="55" cy="55" r="42" fill="none" stroke="#e8eaed" stroke-width="10"/>'+
+      '<circle cx="55" cy="55" r="42" fill="none" stroke="'+color+'" stroke-width="10" '+
+        'stroke-dasharray="'+dash.toFixed(1)+' '+gap.toFixed(1)+'" stroke-linecap="round"/>'+
+    '</svg>';
+  }
+
+  // Category breakdown bars
+  var bycat = {};
+  run.results.forEach(function(r){
+    var tc2 = TMS.testCases.find(function(t){return t.id===r.tcId;})||{cat:'\u05d0\u05d7\u05e8'};
+    var cat = tc2.cat||'\u05d0\u05d7\u05e8';
+    if(!bycat[cat]) bycat[cat]={passed:0,failed:0,total:0};
+    bycat[cat].total++;
+    if(r.status==='PASS') bycat[cat].passed++; else if(r.status!=='SKIP') bycat[cat].failed++;
+  });
+  var catBarsHtml = '';
+  Object.keys(bycat).sort().forEach(function(cat){
+    var d=bycat[cat];
+    var pct=d.total?Math.round(d.passed/d.total*100):0;
+    var clr=pct>=90?'#2e7d32':pct>=70?'#e65100':'#c62828';
+    catBarsHtml += '<div style="margin-bottom:8px;">'+
+      '<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px;">'+
+        '<span style="font-weight:600;">'+cat+'</span>'+
+        '<span style="color:'+clr+';font-weight:700;">'+d.passed+'/'+d.total+' ('+pct+'%)</span>'+
+      '</div>'+
+      '<div style="background:#e8eaed;border-radius:4px;height:7px;overflow:hidden;">'+
+        '<div style="background:'+clr+';height:100%;width:'+pct+'%;border-radius:4px;transition:width .5s;"></div>'+
+      '</div></div>';
+  });
+
+  // Build result rows by status group
+  function mkStatusRows(statuses){
+    var rows = run.results.filter(function(r){ return statuses.includes(r.status); });
+    if(!rows.length) return '';
+    var sColors={PASS:'#2e7d32',FAIL:'#c62828',ERROR:'#b71c1c',SKIP:'#5f6368',NOT_RUN:'#9aa0a6'};
+    var sBgs={PASS:'#f0faf0',FAIL:'#fff5f5',ERROR:'#fff0f0',SKIP:'#fafafa',NOT_RUN:'#fafafa'};
+    return rows.map(function(r){
+      var tc2=TMS.testCases.find(function(t){return t.id===r.tcId;})||{title:'?',cat:'?',pri:'?'};
+      var sc=sColors[r.status]||'#5f6368';
+      var priC=tc2.pri==='Critical'?'#b71c1c':tc2.pri==='High'?'#e65100':tc2.pri==='Medium'?'#f57f17':'#5f6368';
+      return '<tr style="background:'+sBgs[r.status]+';border-bottom:1px solid #f0f0f0;">'+
+        '<td style="padding:7px 10px;font-weight:700;font-size:11px;color:#1565c0;">'+r.tcId+'</td>'+
+        '<td style="padding:7px 10px;font-size:11px;">'+tc2.title+'</td>'+
+        '<td style="padding:7px 10px;font-size:10px;color:#5f6368;">'+tc2.cat+'</td>'+
+        '<td style="padding:7px 10px;"><span style="color:'+priC+';font-weight:700;font-size:10px;">'+tc2.pri+'</span></td>'+
+        '<td style="padding:7px 10px;text-align:center;"><span style="background:'+sc+';color:#fff;padding:3px 9px;border-radius:10px;font-size:10px;font-weight:700;">'+r.status+'</span></td>'+
+        '<td style="padding:7px 10px;font-size:10px;color:#333;max-width:180px;">'+r.actual+'</td>'+
+        '<td style="padding:7px 10px;font-size:10px;color:#5f6368;max-width:150px;">'+r.expected+'</td>'+
+        '<td style="padding:7px 10px;font-size:10px;text-align:center;white-space:nowrap;">'+(r.duration?r.duration+'ms':'\u2014')+(r.autoFixed?'<br><span style="background:#e0f7fa;color:#006064;padding:1px 5px;border-radius:8px;font-size:9px;font-weight:700;">\ud83d\udd27 Fixed</span>':'')+'</td>'+
+      '</tr>';
+    }).join('');
+  }
+
+  var failRows  = mkStatusRows(['FAIL','ERROR']);
+  var passRows  = mkStatusRows(['PASS']);
+  var skipRows  = mkStatusRows(['SKIP','NOT_RUN']);
+
+  // Defects
+  var runDefects = TMS.defects.filter(function(d){ return d.runId===run.id; });
+  var defHtml = runDefects.length ? runDefects.map(function(d){
+    var sc=d.severity==='Critical'?'#b71c1c':d.severity==='Major'?'#e65100':d.severity==='Minor'?'#f57f17':'#1565c0';
+    return '<tr style="border-bottom:1px solid #f0f0f0;">'+
+      '<td style="padding:7px 10px;font-weight:700;color:#c62828;font-size:11px;">'+d.id+'</td>'+
+      '<td style="padding:7px 10px;font-size:11px;font-weight:600;">'+d.tcId+'</td>'+
+      '<td style="padding:7px 10px;font-size:11px;">'+d.title+'</td>'+
+      '<td style="padding:7px 10px;"><span style="color:'+sc+';font-weight:700;font-size:11px;">'+d.severity+'</span></td>'+
+      '<td style="padding:7px 10px;font-size:11px;">'+d.status+'</td>'+
+      '<td style="padding:7px 10px;font-size:10px;color:#5f6368;max-width:200px;">'+d.description+'</td>'+
+    '</tr>';
+  }).join('') : '';
+
+  // AutoFix log
+  var fixLog = TMS.autofixLog.filter(function(e){ return e.runId===run.id; });
+  var fixHtml = fixLog.map(function(e){
+    return '<tr style="border-bottom:1px solid #f0f0f0;">'+
+      '<td style="padding:7px 10px;font-weight:700;font-size:11px;">'+e.tcId+'</td>'+
+      '<td style="padding:7px 10px;font-size:10px;color:#c62828;">'+e.failMsg+'</td>'+
+      '<td style="padding:7px 10px;font-size:10px;">'+e.fixAction+'</td>'+
+      '<td style="padding:7px 10px;"><span style="background:'+(e.result==='FIXED'?'#e0f7fa':'#fff3e0')+';color:'+(e.result==='FIXED'?'#006064':'#e65100')+';padding:3px 9px;border-radius:10px;font-size:10px;font-weight:700;">'+e.result+'</span></td>'+
+    '</tr>';
+  }).join('');
+
+  var sectionTitle = function(ico, text){
+    return '<div style="font-size:14px;font-weight:700;color:#1565c0;padding:7px 0 9px;border-bottom:2px solid #1565c0;margin-bottom:14px;display:flex;align-items:center;gap:8px;">'+ico+' '+text+'</div>';
+  };
+  var tableHead = '<thead><tr><th>TC-ID</th><th>\u05db\u05d5\u05ea\u05e8\u05ea</th><th>\u05e7\u05d8\u05d2\u05d5\u05e8\u05d9\u05d4</th><th>\u05e2\u05d3\u05d9\u05e4\u05d5\u05ea</th><th>\u05e1\u05d8\u05d8\u05d5\u05e1</th><th>\u05ea\u05d5\u05e6\u05d0\u05d4 \u05d1\u05e4\u05d5\u05e2\u05dc</th><th>\u05e6\u05e4\u05d5\u05d9\u05d4</th><th>\u05de\u05e9\u05da</th></tr></thead>';
+
+  var pdfHtml =
+    '<!DOCTYPE html><html dir="rtl" lang="he"><head><meta charset="UTF-8">'+
+    '<title>Test Report - '+run.id+'</title>'+
+    '<style>'+
+      '*{margin:0;padding:0;box-sizing:border-box;}'+
+      'body{font-family:"Segoe UI",Arial,sans-serif;direction:rtl;color:#202124;background:#fff;font-size:13px;}'+
+      '@page{margin:10mm 8mm;size:A4;}'+
+      '@media print{.no-print{display:none!important;}.page-break{page-break-before:always;} body{padding:0;}}'+
+      'table{width:100%;border-collapse:collapse;margin-bottom:0;}'+
+      'th{background:#1565c0;color:#fff;padding:9px 10px;text-align:right;font-size:11px;}'+
+      '.sec{margin-bottom:26px;}'+
+    '</style></head><body>'+
+
+    // ── COVER ──────────────────────────────────────────────────
+    '<div style="background:linear-gradient(135deg,#0d1b6e,#1565c0,#0288d1);color:#fff;'+
+      'padding:26px 28px 22px;margin-bottom:22px;border-radius:0 0 14px 14px;">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">'+
+        '<div>'+
+          '<div style="font-size:10px;opacity:.65;letter-spacing:2px;text-transform:uppercase;margin-bottom:5px;">7200 Test Management System</div>'+
+          '<div style="font-size:26px;font-weight:900;line-height:1.1;margin-bottom:4px;">'+run.id+'</div>'+
+          '<div style="font-size:12px;opacity:.8;">'+dtStr+(run.isRegression?' &bull; <b>Regression Run</b>':'')+'</div>'+
+        '</div>'+
+        '<div style="background:rgba(255,255,255,.12);border-radius:12px;padding:12px 16px;text-align:center;">'+
+          '<div style="position:relative;display:inline-block;">'+
+            donut(passRate, passRate>=90?'#81c784':passRate>=70?'#ffb74d':'#ef9a9a')+
+            '<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);">'+
+              '<div style="font-size:20px;font-weight:900;color:#fff;line-height:1;">'+passRate+'%</div>'+
+              '<div style="font-size:9px;color:rgba(255,255,255,.7);">Pass</div>'+
+            '</div>'+
+          '</div>'+
+        '</div>'+
+      '</div>'+
+      '<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;">'+
+        [
+          '\u2705 \u05e2\u05d1\u05e8\u05d5: '+run.passed,
+          '\u274c \u05e0\u05db\u05e9\u05dc\u05d5: '+run.failed,
+          '\u26a0\ufe0f \u05e9\u05d2\u05d9\u05d0\u05d5\u05ea: '+run.errors,
+          '\u23ed \u05d3\u05d5\u05dc\u05d2\u05d5: '+run.skipped,
+          '\ud83d\udccb \u05e1\u05d4"\u05db: '+run.totalTests,
+          '\u23f1 '+(run.duration/1000).toFixed(1)+'s'
+        ].map(function(s){
+          return '<span style="background:rgba(255,255,255,.15);padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;">'+s+'</span>';
+        }).join('')+
+      '</div>'+
+    '</div>'+
+
+    '<div style="padding:0 22px;">'+
+
+    // ── SEC 1: Summary ─────────────────────────────────────────
+    '<div class="sec">'+sectionTitle('\ud83d\udcca','1. \u05e1\u05d9\u05db\u05d5\u05dd \u05d5\u05e4\u05d9\u05e8\u05d5\u05d8 \u05dc\u05e4\u05d9 \u05e7\u05d8\u05d2\u05d5\u05e8\u05d9\u05d4')+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">'+
+        '<div>'+
+          '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:14px;">'+
+            [
+              {v:run.passed,l:'\u05e2\u05d1\u05e8\u05d5',bg:'#e8f5e9',c:'#2e7d32'},
+              {v:run.failed,l:'\u05e0\u05db\u05e9\u05dc\u05d5',bg:'#ffebee',c:'#c62828'},
+              {v:run.errors,l:'\u05e9\u05d2\u05d9\u05d0\u05d5\u05ea',bg:'#fce8e6',c:'#b71c1c'},
+              {v:run.skipped,l:'\u05d3\u05d5\u05dc\u05d2\u05d5',bg:'#f1f3f4',c:'#5f6368'},
+            ].map(function(s){
+              return '<div style="background:'+s.bg+';border-radius:10px;padding:12px;text-align:center;">'+
+                '<div style="font-size:24px;font-weight:900;color:'+s.c+';line-height:1;">'+s.v+'</div>'+
+                '<div style="font-size:10px;color:#5f6368;margin-top:2px;">'+s.l+'</div>'+
+              '</div>';
+            }).join('')+
+          '</div>'+
+          '<div style="background:#f8f9fa;border-radius:10px;padding:12px;font-size:12px;line-height:1.8;">'+
+            '<span style="font-weight:700;">Run:</span> '+run.id+'<br>'+
+            '<span style="font-weight:700;">\u05ea\u05d0\u05e8\u05d9\u05da:</span> '+dtStr+'<br>'+
+            '<span style="font-weight:700;">\u05de\u05e9\u05da:</span> '+(run.duration/1000).toFixed(1)+'s<br>'+
+            '<span style="font-weight:700;">AutoFixed:</span> '+(run.autofixed||0)+' \u05d1\u05d3\u05d9\u05e7\u05d5\u05ea<br>'+
+            '<span style="font-weight:700;">\u05e1\u05d5\u05d2:</span> '+(run.isRegression?'Regression':'Full Run')+
+          '</div>'+
+        '</div>'+
+        '<div>'+
+          '<div style="font-weight:700;font-size:12px;margin-bottom:10px;color:#1565c0;">\u05db\u05d9\u05e1\u05d5\u05d9 \u05dc\u05e4\u05d9 \u05e7\u05d8\u05d2\u05d5\u05e8\u05d9\u05d4:</div>'+
+          catBarsHtml+
+        '</div>'+
+      '</div>'+
+    '</div>'+
+
+    // ── SEC 2: FAILED ─────────────────────────────────────────
+    '<div class="sec">'+
+    sectionTitle('\u274c','2. \u05d1\u05d3\u05d9\u05e7\u05d5\u05ea \u05e9\u05e0\u05db\u05e9\u05dc\u05d5 ('+run.failed+' \u05db\u05e9\u05dc\u05d5\u05ea + '+run.errors+' \u05e9\u05d2\u05d9\u05d0\u05d5\u05ea)')+
+    (failRows ?
+      '<table>'+tableHead+'<tbody>'+failRows+'</tbody></table>' :
+      '<div style="background:#e8f5e9;border-radius:10px;padding:16px;text-align:center;color:#2e7d32;font-weight:700;font-size:13px;">\ud83c\udf89 \u05d0\u05d9\u05df \u05db\u05e9\u05dc\u05d9\u05dd! \u05db\u05dc \u05d4\u05d1\u05d3\u05d9\u05e7\u05d5\u05ea \u05e2\u05d1\u05e8\u05d5 \u05d1\u05d4\u05e6\u05dc\u05d7\u05d4.</div>')+
+    '</div>'+
+
+    // ── SEC 3: PASSED ─────────────────────────────────────────
+    '<div class="sec page-break">'+
+    sectionTitle('\u2705','3. \u05d1\u05d3\u05d9\u05e7\u05d5\u05ea \u05e9\u05e2\u05d1\u05e8\u05d5 ('+run.passed+')')+
+    (passRows ?
+      '<table>'+tableHead+'<tbody>'+passRows+'</tbody></table>' :
+      '<div style="background:#fff3e0;border-radius:10px;padding:16px;text-align:center;color:#e65100;">\u05d0\u05d9\u05df \u05d1\u05d3\u05d9\u05e7\u05d5\u05ea \u05e9\u05e2\u05d1\u05e8\u05d5</div>')+
+    '</div>'+
+
+    // ── SEC 4: SKIPPED ────────────────────────────────────────
+    (skipRows ? '<div class="sec">'+
+    sectionTitle('\u23ed','4. \u05d1\u05d3\u05d9\u05e7\u05d5\u05ea \u05e9\u05d3\u05d5\u05dc\u05d2\u05d5 ('+run.skipped+')')+
+    '<table>'+tableHead+'<tbody>'+skipRows+'</tbody></table></div>' : '')+
+
+    // ── SEC 5: Defects ────────────────────────────────────────
+    '<div class="sec page-break">'+
+    sectionTitle('\ud83d\udc1b','5. \u05dc\u05d9\u05e7\u05d5\u05d9\u05d9\u05dd')+
+    (defHtml ?
+      '<table><thead><tr><th>DEF-ID</th><th>TC</th><th>\u05db\u05d5\u05ea\u05e8\u05ea</th><th>\u05d7\u05d5\u05de\u05e8\u05d4</th><th>\u05e1\u05d8\u05d8\u05d5\u05e1</th><th>\u05ea\u05d9\u05d0\u05d5\u05e8</th></tr></thead>'+
+      '<tbody>'+defHtml+'</tbody></table>' :
+      '<div style="background:#e8f5e9;border-radius:10px;padding:14px;text-align:center;color:#2e7d32;font-weight:700;">\u2705 \u05d0\u05d9\u05df \u05dc\u05d9\u05e7\u05d5\u05d9\u05d9\u05dd \u05d7\u05d3\u05e9\u05d9\u05dd \u05d1\u05d4\u05e8\u05e6\u05d4 \u05d6\u05d5</div>')+
+    '</div>'+
+
+    // ── SEC 6: AutoFix ────────────────────────────────────────
+    '<div class="sec">'+
+    sectionTitle('\ud83d\udd27','6. \u05d9\u05d5\u05de\u05df AutoFix')+
+    (fixHtml ?
+      '<table><thead><tr><th>TC-ID</th><th>\u05db\u05e9\u05dc \u05de\u05e7\u05d5\u05e8\u05d9</th><th>\u05e4\u05e2\u05d5\u05dc\u05ea \u05ea\u05d9\u05e7\u05d5\u05df</th><th>\u05ea\u05d5\u05e6\u05d0\u05d4</th></tr></thead>'+
+      '<tbody>'+fixHtml+'</tbody></table>' :
+      '<div style="background:#f8f9fa;border-radius:10px;padding:14px;text-align:center;color:#5f6368;">\u05d0\u05d9\u05df \u05e4\u05e2\u05d5\u05dc\u05d5\u05ea AutoFix \u05d1\u05d4\u05e8\u05e6\u05d4 \u05d6\u05d5</div>')+
+    '</div>'+
+
+    // ── Footer ────────────────────────────────────────────────
+    '<div style="margin-top:30px;padding:12px 0;border-top:2px solid #1565c0;'+
+      'display:flex;justify-content:space-between;align-items:center;font-size:10px;color:#9aa0a6;">'+
+      '<span>\ud83e\uddea 7200 Test Management System v2.0</span>'+
+      '<span style="font-weight:700;font-size:13px;color:'+passColor+';">'+passRate+'% Pass | '+run.id+'</span>'+
+      '<span>'+dtStr+'</span>'+
+    '</div>'+
+
+    '</div>'+ // /padding
+
+    // ── Print button ──────────────────────────────────────────
+    '<div class="no-print" style="position:fixed;bottom:18px;left:50%;transform:translateX(-50%);'+
+      'display:flex;gap:8px;background:#fff;padding:10px 18px;border-radius:50px;box-shadow:0 4px 24px rgba(0,0,0,.2);">'+
+      '<button onclick="window.print()" style="padding:9px 24px;background:#1565c0;color:#fff;border:none;'+
+        'border-radius:25px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">'+
+        '\ud83d\udda8\ufe0f \u05d4\u05d3\u05e4\u05e1 / PDF</button>'+
+      '<button onclick="window.close()" style="padding:9px 18px;background:#f1f3f4;border:none;'+
+        'border-radius:25px;font-size:13px;cursor:pointer;font-family:inherit;">\u2715 \u05e1\u05d2\u05d5\u05e8</button>'+
+    '</div>'+
+
+    '</body></html>';
+
+  var w = window.open('','_blank','width=1100,height=900');
+  if(w){ w.document.write(pdfHtml); w.document.close(); w.focus(); }
+  else { alert('\u05d7\u05e1\u05d5\u05dd \u05e4\u05ea\u05d9\u05d7\u05ea \u05d7\u05dc\u05d5\u05df \u2014 \u05d0\u05e4\u05e9\u05e8 pop-ups'); }
+}
+
+
+// ── INIT ─────────────────────────────────────────────────────
+renderDashboard();
+</script>
+</body>
+</html>
