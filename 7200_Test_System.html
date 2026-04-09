@@ -911,6 +911,14 @@ var RECOVERY_REGRESSION_TCS = [
   {id:"TC-212",title:"Disabled AI entry points fail safely",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-119",steps:"קרא openAIRequirementAssistant/openAIRiskAssistant/openAIArchitectureAssistant/runAIReviewReadiness/showAIPopulateModal/aiDocFill",expected:"אין crash ואין modal AI פעיל",auto:"yes",fn:"checkDisabledAIEntryPointsRuntime"}
 ];
 
+var AI_FOUNDATION_TCS = [
+  {id:"TC-213",title:"AI feature flags foundation exists",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-119",steps:"בדוק ש-FEATURES קיים ומוגדר disabled-by-default",expected:"FEATURES קיים וכל דגלי ה-AI כבויים",auto:"yes",fn:"checkFeaturesFoundationRuntime"},
+  {id:"TC-214",title:"AIFacade exists with run()",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-119",steps:"בדוק ש-AIFacade קיים וש-run היא פונקציה",expected:"AIFacade.run זמין גלובלית",auto:"yes",fn:"checkAIFacadeExistsRuntime"},
+  {id:"TC-215",title:"runAIAction wrapper exists",cat:"מומחה AI",type:"Regression",pri:"High",reqs:"REQ-119",steps:"בדוק ש-runAIAction קיים גלובלית",expected:"runAIAction זמין גלובלית",auto:"yes",fn:"checkRunAIActionExistsRuntime"},
+  {id:"TC-216",title:"AIFacade disabled response is safe and structured",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-119",steps:"קרא AIFacade.run במצב disabled ובדוק חוזה תגובה",expected:"ok=false, mode=disabled, reason=AI_DISABLED, trace קיים",auto:"yes",fn:"checkAIFacadeDisabledResponseRuntime"},
+  {id:"TC-217",title:"AI foundation stays offline-first",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-119",steps:"בדוק ש-AIFacade/runAIAction לא קוראים ל-legacy AI או network AI",expected:"אין חיבורי AI ישנים בתוך facade החדש",auto:"yes",fn:"checkAIFoundationOfflineStubSource"}
+];
+
 if(TMS.testCases.length < 125){
   TMS.requirements = DEFAULT_REQS.map(function(r){return Object.assign({},r);});
   TMS.testCases    = DEFAULT_TCS.map(function(t){return Object.assign({},t);});
@@ -922,6 +930,7 @@ function ensureTestCasesPresent(cases){
   });
 }
 ensureTestCasesPresent(RECOVERY_REGRESSION_TCS);
+ensureTestCasesPresent(AI_FOUNDATION_TCS);
 saveTMS();
 
 // ═══════════════════════════════════════════════════════════════
@@ -1209,6 +1218,71 @@ var AUTOMATION = {
       var after = modal ? modal.classList.contains('open') : false;
       return before === after ? _runtimePass('פונקציות AI המנוטרלות נכשלות בבטחה ללא crash') : _runtimeFail('אחת מפונקציות ה-AI פתחה modal או שינתה מצב UI');
     });
+  },
+  checkFeaturesFoundationRuntime: async function(){
+    return withAppWindow(function(w){
+      if(!w.FEATURES || typeof w.FEATURES !== 'object') return _runtimeFail('FEATURES לא קיים גלובלית');
+      var keys = ['aiEnabled','aiRequirementAssist','aiRiskAssist','aiDocAssist','aiArchitectureAssist','aiMultiProject'];
+      var missing = keys.filter(function(k){ return !(k in w.FEATURES); });
+      var enabled = keys.filter(function(k){ return !!w.FEATURES[k]; });
+      if(missing.length) return _runtimeFail('דגלים חסרים: ' + missing.join(', '));
+      if(enabled.length) return _runtimeFail('דגלי AI שאינם כבויים: ' + enabled.join(', '));
+      return _runtimePass('FEATURES קיים וכל דגלי ה-AI כבויים כברירת מחדל');
+    });
+  },
+  checkAIFacadeExistsRuntime: async function(){
+    return withAppWindow(function(w){
+      return (w.AIFacade && typeof w.AIFacade.run === 'function')
+        ? _runtimePass('AIFacade.run זמין גלובלית')
+        : _runtimeFail('AIFacade או AIFacade.run חסרים');
+    });
+  },
+  checkRunAIActionExistsRuntime: async function(){
+    return withAppWindow(function(w){
+      return typeof w.runAIAction === 'function'
+        ? _runtimePass('runAIAction זמין גלובלית')
+        : _runtimeFail('runAIAction חסר');
+    });
+  },
+  checkAIFacadeDisabledResponseRuntime: async function(){
+    return withAppWindow(function(w){
+      if(!w.AIFacade || typeof w.AIFacade.run !== 'function') return _runtimeFail('AIFacade.run חסר');
+      if(typeof w.runAIAction !== 'function') return _runtimeFail('runAIAction חסר');
+      var facadeResp, wrapperResp;
+      try{
+        facadeResp = w.AIFacade.run('requirement_assist', { text: 'shall' });
+        wrapperResp = w.runAIAction('risk_assist', { text: 'risk' });
+      }catch(e){
+        return _runtimeFail('קריאת facade/wrapper זרקה שגיאה: ' + e.message);
+      }
+      function isSafe(resp){
+        return resp &&
+          resp.ok === false &&
+          resp.mode === 'disabled' &&
+          typeof resp.reason === 'string' &&
+          resp.reason.length > 0 &&
+          resp.confidence === 0 &&
+          Array.isArray(resp.recommendations) &&
+          Array.isArray(resp.warnings) &&
+          Array.isArray(resp.duplicates) &&
+          resp.needsHumanApproval === true &&
+          resp.trace && typeof resp.trace.source === 'string';
+      }
+      if(!isSafe(facadeResp)) return _runtimeFail('AIFacade.run לא החזיר תגובה בטוחה ומובנית');
+      if(!isSafe(wrapperResp)) return _runtimeFail('runAIAction לא החזיר תגובה בטוחה ומובנית');
+      if(facadeResp.reason !== 'AI_DISABLED') return _runtimeFail('AIFacade.run לא החזיר AI_DISABLED');
+      return _runtimePass('AIFacade ו-runAIAction מחזירים תגובת disabled בטוחה ומובנית');
+    });
+  },
+  checkAIFoundationOfflineStubSource: async function(){
+    var src = await loadAppSource();
+    var start = src.indexOf('window.AIFacade');
+    var end = src.indexOf('function sendAI(){', start);
+    if(start < 0 || end < 0) return { pass:false, actual:'לא נמצא בלוק AIFacade לבדיקה' };
+    var block = src.substring(start, end);
+    var forbidden = ['offlineAI(', 'callClaude(', 'callOpenAI(', 'callOfflineAIEndpoint(', 'analyzeWithAPI('];
+    var found = forbidden.filter(function(token){ return block.indexOf(token) >= 0; });
+    return { pass: found.length===0, actual: found.length ? 'AIFacade עדיין מפנה ל: ' + found.join(', ') : 'בלוק ה-foundation מבודד מ-AI legacy וחיבורים חיצוניים' };
   },
   checkAutoSave: async function(){
     var src = await loadAppSource();
