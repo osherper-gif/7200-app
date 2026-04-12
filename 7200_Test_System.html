@@ -963,6 +963,19 @@ var AI_DOCUMENT_REVIEW_TCS = [
   {id:"TC-270",title:"Document Assist refusal only on empty input",cat:"מומחה AI",type:"Regression",pri:"High",reqs:"REQ-122",steps:"בדוק ש-refusal מופעל רק כשאין טקסט מסמך",expected:"decision=refusal רק עבור קלט ריק",auto:"yes",fn:"checkDocumentAssistRefusalRuntime"}
 ];
 
+var AI_ARCHITECTURE_ASSIST_TCS = [
+  {id:"TC-271",title:"Architecture Assist action exists",cat:"AI Specialist",type:"Regression",pri:"Critical",reqs:"REQ-124",steps:"Verify openAIArchitectureAssistant and runAIAction can open an architecture review path when the feature flag is enabled",expected:"A safe architecture review action exists behind the feature flag",auto:"yes",fn:"checkArchitectureAssistActionExistsRuntime"},
+  {id:"TC-272",title:"Architecture Assist returns structured review response",cat:"AI Specialist",type:"Regression",pri:"Critical",reqs:"REQ-124",steps:"Call runAIAction('architecture_assist') with local architecture data and validate response structure",expected:"ok/mode/confidence/recommendations/warnings/trace/architectureReview all exist",auto:"yes",fn:"checkArchitectureAssistStructuredResponseRuntime"},
+  {id:"TC-273",title:"Architecture Assist explainability object exists",cat:"AI Specialist",type:"Regression",pri:"High",reqs:"REQ-124",steps:"Validate explainability fields on architecture review output",expected:"why/evidence/sources/ambiguity/safetyNotes all exist",auto:"yes",fn:"checkArchitectureAssistExplainabilityRuntime"},
+  {id:"TC-274",title:"Architecture Assist confidence breakdown exists",cat:"AI Specialist",type:"Regression",pri:"High",reqs:"REQ-124",steps:"Validate confidenceBreakdown fields on architecture review output",expected:"base/signalStrength/ambiguityPenalty/conflictPenalty/final all exist",auto:"yes",fn:"checkArchitectureAssistConfidenceBreakdownRuntime"},
+  {id:"TC-275",title:"Architecture Assist decision object exists",cat:"AI Specialist",type:"Regression",pri:"High",reqs:"REQ-124",steps:"Validate decision object on architecture review output",expected:"type/reason exist without breaking current review flow",auto:"yes",fn:"checkArchitectureAssistDecisionRuntime"},
+  {id:"TC-276",title:"Architecture Assist does not mutate DB.arch",cat:"AI Specialist",type:"Regression",pri:"Critical",reqs:"REQ-124",steps:"Run Architecture Assist and confirm DB.arch remains unchanged",expected:"No automatic mutation of DB.arch",auto:"yes",fn:"checkArchitectureAssistNoArchMutationRuntime"},
+  {id:"TC-277",title:"Architecture Assist does not mutate DB.icd",cat:"AI Specialist",type:"Regression",pri:"Critical",reqs:"REQ-124",steps:"Run Architecture Assist and confirm DB.icd remains unchanged",expected:"No automatic mutation of DB.icd",auto:"yes",fn:"checkArchitectureAssistNoICDMutationRuntime"},
+  {id:"TC-278",title:"Architecture Assist stays offline-only",cat:"AI Specialist",type:"Regression",pri:"Critical",reqs:"REQ-124",steps:"Inspect source of localArchitectureAssist and confirm there is no legacy AI or network usage",expected:"Architecture Assist remains local-only and isolated",auto:"yes",fn:"checkArchitectureAssistOfflineOnlySource"},
+  {id:"TC-279",title:"Architecture Assist disabled-safe when flag is off",cat:"AI Specialist",type:"Regression",pri:"Critical",reqs:"REQ-124",steps:"Disable aiArchitectureAssist and call runAIAction('architecture_assist')",expected:"A safe disabled response is returned without crash",auto:"yes",fn:"checkArchitectureAssistDisabledSafeRuntime"},
+  {id:"TC-280",title:"Existing architecture rendering remains unaffected",cat:"Architecture",type:"Regression",pri:"Critical",reqs:"REQ-124",steps:"Verify renderArch/renderICD still work before and after architecture review",expected:"renderArch/renderICD remain intact",auto:"yes",fn:"checkArchitectureRenderingUnaffectedRuntime"}
+];
+
 var AI_REQUIREMENT_APPLY_TCS = [
   {id:"TC-241",title:"Requirement Assist apply action exists",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-123",steps:"בדוק שכפתור Apply Suggestion קיים ב-Requirement Assist",expected:"קיים apply control בטוח בתוך modal ההצעה",auto:"yes",fn:"checkRequirementAssistApplyActionExistsRuntime"},
   {id:"TC-242",title:"Suggestion generation does not auto-apply",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-123",steps:"בדוק שפתיחת Requirement Assist לא משנה את הדרישה אוטומטית",expected:"אין auto-apply ואין audit על פתיחת suggestion בלבד",auto:"yes",fn:"checkRequirementAssistNoAutoApplyRuntime"},
@@ -999,6 +1012,7 @@ ensureTestCasesPresent(AI_FOUNDATION_TCS);
 ensureTestCasesPresent(AI_REQUIREMENT_ASSIST_TCS);
 ensureTestCasesPresent(AI_RISK_ASSIST_TCS);
 ensureTestCasesPresent(AI_DOCUMENT_REVIEW_TCS);
+ensureTestCasesPresent(AI_ARCHITECTURE_ASSIST_TCS);
 ensureTestCasesPresent(AI_REQUIREMENT_APPLY_TCS);
 saveTMS();
 
@@ -2274,6 +2288,242 @@ var AUTOMATION = {
       return emptyRefusal && groundedNotRefusal
         ? _runtimePass('refusal ב-Document Assist מופעל רק במסלול קלט ריק')
         : _runtimeFail('מסלול refusal של Document Assist אינו מוגבל לקלט ריק');
+    });
+  },
+  checkArchitectureAssistActionExistsRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.openAIArchitectureAssistant !== 'function' || typeof w.runAIAction !== 'function') return _runtimeFail('openAIArchitectureAssistant/runAIAction missing');
+      if(!w.FEATURES) return _runtimeFail('FEATURES missing');
+      var prevFlag = w.FEATURES.aiArchitectureAssist;
+      var prevArch = JSON.stringify(w.DB.arch || []);
+      var prevIcd = JSON.stringify(w.DB.icd || []);
+      var prevReqs = JSON.stringify(w.DB.sysReqs || []);
+      var prevRisks = JSON.stringify(w.DB.risks || []);
+      try{
+        w.FEATURES.aiArchitectureAssist = true;
+        w.DB.arch = [{id:'ARCH-A1',name:'RF Receiver',type:'Subsystem',subsystem:'RF',interfaces:'IF',connections:'DSP',flowDesc:'RF in to IF out',status:'Draft'}];
+        w.DB.icd = [{id:'ICD-A1',name:'IF Link',type:'Signal',a:'RF Receiver',b:'DSP',ver:'A',status:'Draft'}];
+        w.DB.sysReqs = [{id:'REQ-A1',desc:'The system shall support IF interface validation during integration.',domain:'Interface'}];
+        w.DB.risks = [{id:'RISK-A1',desc:'Integration risk on IF interface',mitigation:'Architecture review at PDR'}];
+        var result = w.openAIArchitectureAssistant();
+        var marker = w.document.getElementById('architectureAssistRoot');
+        var modal = w.document.getElementById('modal');
+        var ok = result && result.ok === true && marker && modal && modal.classList.contains('open');
+        return ok ? _runtimePass('Architecture Assist action is available behind the feature flag') : _runtimeFail('Architecture Assist action did not open as expected');
+      } finally {
+        if(typeof w.closeModal === 'function') w.closeModal();
+        w.FEATURES.aiArchitectureAssist = prevFlag;
+        w.DB.arch = JSON.parse(prevArch);
+        w.DB.icd = JSON.parse(prevIcd);
+        w.DB.sysReqs = JSON.parse(prevReqs);
+        w.DB.risks = JSON.parse(prevRisks);
+      }
+    });
+  },
+  checkArchitectureAssistStructuredResponseRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function' || !w.FEATURES) return _runtimeFail('runAIAction or FEATURES missing');
+      var prevFlag = w.FEATURES.aiArchitectureAssist;
+      try{
+        w.FEATURES.aiArchitectureAssist = true;
+        var resp = w.runAIAction('architecture_assist', {
+          arch:[{id:'ARCH-B1',name:'Mission Computer',type:'Subsystem',subsystem:'Core',interfaces:'Ethernet',connections:'Recorder',flowDesc:'Mission data routing',status:'Draft'}],
+          icd:[{id:'ICD-B1',name:'Ethernet Backbone',type:'Data',a:'Mission Computer',b:'Recorder',ver:'A',status:'Draft'}],
+          sysReqs:[{id:'REQ-B1',desc:'The system shall provide Ethernet mission data exchange.',domain:'Interface'}],
+          risks:[{id:'RISK-B1',desc:'Architecture integration risk on the backbone',mitigation:'Review interface allocation'}]
+        });
+        var info = resp && resp.architectureReview;
+        var ok = resp && resp.ok === true && resp.mode === 'offline' &&
+          typeof resp.confidence === 'number' &&
+          Array.isArray(resp.recommendations) &&
+          Array.isArray(resp.warnings) &&
+          resp.trace && resp.trace.source === 'local-architecture-review' &&
+          info && typeof info.summary === 'string' &&
+          Array.isArray(info.gaps) &&
+          Array.isArray(info.interfaceIssues) &&
+          Array.isArray(info.consistencyIssues) &&
+          Array.isArray(info.riskImpacts) &&
+          Array.isArray(info.missingElements);
+        return ok ? _runtimePass('Architecture Assist returns a structured review response') : _runtimeFail('Architecture Assist response structure is incomplete');
+      } finally {
+        w.FEATURES.aiArchitectureAssist = prevFlag;
+      }
+    });
+  },
+  checkArchitectureAssistExplainabilityRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function' || !w.FEATURES) return _runtimeFail('runAIAction or FEATURES missing');
+      var prevFlag = w.FEATURES.aiArchitectureAssist;
+      try{
+        w.FEATURES.aiArchitectureAssist = true;
+        var resp = w.runAIAction('architecture_assist', {
+          arch:[{id:'ARCH-C1',name:'RF Front End',type:'Subsystem',subsystem:'RF',interfaces:'IF',connections:'ADC',flowDesc:'RF to IF',status:'Draft'}],
+          icd:[{id:'ICD-C1',name:'IF Bus',type:'Signal',a:'RF Front End',b:'ADC',ver:'A',status:'Draft'}],
+          sysReqs:[{id:'REQ-C1',desc:'The system shall preserve IF signal integrity.',domain:'Performance'}],
+          risks:[]
+        });
+        var exp = resp && resp.explainability;
+        var ok = exp &&
+          typeof exp.why === 'string' &&
+          Array.isArray(exp.evidence) &&
+          Array.isArray(exp.sources) &&
+          Array.isArray(exp.ambiguity) &&
+          Array.isArray(exp.safetyNotes) &&
+          exp.sources.indexOf('architecture_rules') >= 0;
+        return ok ? _runtimePass('Architecture Assist explainability is present and grounded locally') : _runtimeFail('Architecture Assist explainability is missing or invalid');
+      } finally {
+        w.FEATURES.aiArchitectureAssist = prevFlag;
+      }
+    });
+  },
+  checkArchitectureAssistConfidenceBreakdownRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function' || !w.FEATURES) return _runtimeFail('runAIAction or FEATURES missing');
+      var prevFlag = w.FEATURES.aiArchitectureAssist;
+      try{
+        w.FEATURES.aiArchitectureAssist = true;
+        var resp = w.runAIAction('architecture_assist', {
+          arch:[{id:'ARCH-D1',name:'Processor',type:'Subsystem',subsystem:'Compute',interfaces:'Ethernet',connections:'Recorder',flowDesc:'Mission processing',status:'Draft'}],
+          icd:[{id:'ICD-D1',name:'Mission Link',type:'Data',a:'Processor',b:'Recorder',ver:'B',status:'Draft'}],
+          sysReqs:[{id:'REQ-D1',desc:'The system shall exchange mission data over Ethernet.',domain:'Interface'}],
+          risks:[{id:'RISK-D1',desc:'Architecture synchronization risk',mitigation:'Design review'}]
+        });
+        var b = resp && resp.confidenceBreakdown;
+        if(!b) return _runtimeFail('confidenceBreakdown missing');
+        var fieldsOk = ['base','signalStrength','ambiguityPenalty','conflictPenalty','final'].every(function(k){ return typeof b[k] === 'number'; });
+        var computed = Number((b.base + b.signalStrength - b.ambiguityPenalty - b.conflictPenalty).toFixed(2));
+        var consistent = Math.abs(computed - b.final) < 0.001 && Math.abs(b.final - resp.confidence) < 0.001;
+        return fieldsOk && consistent ? _runtimePass('Architecture Assist confidence breakdown is consistent') : _runtimeFail('Architecture Assist confidence breakdown is inconsistent');
+      } finally {
+        w.FEATURES.aiArchitectureAssist = prevFlag;
+      }
+    });
+  },
+  checkArchitectureAssistDecisionRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function' || !w.FEATURES) return _runtimeFail('runAIAction or FEATURES missing');
+      var prevFlag = w.FEATURES.aiArchitectureAssist;
+      try{
+        w.FEATURES.aiArchitectureAssist = true;
+        var resp = w.runAIAction('architecture_assist', {
+          arch:[{id:'ARCH-E1',name:'Controller',type:'Subsystem',subsystem:'Control',interfaces:'SPI',connections:'Sensor',flowDesc:'Control loop',status:'Draft'}],
+          icd:[{id:'ICD-E1',name:'SPI Link',type:'Data',a:'Controller',b:'Sensor',ver:'A',status:'Draft'}],
+          sysReqs:[{id:'REQ-E1',desc:'The system shall support controller-to-sensor SPI messaging.',domain:'Interface'}],
+          risks:[]
+        });
+        var decision = resp && resp.decision;
+        var ok = decision && typeof decision.reason === 'string' && ['suggestion','caution','refusal'].indexOf(decision.type) >= 0;
+        return ok ? _runtimePass('Architecture Assist decision object exists') : _runtimeFail('Architecture Assist decision object is missing or invalid');
+      } finally {
+        w.FEATURES.aiArchitectureAssist = prevFlag;
+      }
+    });
+  },
+  checkArchitectureAssistNoArchMutationRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function' || !w.FEATURES || !w.DB) return _runtimeFail('runAIAction, FEATURES, or DB missing');
+      var prevFlag = w.FEATURES.aiArchitectureAssist;
+      var before = JSON.stringify(w.DB.arch || []);
+      try{
+        w.FEATURES.aiArchitectureAssist = true;
+        w.runAIAction('architecture_assist', {
+          arch:w.DB.arch || [],
+          icd:w.DB.icd || [],
+          sysReqs:w.DB.sysReqs || [],
+          risks:w.DB.risks || []
+        });
+      } catch(e){
+        return _runtimeFail('Architecture Assist threw: ' + e.message);
+      } finally {
+        w.FEATURES.aiArchitectureAssist = prevFlag;
+      }
+      var after = JSON.stringify(w.DB.arch || []);
+      return before === after ? _runtimePass('Architecture Assist does not mutate DB.arch') : _runtimeFail('Architecture Assist mutated DB.arch');
+    });
+  },
+  checkArchitectureAssistNoICDMutationRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function' || !w.FEATURES || !w.DB) return _runtimeFail('runAIAction, FEATURES, or DB missing');
+      var prevFlag = w.FEATURES.aiArchitectureAssist;
+      var before = JSON.stringify(w.DB.icd || []);
+      try{
+        w.FEATURES.aiArchitectureAssist = true;
+        w.runAIAction('architecture_assist', {
+          arch:w.DB.arch || [],
+          icd:w.DB.icd || [],
+          sysReqs:w.DB.sysReqs || [],
+          risks:w.DB.risks || []
+        });
+      } catch(e){
+        return _runtimeFail('Architecture Assist threw: ' + e.message);
+      } finally {
+        w.FEATURES.aiArchitectureAssist = prevFlag;
+      }
+      var after = JSON.stringify(w.DB.icd || []);
+      return before === after ? _runtimePass('Architecture Assist does not mutate DB.icd') : _runtimeFail('Architecture Assist mutated DB.icd');
+    });
+  },
+  checkArchitectureAssistOfflineOnlySource: async function(){
+    var src = await loadAppSource();
+    var start = src.indexOf('function localArchitectureAssist(');
+    var end = src.indexOf('function formatArchitectureAssistResult(', start);
+    if(start < 0 || end < 0) return { pass:false, actual:'localArchitectureAssist block not found' };
+    var block = src.substring(start, end);
+    var forbidden = ['offlineAI(', 'callClaude(', 'callOpenAI(', 'callOfflineAIEndpoint(', 'analyzeWithAPI(', 'fetch('];
+    var found = forbidden.filter(function(token){ return block.indexOf(token) >= 0; });
+    return { pass: found.length===0, actual: found.length ? 'Architecture Assist still references: ' + found.join(', ') : 'Architecture Assist stays local-only and legacy-free' };
+  },
+  checkArchitectureAssistDisabledSafeRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function' || !w.FEATURES) return _runtimeFail('runAIAction or FEATURES missing');
+      var prevFlag = w.FEATURES.aiArchitectureAssist;
+      try{
+        w.FEATURES.aiArchitectureAssist = false;
+        var resp = w.runAIAction('architecture_assist', {
+          arch:[{id:'ARCH-F1',name:'CPU'}],
+          icd:[{id:'ICD-F1',name:'Link',a:'CPU',b:'DSP'}],
+          sysReqs:[],
+          risks:[]
+        });
+        var ok = resp && resp.ok === false && resp.mode === 'disabled' && resp.reason === 'AI_DISABLED';
+        return ok ? _runtimePass('Architecture Assist returns a safe disabled response when flag is off') : _runtimeFail('Architecture Assist did not return disabled-safe response');
+      } finally {
+        w.FEATURES.aiArchitectureAssist = prevFlag;
+      }
+    });
+  },
+  checkArchitectureRenderingUnaffectedRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.renderArch !== 'function' || typeof w.renderICD !== 'function' || typeof w.runAIAction !== 'function' || !w.FEATURES) return _runtimeFail('renderArch/renderICD/runAIAction/FEATURES missing');
+      var prevFlag = w.FEATURES.aiArchitectureAssist;
+      var prevArch = JSON.stringify(w.DB.arch || []);
+      var prevIcd = JSON.stringify(w.DB.icd || []);
+      try{
+        w.DB.arch = [{id:'ARCH-G1',name:'Recorder',type:'Subsystem',subsystem:'Mission',interfaces:'Ethernet',connections:'Processor',flowDesc:'Store mission data',status:'Draft'}];
+        w.DB.icd = [{id:'ICD-G1',name:'Recorder Link',type:'Data',a:'Recorder',b:'Processor',ver:'A',status:'Draft'}];
+        w.renderArch();
+        w.renderICD();
+        var archBody = w.document.getElementById('archBody');
+        var icdBody = w.document.getElementById('icdBody');
+        var beforeOk = archBody && archBody.innerHTML.length > 0 && icdBody && icdBody.innerHTML.length > 0;
+        w.FEATURES.aiArchitectureAssist = true;
+        w.runAIAction('architecture_assist', {
+          arch:w.DB.arch || [],
+          icd:w.DB.icd || [],
+          sysReqs:[{id:'REQ-G1',desc:'The system shall preserve recorder data flow.',domain:'Architecture'}],
+          risks:[]
+        });
+        w.renderArch();
+        w.renderICD();
+        var afterOk = archBody && archBody.innerHTML.length > 0 && icdBody && icdBody.innerHTML.length > 0;
+        return beforeOk && afterOk ? _runtimePass('renderArch/renderICD remain unaffected by Architecture Assist') : _runtimeFail('Architecture rendering was affected by Architecture Assist');
+      } finally {
+        w.FEATURES.aiArchitectureAssist = prevFlag;
+        w.DB.arch = JSON.parse(prevArch);
+        w.DB.icd = JSON.parse(prevIcd);
+        w.renderArch();
+        w.renderICD();
+      }
     });
   },
   checkAIFoundationOfflineStubSource: async function(){

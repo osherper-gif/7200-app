@@ -7685,8 +7685,25 @@ function openAIRiskAssistant(){
 }
 
 function openAIArchitectureAssistant(){
-  notifyAIDisabled();
-  return;
+  var result = runAIAction("architecture_assist", {
+    arch: DB.arch || [],
+    icd: DB.icd || [],
+    sysReqs: DB.sysReqs || [],
+    risks: DB.risks || [],
+    documentHints: Array.isArray(_analysisRecs) ? _analysisRecs.filter(function(item){
+      return item && (item.category === "arch" || item.category === "icd");
+    }) : []
+  });
+  if(!result || result.ok !== true){
+    return result;
+  }
+  openModal(
+    "Architecture Assist (Review Only)",
+    formatArchitectureAssistResult(result),
+    function(){ closeModal(); },
+    "סגור"
+  );
+  return result;
 }
 
 function openAIDocumentReview(){
@@ -8517,6 +8534,217 @@ function formatRiskAssistResult(result){
   "</div>";
 }
 
+function _normalizeArchitectureName(value){
+  return String(value || "").toLowerCase().replace(/[^\u0590-\u05ffa-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function buildArchitectureAssistEnhancedResult(baseResult, context){
+  baseResult = baseResult || {};
+  context = context || {};
+  var info = baseResult.architectureReview || {};
+  var gaps = Array.isArray(info.gaps) ? info.gaps : [];
+  var interfaceIssues = Array.isArray(info.interfaceIssues) ? info.interfaceIssues : [];
+  var consistencyIssues = Array.isArray(info.consistencyIssues) ? info.consistencyIssues : [];
+  var riskImpacts = Array.isArray(info.riskImpacts) ? info.riskImpacts : [];
+  var missingElements = Array.isArray(info.missingElements) ? info.missingElements : [];
+  var isEmptyInput = !!context.isEmptyInput;
+  var signalCount = Number(context.signalCount || 0);
+  var ambiguityCount = Number(context.ambiguityCount || 0);
+  var signalStrength = isEmptyInput ? 0 : Math.min(0.24, signalCount * 0.04);
+  var ambiguityPenalty = isEmptyInput ? 0 : Math.min(0.28, ambiguityCount * 0.04);
+  var conflictPenalty = 0;
+  var baseConfidence = isEmptyInput ? 0 : 0.6;
+  var finalConfidence = isEmptyInput ? Number(baseResult.confidence || 0) : Math.max(0.35, Math.min(0.9, baseConfidence + signalStrength - ambiguityPenalty - conflictPenalty));
+  finalConfidence = Number(finalConfidence.toFixed(2));
+  var evidence = []
+    .concat(info.summary ? [info.summary] : [])
+    .concat(interfaceIssues.slice(0, 1))
+    .concat(consistencyIssues.slice(0, 1))
+    .concat(riskImpacts.slice(0, 1))
+    .concat(missingElements.slice(0, 1))
+    .filter(Boolean)
+    .slice(0, 4);
+  var ambiguity = []
+    .concat(gaps.slice(0, 2))
+    .concat(missingElements.slice(0, 2))
+    .filter(Boolean)
+    .slice(0, 4);
+  var decision = { type: "suggestion", reason: "נמצאו מספיק אותות ארכיטקטוניים כדי להפיק סקירת ארכיטקטורה שימושית." };
+  if(isEmptyInput){
+    decision = { type: "refusal", reason: "לא סופקו נתוני ארכיטקטורה מקומיים לבדיקה." };
+  } else if(ambiguity.length >= 2 || gaps.length >= 2){
+    decision = { type: "caution", reason: "הסקירה מצביעה על ארכיטקטורה חלקית או מקוטעת ולכן נדרש review אנושי זהיר." };
+  }
+  return Object.assign({}, baseResult, {
+    confidence: finalConfidence,
+    explainability: {
+      why: isEmptyInput
+        ? "לא סופקו נתוני ארכיטקטורה מספקים לצורך סקירה אמינה."
+        : decision.type === "caution"
+          ? "הסקירה נשענת על בדיקות עקביות, ממשקים וכיסוי מול דרישות וסיכונים, אך נמצאו פערים שמגבילים את הוודאות."
+          : "הסקירה נשענת על בדיקות עקביות מקומיות בין רכיבים, ממשקים, דרישות וסיכונים קיימים.",
+      evidence: evidence,
+      sources: ["architecture_rules"],
+      ambiguity: ambiguity,
+      safetyNotes: riskImpacts.slice(0, 3)
+    },
+    confidenceBreakdown: {
+      base: Number(baseConfidence.toFixed(2)),
+      signalStrength: Number(signalStrength.toFixed(2)),
+      ambiguityPenalty: Number(ambiguityPenalty.toFixed(2)),
+      conflictPenalty: Number(conflictPenalty.toFixed(2)),
+      final: finalConfidence
+    },
+    decision: decision
+  });
+}
+
+function localArchitectureAssist(payload){
+  payload = payload || {};
+  var arch = Array.isArray(payload.arch) ? payload.arch.slice() : [];
+  var icd = Array.isArray(payload.icd) ? payload.icd.slice() : [];
+  var sysReqs = Array.isArray(payload.sysReqs) ? payload.sysReqs.slice() : [];
+  var risks = Array.isArray(payload.risks) ? payload.risks.slice() : [];
+  var documentHints = Array.isArray(payload.documentHints) ? payload.documentHints.slice() : [];
+  if(!arch.length && !icd.length){
+    return buildArchitectureAssistEnhancedResult(buildAIFoundationResponse("EMPTY_ARCHITECTURE_DATA", "local-architecture-review", {
+      warnings: ["לא סופקו נתוני ארכיטקטורה או ממשקים לבדיקה."],
+      architectureReview: {
+        summary: "לא נמצאו רכיבי ארכיטקטורה או רשומות ICD מקומיות לצורך סקירה.",
+        gaps: ["חסרים רכיבי ארכיטקטורה או ממשקים בסיסיים."],
+        interfaceIssues: [],
+        consistencyIssues: [],
+        riskImpacts: [],
+        missingElements: ["לא קיימים נתוני DB.arch או DB.icd זמינים."]
+      },
+      trace: {
+        source: "local-architecture-review",
+        taskType: "architecture_assist"
+      }
+    }), {
+      isEmptyInput: true
+    });
+  }
+  var archNames = {};
+  arch.forEach(function(item){
+    var key = _normalizeArchitectureName(item && item.name);
+    if(key) archNames[key] = item;
+  });
+  var gaps = [];
+  var interfaceIssues = [];
+  var consistencyIssues = [];
+  var riskImpacts = [];
+  var missingElements = [];
+
+  arch.forEach(function(item){
+    var name = String(item && item.name || "").trim();
+    var connections = String(item && item.connections || "").trim();
+    var interfaces = String(item && item.interfaces || "").trim();
+    var subsystem = String(item && item.subsystem || "").trim();
+    var flowDesc = String(item && item.flowDesc || "").trim();
+    if(name && !connections && !interfaces){
+      gaps.push("הרכיב \"" + name + "\" מופיע ללא חיבורים או ממשקים מזוהים.");
+      interfaceIssues.push("לרכיב \"" + name + "\" אין קישור ברור ל-ICD או לרכיבים שכנים.");
+    }
+    if(name && !flowDesc) missingElements.push("לרכיב \"" + name + "\" חסר תיאור זרימה (flowDesc).");
+    if(name && !subsystem) missingElements.push("לרכיב \"" + name + "\" לא הוגדרה תת-מערכת.");
+  });
+
+  icd.forEach(function(item){
+    var name = String(item && item.name || "").trim();
+    var aKey = _normalizeArchitectureName(item && item.a);
+    var bKey = _normalizeArchitectureName(item && item.b);
+    if(aKey && !archNames[aKey]) interfaceIssues.push("רשומת ICD \"" + name + "\" מפנה לצד A שאינו מופיע ב-DB.arch.");
+    if(bKey && !archNames[bKey]) interfaceIssues.push("רשומת ICD \"" + name + "\" מפנה לצד B שאינו מופיע ב-DB.arch.");
+  });
+
+  sysReqs.forEach(function(req){
+    var domain = String(req && (req.domain || req.cat) || "");
+    var desc = String(req && req.desc || "");
+    if(/ממשק|interface/i.test(domain + " " + desc) && !icd.length) gaps.push("קיימות דרישות ממשק אך אין כלל רשומות ICD תומכות.");
+    if(/ארכיטקטורה|subsystem|component|module|latency|performance|ממשק/i.test(desc) && !arch.length) gaps.push("קיימות דרישות בעלות משמעות ארכיטקטונית ללא מיפוי רכיבים במבנה הארכיטקטורה.");
+  });
+
+  risks.forEach(function(risk){
+    var text = String((risk && risk.desc) || "") + " " + String((risk && risk.mitigation) || "");
+    if(/אינטגרציה|interface|latency|architecture|ממשק|ארכיטקטורה|integration/i.test(text) && !String(risk && risk.mitigation || "").trim()){
+      riskImpacts.push("הסיכון \"" + String((risk && risk.desc) || "").slice(0, 90) + "\" חסר הקלה ארכיטקטונית ברורה.");
+    }
+  });
+
+  if(documentHints.length && !arch.length) missingElements.push("קיימים רמזי מסמך ארכיטקטוניים אך הם אינם ממופים עדיין ל-DB.arch.");
+
+  arch.forEach(function(item){
+    var key = _normalizeArchitectureName(item && item.name);
+    if(!key) return;
+    if(arch.filter(function(other){ return other !== item && _normalizeArchitectureName(other && other.name) === key; }).length){
+      consistencyIssues.push("נמצא שם רכיב כפול או לא עקבי עבור \"" + String(item && item.name || "") + "\".");
+    }
+  });
+
+  var summaryParts = [
+    "Architecture items: " + arch.length + ".",
+    "Interfaces: " + icd.length + ".",
+    "Requirement signals: " + sysReqs.length + ".",
+    "Risk signals: " + risks.length + "."
+  ];
+  if(gaps.length) summaryParts.push("Gaps: " + gaps.length + ".");
+  if(interfaceIssues.length) summaryParts.push("Interface issues: " + interfaceIssues.length + ".");
+  if(consistencyIssues.length) summaryParts.push("Consistency issues: " + consistencyIssues.length + ".");
+  if(riskImpacts.length) summaryParts.push("Risk impacts: " + riskImpacts.length + ".");
+  if(missingElements.length) summaryParts.push("Missing elements: " + missingElements.length + ".");
+
+  var signalCount = 0;
+  if(arch.length) signalCount += 1;
+  if(icd.length) signalCount += 1;
+  if(sysReqs.length) signalCount += 1;
+  if(risks.length) signalCount += 1;
+  if(documentHints.length) signalCount += 1;
+  if(arch.some(function(item){ return String(item && item.flowDesc || "").trim(); })) signalCount += 1;
+  var ambiguityCount = gaps.length + missingElements.length;
+
+  return buildArchitectureAssistEnhancedResult({
+    ok: true,
+    mode: "offline",
+    confidence: 0.6,
+    recommendations: [
+      { type: "summary", title: "Architecture Review Summary", text: summaryParts.join(" ") }
+    ],
+    warnings: gaps.concat(interfaceIssues.slice(0, 2)).concat(consistencyIssues.slice(0, 2)),
+    duplicates: [],
+    needsHumanApproval: true,
+    architectureReview: {
+      summary: summaryParts.join(" "),
+      gaps: gaps.slice(0, 6),
+      interfaceIssues: interfaceIssues.slice(0, 6),
+      consistencyIssues: consistencyIssues.slice(0, 6),
+      riskImpacts: riskImpacts.slice(0, 6),
+      missingElements: missingElements.slice(0, 6)
+    },
+    trace: {
+      source: "local-architecture-review",
+      taskType: "architecture_assist"
+    }
+  }, {
+    signalCount: signalCount,
+    ambiguityCount: ambiguityCount
+  });
+}
+
+function formatArchitectureAssistResult(result){
+  var info = result.architectureReview || {};
+  return "<div id='architectureAssistRoot' style='display:grid;gap:12px;line-height:1.7;'>" +
+    "<div><b>Review Summary</b><div style='margin-top:4px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);white-space:pre-wrap;'>" + esc(info.summary || "") + "</div></div>" +
+    "<div><b>Gaps</b>" + renderAIActionList(info.gaps || []) + "</div>" +
+    "<div><b>Interface Issues</b>" + renderAIActionList(info.interfaceIssues || []) + "</div>" +
+    "<div><b>Consistency Issues</b>" + renderAIActionList(info.consistencyIssues || []) + "</div>" +
+    "<div><b>Risk Impacts</b>" + renderAIActionList(info.riskImpacts || []) + "</div>" +
+    "<div><b>Missing Elements</b>" + renderAIActionList(info.missingElements || []) + "</div>" +
+    "<div><b>Confidence</b><div style='margin-top:4px;'>" + esc(String(result.confidence || 0)) + "</div></div>" +
+    "<div style='font-size:12px;color:var(--g600);'>Review only. Nothing is written automatically into DB.arch or DB.icd.</div>" +
+  "</div>";
+}
+
 function detectDocumentReviewType(text, filename){
   var hint = detectDocType(text || "", filename || "");
   var map = {
@@ -8745,6 +8973,35 @@ function localDocumentReview(payload){
 
 function formatDocumentReviewResult(result){
   var info = result.documentReview || {};
+  var explainability = result.explainability || null;
+  var breakdown = result.confidenceBreakdown || null;
+  var decision = result.decision || null;
+  var hasExplain = !!(explainability || breakdown || decision);
+
+  var explainSection = "";
+  if(hasExplain){
+    var exp = explainability || {};
+    var brk = breakdown || {};
+    var dec = decision || {};
+    explainSection =
+      "<details id='docAssistExplainability' style='border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:rgba(148,163,184,.06);'>" +
+        "<summary style='cursor:pointer;font-weight:700;'>AI Explanation</summary>" +
+        "<div style='display:grid;gap:10px;margin-top:10px;'>" +
+          "<div><b>Why</b><div style='margin-top:4px;'>"+esc(String(exp.why || ""))+"</div></div>" +
+          "<div><b>Key Evidence</b>"+renderAIActionList(exp.evidence || [])+"</div>" +
+          "<div><b>Sources</b>"+renderAIActionList(exp.sources || [])+"</div>" +
+          "<div><b>Ambiguity</b>"+renderAIActionList(exp.ambiguity || [])+"</div>" +
+          "<div><b>Safety Notes</b>"+renderAIActionList(exp.safetyNotes || [])+"</div>" +
+          (dec.type || dec.reason
+            ? "<div><b>Decision</b><div style='margin-top:4px;'>"+esc(String(dec.type || ""))+" — "+esc(String(dec.reason || ""))+"</div></div>"
+            : "") +
+          (brk.final !== undefined || brk.base !== undefined
+            ? "<div><b>Confidence Breakdown</b><div style='margin-top:4px;'>base="+esc(String(brk.base !== undefined ? brk.base : ""))+", signalStrength="+esc(String(brk.signalStrength !== undefined ? brk.signalStrength : ""))+", ambiguityPenalty="+esc(String(brk.ambiguityPenalty !== undefined ? brk.ambiguityPenalty : ""))+", conflictPenalty="+esc(String(brk.conflictPenalty !== undefined ? brk.conflictPenalty : ""))+", final="+esc(String(brk.final !== undefined ? brk.final : (result.confidence || 0)))+"</div></div>"
+            : "") +
+        "</div>" +
+      "</details>";
+  }
+
   return "<div id='documentReviewRoot' style='display:grid;gap:12px;line-height:1.7;'>" +
     "<div><b>Source</b><div style='margin-top:4px;'>"+esc(info.sourceName || "")+" ("+esc(info.inputType || "")+")</div></div>" +
     "<div><b>Detected Type Hint</b><div style='margin-top:4px;'>"+esc(info.typeHint || "")+"</div></div>" +
@@ -8757,6 +9014,7 @@ function formatDocumentReviewResult(result){
     "<div><b>Verification / Testability Hints</b>"+renderAIActionList(info.verificationHints || [])+"</div>" +
     "<div><b>Safety / Risk Hints</b>"+renderAIActionList(info.safetyHints || [])+"</div>" +
     "<div><b>Confidence</b><div style='margin-top:4px;'>"+esc(String(result.confidence || 0))+"</div></div>" +
+    explainSection +
     "<div style='font-size:12px;color:var(--g600);'>Review only. Nothing is written automatically into DB, registries, requirements, risks, V&V, or actions.</div>" +
   "</div>";
 }
@@ -8772,6 +9030,9 @@ window.AIFacade = window.AIFacade || {
     }
     if (taskType === "document_review" && FEATURES.aiDocAssist) {
       return localDocumentReview(payload || {});
+    }
+    if (taskType === "architecture_assist" && FEATURES.aiArchitectureAssist) {
+      return localArchitectureAssist(payload || {});
     }
     if (!FEATURES.aiEnabled) {
       notifyAIDisabled();
@@ -19211,6 +19472,7 @@ document.addEventListener("DOMContentLoaded", function(){
   document.addEventListener("DOMContentLoaded", _removeLegacyAIPagesFromRuntime);
   var _requirementAssistEntry = openAIRequirementAssistant;
   var _riskAssistEntry = openAIRiskAssistant;
+  var _architectureAssistEntry = openAIArchitectureAssistant;
   window.aiDocFill = aiDocFill = function(){ _aiRecoveryNotice(); };
   window.openAIRequirementAssistant = openAIRequirementAssistant = function(){
     if(window.FEATURES && window.FEATURES.aiRequirementAssist && typeof _requirementAssistEntry === "function"){
@@ -19224,7 +19486,12 @@ document.addEventListener("DOMContentLoaded", function(){
     }
     _aiRecoveryNotice();
   };
-  window.openAIArchitectureAssistant = openAIArchitectureAssistant = function(){ _aiRecoveryNotice(); };
+  window.openAIArchitectureAssistant = openAIArchitectureAssistant = function(){
+    if(window.FEATURES && window.FEATURES.aiArchitectureAssist && typeof _architectureAssistEntry === "function"){
+      return _architectureAssistEntry.apply(this, arguments);
+    }
+    _aiRecoveryNotice();
+  };
   window.runAIReviewReadiness = runAIReviewReadiness = function(){ _aiRecoveryNotice(); };
   window.showAIPopulateModal = showAIPopulateModal = function(){ _aiRecoveryNotice(); };
   window.sendAI = sendAI = function(){ _aiRecoveryNotice(); };
