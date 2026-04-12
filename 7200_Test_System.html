@@ -966,7 +966,10 @@ var AI_REQUIREMENT_APPLY_TCS = [
   {id:"TC-252",title:"Requirement Assist hybrid enrichment remains deterministic and local",cat:"מומחה AI",type:"Regression",pri:"High",reqs:"REQ-123",steps:"בדוק שקיימות פונקציות hybrid מקומיות ללא fetch/legacy",expected:"העשרת המומחה מתבצעת מקומית בלבד",auto:"yes",fn:"checkRequirementAssistHybridSource"},
   {id:"TC-253",title:"Requirement Assist explainability object exists",cat:"מומחה AI",type:"Regression",pri:"High",reqs:"REQ-123",steps:"בדוק שתגובת Requirement Assist כוללת explainability",expected:"why/evidence/sources/ambiguity/safetyNotes קיימים",auto:"yes",fn:"checkRequirementAssistExplainabilityRuntime"},
   {id:"TC-254",title:"Requirement Assist confidence breakdown exists",cat:"מומחה AI",type:"Regression",pri:"High",reqs:"REQ-123",steps:"בדוק שתגובת Requirement Assist כוללת confidenceBreakdown עקבי",expected:"base/expertBoost/ambiguityPenalty/conflictPenalty/final קיימים ו-final עקבי",auto:"yes",fn:"checkRequirementAssistConfidenceBreakdownRuntime"},
-  {id:"TC-255",title:"Requirement Assist decision object exists",cat:"מומחה AI",type:"Regression",pri:"High",reqs:"REQ-123",steps:"בדוק שתגובת Requirement Assist כוללת decision",expected:"type/reason קיימים בלי לשבור את המודל הקיים",auto:"yes",fn:"checkRequirementAssistDecisionRuntime"}
+  {id:"TC-255",title:"Requirement Assist decision object exists",cat:"מומחה AI",type:"Regression",pri:"High",reqs:"REQ-123",steps:"בדוק שתגובת Requirement Assist כוללת decision",expected:"type/reason קיימים בלי לשבור את המודל הקיים",auto:"yes",fn:"checkRequirementAssistDecisionRuntime"},
+  {id:"TC-256",title:"Requirement Assist confidence final matches top-level confidence",cat:"מומחה AI",type:"Regression",pri:"High",reqs:"REQ-123",steps:"בדוק ש-confidenceBreakdown.final שווה ל-result.confidence",expected:"confidence סופי נשמר פעם אחת ובאופן עקבי",auto:"yes",fn:"checkRequirementAssistConfidenceFinalMatchesRuntime"},
+  {id:"TC-257",title:"Requirement Assist expert boost is applied exactly once",cat:"מומחה AI",type:"Regression",pri:"High",reqs:"REQ-123",steps:"בדוק ש-expertBoost נוסף פעם אחת בלבד",expected:"final = base + expertBoost - penalties ללא ספירה כפולה",auto:"yes",fn:"checkRequirementAssistExpertBoostOnceRuntime"},
+  {id:"TC-258",title:"Requirement Assist ambiguity lowers confidence and triggers caution",cat:"מומחה AI",type:"Regression",pri:"High",reqs:"REQ-123",steps:"בדוק שעמימות מורידה confidence ושיש decision מסוג caution במקרה מתאים",expected:"ambiguityPenalty חיובי ו-decision=caution עבור קלט עמום מספיק",auto:"yes",fn:"checkRequirementAssistAmbiguityLowersConfidenceRuntime"}
 ];
 
 if(TMS.testCases.length < 125){
@@ -1801,6 +1804,48 @@ var AUTOMATION = {
         typeof decision.reason === 'string' &&
         ['suggestion','caution','refusal'].indexOf(decision.type) >= 0;
       return ok ? _runtimePass('decision קיים ונשאר תואם למודל התוצאה') : _runtimeFail('decision חסר או לא תקין');
+    });
+  },
+  checkRequirementAssistConfidenceFinalMatchesRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function') return _runtimeFail('runAIAction חסרה');
+      var resp = w.runAIAction('requirement_assist', { text:'The system shall support interface verification within 5 ms', type:'sys', source:'test' });
+      var breakdown = resp && resp.confidenceBreakdown;
+      if(!breakdown) return _runtimeFail('confidenceBreakdown חסר');
+      return Math.abs((breakdown.final || 0) - (resp.confidence || 0)) < 0.001
+        ? _runtimePass('confidenceBreakdown.final שווה ל-confidence העליון')
+        : _runtimeFail('confidenceBreakdown.final לא תואם ל-confidence העליון');
+    });
+  },
+  checkRequirementAssistExpertBoostOnceRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function') return _runtimeFail('runAIAction חסרה');
+      var resp = w.runAIAction('requirement_assist', {
+        text:'The system shall support interface control document verification within 5 ms during system architecture review',
+        type:'sys',
+        source:'test'
+      });
+      var breakdown = resp && resp.confidenceBreakdown;
+      if(!breakdown) return _runtimeFail('confidenceBreakdown חסר');
+      var expected = Number((breakdown.base + breakdown.expertBoost - breakdown.ambiguityPenalty - breakdown.conflictPenalty).toFixed(2));
+      var boostAppliedOnce = Math.abs(expected - breakdown.final) < 0.001 && breakdown.expertBoost === 0.06;
+      return boostAppliedOnce
+        ? _runtimePass('expertBoost מוחל פעם אחת בלבד')
+        : _runtimeFail('זוהתה בעיית expert boost או ספירה כפולה');
+    });
+  },
+  checkRequirementAssistAmbiguityLowersConfidenceRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function') return _runtimeFail('runAIAction חסרה');
+      var resp = w.runAIAction('requirement_assist', { text:'The system should be fast and reliable and user friendly', type:'sys', source:'test' });
+      var breakdown = resp && resp.confidenceBreakdown;
+      var decision = resp && resp.decision;
+      if(!breakdown || !decision) return _runtimeFail('confidenceBreakdown או decision חסרים');
+      var ambiguityActive = breakdown.ambiguityPenalty > 0 && breakdown.final < Number((breakdown.base + breakdown.expertBoost - breakdown.conflictPenalty).toFixed(2));
+      var caution = decision.type === 'caution';
+      return ambiguityActive && caution
+        ? _runtimePass('עמימות מורידה confidence ומפעילה caution')
+        : _runtimeFail('עמימות לא הורידה confidence או לא הפעילה caution');
     });
   },
   checkRiskAssistActionExistsRuntime: async function(){

@@ -8214,16 +8214,15 @@ function localRequirementAssist(payload){
   var warnings = [];
   if(vagueMatches.length) warnings.push("זוהו מונחים עמומים: " + vagueMatches.join(", "));
   if(!validation._measurable) warnings.push("עדיין נדרש להשלים ערך, סף או תנאי אימות מספרי לפני אישור הדרישה.");
-  var confidence = 0.58;
-  if(validation._vague) confidence -= 0.08;
-  if(validation._measurable) confidence += 0.18;
-  if(text.length > 40) confidence += 0.08;
-  if(expertGuidance.hints.length) confidence += 0.06;
-  confidence = Math.max(0.35, Math.min(0.92, confidence));
+  var baseConfidence = 0.58;
+  if(validation._vague) baseConfidence -= 0.08;
+  if(validation._measurable) baseConfidence += 0.18;
+  if(text.length > 40) baseConfidence += 0.08;
+  baseConfidence = Math.max(0.35, Math.min(0.92, baseConfidence));
   var baseResult = {
     ok: true,
     mode: "offline",
-    confidence: Number(confidence.toFixed(2)),
+    confidence: Number(baseConfidence.toFixed(2)),
     recommendations: [
       { type: "rewrite", title: "נוסח מוצע", text: rewrite },
       { type: "domain", title: "רמז לדומיין", text: "הדרישה נראית שייכת בעיקר ל-" + domainSuggestion + "." },
@@ -8255,7 +8254,7 @@ function localRequirementAssist(payload){
   };
   return buildAIEnhancedResult(baseResult, {
     text: text,
-    baseConfidence: Number(confidence.toFixed(2)),
+    baseConfidence: Number(baseConfidence.toFixed(2)),
     validation: validation,
     domainSuggestion: domainSuggestion
   });
