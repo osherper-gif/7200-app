@@ -8341,13 +8341,89 @@ function _suggestResidualRiskQuestions(payload){
   return notes.slice(0, 3);
 }
 
+function buildRiskAssistEnhancedResult(baseResult, context){
+  baseResult = baseResult || {};
+  context = context || {};
+  var info = baseResult.riskAssist || {};
+  var gaps = Array.isArray(baseResult.warnings) ? baseResult.warnings.slice(0, 4) : [];
+  var qualityNotes = Array.isArray(info.qualityNotes) ? info.qualityNotes : [];
+  var detectionSuggestions = Array.isArray(info.detectionSuggestions) ? info.detectionSuggestions : [];
+  var mitigationSuggestions = Array.isArray(info.mitigationSuggestions) ? info.mitigationSuggestions : [];
+  var residualGuidance = Array.isArray(info.residualGuidance) ? info.residualGuidance : [];
+  var hasMitigation = !!context.hasMitigation;
+  var hasDetection = !!context.hasDetection;
+  var hasImpact = !!context.hasImpact;
+  var isEmptyInput = !!context.isEmptyInput;
+  var safetyNotes = [];
+  var impactText = String(context.impact || "");
+
+  if((typeof context.sev === "number" && context.sev >= 4) || /safety|hazard|בטיחות|סיכון בטיחותי/i.test(impactText)){
+    safetyNotes.push("מדובר בסיכון בעל פוטנציאל השפעה משמעותי ולכן מומלץ review אנושי לפני אימוץ הנוסח.");
+  }
+
+  var why = "ההצעה נבנתה מתוך שיפור ניסוח הסיכון, זיהוי פערים קיימים, והפקת הצעות גילוי וצמצום על בסיס המידע שסופק.";
+  if(isEmptyInput){
+    why = "לא סופק טקסט סיכון מספק לצורך הפקת הצעה אמינה.";
+  } else if(gaps.length >= 2 || (!hasMitigation && !hasDetection)){
+    why = "ההצעה מספקת כיוון שימושי, אך חסרים בפרטי הסיכון רכיבים מהותיים כמו סיבה, השפעה, גילוי או צמצום.";
+  }
+
+  var evidence = []
+    .concat(qualityNotes.slice(0, 2))
+    .concat(detectionSuggestions.slice(0, 1))
+    .concat(mitigationSuggestions.slice(0, 1))
+    .concat(residualGuidance.slice(0, 1))
+    .filter(Boolean)
+    .slice(0, 4);
+
+  var sources = ["local_risk_rules"];
+  if(hasImpact) sources.push("risk_input:impact");
+  if(hasMitigation) sources.push("risk_input:mitigation");
+  if(hasDetection) sources.push("risk_input:detection");
+
+  var baseConfidence = isEmptyInput ? 0 : 0.6;
+  var completenessBoost = isEmptyInput ? 0 : (hasMitigation ? 0.08 : 0) + (hasDetection ? 0.08 : 0) + (hasImpact ? 0.06 : 0);
+  var ambiguityPenalty = isEmptyInput ? 0 : gaps.length * 0.05;
+  var conflictPenalty = 0;
+  var finalConfidence = isEmptyInput ? Number(baseResult.confidence || 0) : Math.max(0.35, Math.min(0.9, baseConfidence + completenessBoost - ambiguityPenalty - conflictPenalty));
+  finalConfidence = Number(finalConfidence.toFixed(2));
+
+  var decision = { type: "suggestion", reason: "נמצא מספיק מידע כדי להציע ניסוח משופר והמלצות פעולה ראשוניות." };
+  if(isEmptyInput){
+    decision = { type: "refusal", reason: "לא סופק טקסט סיכון לניתוח." };
+  } else if(gaps.length >= 2 || (!hasMitigation && !hasDetection)){
+    decision = { type: "caution", reason: "ההצעה שימושית, אך חסרים פרטים מהותיים ולכן נדרש שיקול דעת אנושי לפני שימוש." };
+  }
+
+  return Object.assign({}, baseResult, {
+    confidence: finalConfidence,
+    explainability: {
+      why: why,
+      evidence: evidence,
+      sources: sources,
+      ambiguity: gaps,
+      safetyNotes: safetyNotes
+    },
+    confidenceBreakdown: {
+      base: Number(baseConfidence.toFixed(2)),
+      completenessBoost: Number(completenessBoost.toFixed(2)),
+      ambiguityPenalty: Number(ambiguityPenalty.toFixed(2)),
+      conflictPenalty: Number(conflictPenalty.toFixed(2)),
+      final: finalConfidence
+    },
+    decision: decision
+  });
+}
+
 function localRiskAssist(payload){
   payload = payload || {};
   var text = String(payload.text || "").trim();
   if(!text){
-    return buildAIFoundationResponse("EMPTY_RISK_TEXT", "local-risk-assist", {
+    return buildRiskAssistEnhancedResult(buildAIFoundationResponse("EMPTY_RISK_TEXT", "local-risk-assist", {
       warnings: ["לא סופק טקסט סיכון לניתוח."],
       trace: { source: "local-risk-assist", taskType: "risk_assist" }
+    }), {
+      isEmptyInput: true
     });
   }
   var normalized = _normalizeRiskStatement(text);
@@ -8361,7 +8437,7 @@ function localRiskAssist(payload){
   qualityNotes.push("ההצעה מפרידה בין ניסוח הסיכון עצמו לבין אמצעי גילוי, צמצום ובחינת שיוריות.");
   var confidence = 0.6 + (payload.mitigation ? 0.08 : 0) + (payload.detection ? 0.08 : 0) + (payload.impact ? 0.06 : 0) - (gaps.length * 0.05);
   confidence = Math.max(0.35, Math.min(0.9, confidence));
-  return {
+  return buildRiskAssistEnhancedResult({
     ok: true,
     mode: "offline",
     confidence: Number(confidence.toFixed(2)),
@@ -8387,7 +8463,13 @@ function localRiskAssist(payload){
       riskId: payload.riskId || "",
       inputSource: payload.source || "manual"
     }
-  };
+  }, {
+    hasMitigation: !!payload.mitigation,
+    hasDetection: !!payload.detection,
+    hasImpact: !!payload.impact,
+    impact: payload.impact || "",
+    sev: payload.sev
+  });
 }
 
 function formatRiskAssistResult(result){

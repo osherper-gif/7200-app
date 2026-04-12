@@ -936,7 +936,13 @@ var AI_RISK_ASSIST_TCS = [
   {id:"TC-228",title:"Risk Assist stays offline-only and legacy-free",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-121",steps:"בדוק שהמימוש המקומי לא קורא ל-legacy AI או ל-network",expected:"המימוש נשאר local-only ומבודד",auto:"yes",fn:"checkRiskAssistOfflineOnlySource"},
   {id:"TC-229",title:"Risk Assist UI opens and closes safely",cat:"מומחה AI",type:"Regression",pri:"High",reqs:"REQ-121",steps:"פתח את UI של Risk Assist ובדוק modal open/close",expected:"ה-modal נפתח ונסגר בלי crash",auto:"yes",fn:"checkRiskAssistUIRuntime"},
   {id:"TC-230",title:"Existing risk flow remains intact",cat:"סיכונים",type:"Regression",pri:"Critical",reqs:"REQ-101",steps:"בדוק ש-openAddRisk, renderRisks, renderResidualRisks ו-edit/delete עדיין זמינים",expected:"זרימת הסיכונים הקיימת נשארת תקינה",auto:"yes",fn:"checkExistingRiskFlowRuntime"},
-  {id:"TC-231",title:"Risk heatmap and rendering remain unaffected",cat:"סיכונים",type:"Regression",pri:"High",reqs:"REQ-101",steps:"בדוק ש-renderRiskHeatmap ו-renderRisks ממשיכים לעבוד",expected:"heatmap וטבלת הסיכונים נבנים כרגיל",auto:"yes",fn:"checkRiskHeatmapUnaffectedRuntime"}
+  {id:"TC-231",title:"Risk heatmap and rendering remain unaffected",cat:"סיכונים",type:"Regression",pri:"High",reqs:"REQ-101",steps:"בדוק ש-renderRiskHeatmap ו-renderRisks ממשיכים לעבוד",expected:"heatmap וטבלת הסיכונים נבנים כרגיל",auto:"yes",fn:"checkRiskHeatmapUnaffectedRuntime"},
+  {id:"TC-259",title:"Risk Assist explainability object exists",cat:"מומחה AI",type:"Regression",pri:"High",reqs:"REQ-121",steps:"בדוק שתגובת Risk Assist כוללת explainability",expected:"why/evidence/sources/ambiguity/safetyNotes קיימים",auto:"yes",fn:"checkRiskAssistExplainabilityRuntime"},
+  {id:"TC-260",title:"Risk Assist confidence breakdown exists",cat:"מומחה AI",type:"Regression",pri:"High",reqs:"REQ-121",steps:"בדוק שתגובת Risk Assist כוללת confidenceBreakdown",expected:"base/completenessBoost/ambiguityPenalty/conflictPenalty/final קיימים",auto:"yes",fn:"checkRiskAssistConfidenceBreakdownRuntime"},
+  {id:"TC-261",title:"Risk Assist decision object exists",cat:"מומחה AI",type:"Regression",pri:"High",reqs:"REQ-121",steps:"בדוק שתגובת Risk Assist כוללת decision",expected:"type/reason קיימים בלי לשבור את המודל הקיים",auto:"yes",fn:"checkRiskAssistDecisionRuntime"},
+  {id:"TC-262",title:"Risk Assist final confidence matches top-level confidence",cat:"מומחה AI",type:"Regression",pri:"High",reqs:"REQ-121",steps:"בדוק ש-confidenceBreakdown.final שווה ל-result.confidence",expected:"confidenceBreakdown.final תואם ל-confidence העליון",auto:"yes",fn:"checkRiskAssistConfidenceFinalMatchesRuntime"},
+  {id:"TC-263",title:"Risk Assist caution occurs for ambiguous input",cat:"מומחה AI",type:"Regression",pri:"High",reqs:"REQ-121",steps:"בדוק שקלט סיכון עמום וחלקי מפעיל decision=caution",expected:"ambiguityPenalty חיובי ו-decision=caution עבור קלט חסר",auto:"yes",fn:"checkRiskAssistCautionRuntime"},
+  {id:"TC-264",title:"Risk Assist refusal occurs only on empty input path",cat:"מומחה AI",type:"Regression",pri:"High",reqs:"REQ-121",steps:"בדוק שמסלול refusal מופעל רק כשאין טקסט קלט",expected:"decision=refusal רק עבור קלט ריק",auto:"yes",fn:"checkRiskAssistRefusalRuntime"}
 ];
 
 var AI_DOCUMENT_REVIEW_TCS = [
@@ -1972,6 +1978,82 @@ var AUTOMATION = {
         w.DB.risks = JSON.parse(original);
         w.renderRisks();
       }
+    });
+  },
+  checkRiskAssistExplainabilityRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function') return _runtimeFail('runAIAction חסר');
+      var resp = w.runAIAction('risk_assist', { text:'קיים סיכון כי ספק יתעכב ויפגע באינטגרציה', impact:'לוח זמנים', source:'test' });
+      var exp = resp && resp.explainability;
+      var ok = exp &&
+        typeof exp.why === 'string' &&
+        Array.isArray(exp.evidence) &&
+        Array.isArray(exp.sources) &&
+        Array.isArray(exp.ambiguity) &&
+        Array.isArray(exp.safetyNotes);
+      return ok ? _runtimePass('Risk Assist כולל explainability מלא') : _runtimeFail('explainability חסר או לא שלם ב-Risk Assist');
+    });
+  },
+  checkRiskAssistConfidenceBreakdownRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function') return _runtimeFail('runAIAction חסר');
+      var resp = w.runAIAction('risk_assist', { text:'קיים סיכון כי ספק יתעכב ויפגע באינטגרציה', impact:'לוח זמנים', source:'test' });
+      var b = resp && resp.confidenceBreakdown;
+      if(!b) return _runtimeFail('confidenceBreakdown חסר ב-Risk Assist');
+      var fieldsOk = ['base','completenessBoost','ambiguityPenalty','conflictPenalty','final'].every(function(k){ return typeof b[k] === 'number'; });
+      var computed = Number((b.base + b.completenessBoost - b.ambiguityPenalty - b.conflictPenalty).toFixed(2));
+      var consistent = Math.abs(computed - b.final) < 0.001 && Math.abs(b.final - resp.confidence) < 0.001;
+      return fieldsOk && consistent
+        ? _runtimePass('confidenceBreakdown של Risk Assist קיים ועקבי')
+        : _runtimeFail('confidenceBreakdown של Risk Assist חסר או לא עקבי');
+    });
+  },
+  checkRiskAssistDecisionRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function') return _runtimeFail('runAIAction חסר');
+      var resp = w.runAIAction('risk_assist', { text:'קיים סיכון כי ספק יתעכב ויפגע באינטגרציה', impact:'לוח זמנים', source:'test' });
+      var decision = resp && resp.decision;
+      var ok = decision && typeof decision.reason === 'string' && ['suggestion','caution','refusal'].indexOf(decision.type) >= 0;
+      return ok ? _runtimePass('decision קיים ב-Risk Assist') : _runtimeFail('decision חסר או לא תקין ב-Risk Assist');
+    });
+  },
+  checkRiskAssistConfidenceFinalMatchesRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function') return _runtimeFail('runAIAction חסר');
+      var resp = w.runAIAction('risk_assist', { text:'קיים סיכון כי ספק יתעכב ויפגע באינטגרציה', impact:'לוח זמנים', source:'test' });
+      var breakdown = resp && resp.confidenceBreakdown;
+      if(!breakdown) return _runtimeFail('confidenceBreakdown חסר');
+      return Math.abs((breakdown.final || 0) - (resp.confidence || 0)) < 0.001
+        ? _runtimePass('confidenceBreakdown.final שווה ל-confidence העליון ב-Risk Assist')
+        : _runtimeFail('confidenceBreakdown.final לא תואם ל-confidence העליון ב-Risk Assist');
+    });
+  },
+  checkRiskAssistCautionRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function') return _runtimeFail('runAIAction חסר');
+      var resp = w.runAIAction('risk_assist', { text:'סיכון עיכוב', source:'test' });
+      var breakdown = resp && resp.confidenceBreakdown;
+      var decision = resp && resp.decision;
+      if(!breakdown || !decision) return _runtimeFail('confidenceBreakdown או decision חסרים');
+      var caution = decision.type === 'caution';
+      var ambiguityActive = breakdown.ambiguityPenalty > 0;
+      return caution && ambiguityActive
+        ? _runtimePass('Risk Assist מפעיל caution עבור קלט עמום או חסר')
+        : _runtimeFail('Risk Assist לא הפעיל caution עבור קלט עמום או חסר');
+    });
+  },
+  checkRiskAssistRefusalRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function') return _runtimeFail('runAIAction חסר');
+      var emptyResp = w.runAIAction('risk_assist', { text:'', source:'test' });
+      var groundedResp = w.runAIAction('risk_assist', { text:'קיים סיכון כי בדיקת FAT תידחה', impact:'לוח זמנים', source:'test' });
+      var emptyDecision = emptyResp && emptyResp.decision;
+      var groundedDecision = groundedResp && groundedResp.decision;
+      var emptyRefusal = emptyDecision && emptyDecision.type === 'refusal';
+      var groundedNotRefusal = groundedDecision && groundedDecision.type !== 'refusal';
+      return emptyRefusal && groundedNotRefusal
+        ? _runtimePass('refusal ב-Risk Assist מופעל רק במסלול קלט ריק')
+        : _runtimeFail('מסלול refusal של Risk Assist אינו מוגבל לקלט ריק');
     });
   },
   checkDocumentAssistActionExistsRuntime: async function(){
