@@ -8118,14 +8118,85 @@ function _buildRequirementAssistExpertGuidance(text, domain, type){
   };
 }
 
+function buildAIEnhancedResult(baseResult, context){
+  baseResult = baseResult || {};
+  context = context || {};
+  var info = baseResult.requirementAssist || {};
+  var expertHints = Array.isArray(info.expertHints) ? info.expertHints : [];
+  var qualityNotes = Array.isArray(info.qualityNotes) ? info.qualityNotes : [];
+  var measurableNotes = Array.isArray(info.measurableNotes) ? info.measurableNotes : [];
+  var warnings = Array.isArray(baseResult.warnings) ? baseResult.warnings : [];
+  var ambiguity = []
+    .concat(warnings)
+    .concat(context.validation && context.validation._vague ? ["הנוסח עדיין כולל רכיבים עמומים או לא מדידים במלואם."] : [])
+    .filter(Boolean)
+    .slice(0, 4);
+  var evidence = []
+    .concat(qualityNotes.slice(0, 2))
+    .concat(measurableNotes.slice(0, 2))
+    .concat(expertHints.slice(0, 1))
+    .filter(Boolean)
+    .slice(0, 4);
+  var sources = [];
+  if(baseResult.trace && baseResult.trace.source) sources.push(baseResult.trace.source);
+  if(baseResult.trace && Array.isArray(baseResult.trace.knowledgeSources) && baseResult.trace.knowledgeSources.length){
+    baseResult.trace.knowledgeSources.forEach(function(item){
+      if(item && item.expert) sources.push("local_kb:" + item.expert);
+    });
+  }
+  if(!sources.length) sources.push("local_requirement_rules");
+  var safetyNotes = [];
+  if(context.domainSuggestion === "safety") safetyNotes.push("דרישת בטיחות דורשת אימות אנושי של מצב בטוח, תנאי כשל וקריטריוני קבלה.");
+  if(/safety|hazard|fail[-\s]?safe|critical|בטיחות|סיכון|מפגע/i.test(String(context.text || ""))) safetyNotes.push("זוהה תוכן רגיש בטיחותית; מומלץ לאשר ידנית את הניסוח והבדיקתיות.");
+  safetyNotes = safetyNotes.filter(Boolean).slice(0, 3);
+
+  var baseConfidence = typeof context.baseConfidence === "number" ? context.baseConfidence : Number(baseResult.confidence || 0);
+  var expertBoost = expertHints.length ? 0.06 : 0;
+  var ambiguityPenalty = ambiguity.length ? Math.min(0.12, ambiguity.length * 0.04) : 0;
+  var conflictPenalty = 0;
+  var finalConfidence = Math.max(0, Math.min(0.99, baseConfidence + expertBoost - ambiguityPenalty - conflictPenalty));
+  finalConfidence = Number(finalConfidence.toFixed(2));
+  var breakdown = {
+    base: Number(baseConfidence.toFixed(2)),
+    expertBoost: Number(expertBoost.toFixed(2)),
+    ambiguityPenalty: Number(ambiguityPenalty.toFixed(2)),
+    conflictPenalty: Number(conflictPenalty.toFixed(2)),
+    final: finalConfidence
+  };
+
+  var decision = { type: "suggestion", reason: "המערכת הצליחה לנסח הצעה מעשית על בסיס כללים מקומיים." };
+  if(baseResult.ok === false || !String(context.text || "").trim()){
+    decision = { type: "refusal", reason: "לא סופק קלט מספק להפקת הצעת דרישה בטוחה." };
+  } else if(ambiguity.length >= 2 || (context.validation && !context.validation._measurable)) {
+    decision = { type: "caution", reason: "ההצעה שימושית, אך עדיין נדרש חידוד אנושי לפני אימוץ." };
+  }
+
+  return Object.assign({}, baseResult, {
+    confidence: finalConfidence,
+    explainability: {
+      why: decision.type === "suggestion"
+        ? "ההצעה נבנתה משילוב של בדיקות איכות מקומיות, שיפור ניסוח ורמזי מומחה מקומיים כאשר נמצאו."
+        : decision.type === "caution"
+          ? "נמצאה הצעה אפשרית, אך אותרו סימני עמימות או חוסר מדידות שמחייבים זהירות."
+          : "לא ניתן לבנות הצעה אמינה ללא טקסט דרישה תקף.",
+      evidence: evidence,
+      sources: sources,
+      ambiguity: ambiguity,
+      safetyNotes: safetyNotes
+    },
+    confidenceBreakdown: breakdown,
+    decision: decision
+  });
+}
+
 function localRequirementAssist(payload){
   payload = payload || {};
   var text = String(payload.text || "").trim();
   if(!text){
-    return buildAIFoundationResponse("EMPTY_REQUIREMENT_TEXT", "local-requirement-assist", {
+    return buildAIEnhancedResult(buildAIFoundationResponse("EMPTY_REQUIREMENT_TEXT", "local-requirement-assist", {
       warnings: ["לא סופק טקסט דרישה לניתוח."],
       trace: { source: "local-requirement-assist", taskType: "requirement_assist" }
-    });
+    }), { text: text, baseConfidence: 0, validation: null, domainSuggestion: "" });
   }
   var type = payload.type || "sys";
   var validation = _validateRequirement(text);
@@ -8149,7 +8220,7 @@ function localRequirementAssist(payload){
   if(text.length > 40) confidence += 0.08;
   if(expertGuidance.hints.length) confidence += 0.06;
   confidence = Math.max(0.35, Math.min(0.92, confidence));
-  return {
+  var baseResult = {
     ok: true,
     mode: "offline",
     confidence: Number(confidence.toFixed(2)),
@@ -8182,10 +8253,19 @@ function localRequirementAssist(payload){
       knowledgeSources: expertGuidance.trace
     }
   };
+  return buildAIEnhancedResult(baseResult, {
+    text: text,
+    baseConfidence: Number(confidence.toFixed(2)),
+    validation: validation,
+    domainSuggestion: domainSuggestion
+  });
 }
 
 function formatRequirementAssistResult(result){
   var info = result.requirementAssist || {};
+  var explainability = result.explainability || {};
+  var breakdown = result.confidenceBreakdown || {};
+  var decision = result.decision || {};
   var canApply = !!(_lastRequirementAssistContext && _lastRequirementAssistContext.arrName && typeof _lastRequirementAssistContext.idx === "number");
   return "<div id='requirementAssistRoot' style='display:grid;gap:12px;line-height:1.7;'>" +
     "<div><b>Original Requirement</b><div style='margin-top:4px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);white-space:pre-wrap;'>"+esc(info.originalText || "")+"</div></div>" +
@@ -8197,6 +8277,17 @@ function formatRequirementAssistResult(result){
     "<div><b>Local Trace</b>"+renderAIActionList((info.localTrace || []).map(function(item){ return "expert=" + (item.expert || "") + ", score=" + (item.score || 0) + ", tags=" + ((item.tags || []).join(", ") || ""); }))+"</div>" +
     "<div><b>Domain Suggestion</b><div style='margin-top:4px;'>"+esc(info.domainSuggestion || "")+"</div></div>" +
     "<div><b>Confidence</b><div style='margin-top:4px;'>"+esc(String(result.confidence || 0))+"</div></div>" +
+    "<details id='reqAssistExplainability' style='border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:rgba(148,163,184,.06);'><summary style='cursor:pointer;font-weight:700;'>AI Explanation</summary>" +
+      "<div style='display:grid;gap:10px;margin-top:10px;'>" +
+        "<div><b>Why</b><div style='margin-top:4px;'>"+esc(explainability.why || "")+"</div></div>" +
+        "<div><b>Key Evidence</b>"+renderAIActionList(explainability.evidence || [])+"</div>" +
+        "<div><b>Sources</b>"+renderAIActionList(explainability.sources || [])+"</div>" +
+        "<div><b>Ambiguity</b>"+renderAIActionList(explainability.ambiguity || [])+"</div>" +
+        "<div><b>Safety Notes</b>"+renderAIActionList(explainability.safetyNotes || [])+"</div>" +
+        "<div><b>Decision</b><div style='margin-top:4px;'>"+esc(String(decision.type || ""))+" — "+esc(String(decision.reason || ""))+"</div></div>" +
+        "<div><b>Confidence Breakdown</b><div style='margin-top:4px;'>base="+esc(String(breakdown.base || 0))+", expertBoost="+esc(String(breakdown.expertBoost || 0))+", ambiguityPenalty="+esc(String(breakdown.ambiguityPenalty || 0))+", conflictPenalty="+esc(String(breakdown.conflictPenalty || 0))+", final="+esc(String(breakdown.final || result.confidence || 0))+"</div></div>" +
+      "</div>" +
+    "</details>" +
     "<div id='reqAssistFeedback' style='font-size:12px;color:var(--g600);'>Suggestion only. Nothing is written to the database automatically. Apply requires explicit user approval.</div>" +
     (canApply
       ? "<div style='display:flex;gap:8px;align-items:center;'><button class='btn btn-primary' id='reqAssistApplyBtn' onclick='applyRequirementAssistSuggestion()'>Apply Suggestion</button><span style='font-size:12px;color:var(--g500);'>ההחלה תעתיק את הטקסט למסך העריכה בלבד.</span></div>"

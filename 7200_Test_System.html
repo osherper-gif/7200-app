@@ -963,7 +963,10 @@ var AI_REQUIREMENT_APPLY_TCS = [
   {id:"TC-249",title:"Requirement validation remains safe after apply",cat:"דרישות",type:"Regression",pri:"High",reqs:"REQ-123",steps:"בדוק שניתן לעצור שמירה עמומה בלי crash",expected:"validation warning לא שוברת את הזרימה",auto:"yes",fn:"checkRequirementAssistValidationSafeRuntime"},
   {id:"TC-250",title:"Requirement Assist apply remains offline-only and legacy-free",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-123",steps:"בדוק שמסלול ה-apply לא קורא ל-legacy AI או network",expected:"apply נשאר local-only ומבודד",auto:"yes",fn:"checkRequirementAssistApplyOfflineOnlySource"},
   {id:"TC-251",title:"Requirement Assist includes local expert guidance",cat:"מומחה AI",type:"Regression",pri:"High",reqs:"REQ-123",steps:"בדוק שהמענה כולל expert hints ו-trace מקומיים כאשר יש התאמה ל-KB",expected:"המענה ההיברידי כולל expertHints/localTrace בלי legacy AI",auto:"yes",fn:"checkRequirementAssistHybridGuidanceRuntime"},
-  {id:"TC-252",title:"Requirement Assist hybrid enrichment remains deterministic and local",cat:"מומחה AI",type:"Regression",pri:"High",reqs:"REQ-123",steps:"בדוק שקיימות פונקציות hybrid מקומיות ללא fetch/legacy",expected:"העשרת המומחה מתבצעת מקומית בלבד",auto:"yes",fn:"checkRequirementAssistHybridSource"}
+  {id:"TC-252",title:"Requirement Assist hybrid enrichment remains deterministic and local",cat:"מומחה AI",type:"Regression",pri:"High",reqs:"REQ-123",steps:"בדוק שקיימות פונקציות hybrid מקומיות ללא fetch/legacy",expected:"העשרת המומחה מתבצעת מקומית בלבד",auto:"yes",fn:"checkRequirementAssistHybridSource"},
+  {id:"TC-253",title:"Requirement Assist explainability object exists",cat:"מומחה AI",type:"Regression",pri:"High",reqs:"REQ-123",steps:"בדוק שתגובת Requirement Assist כוללת explainability",expected:"why/evidence/sources/ambiguity/safetyNotes קיימים",auto:"yes",fn:"checkRequirementAssistExplainabilityRuntime"},
+  {id:"TC-254",title:"Requirement Assist confidence breakdown exists",cat:"מומחה AI",type:"Regression",pri:"High",reqs:"REQ-123",steps:"בדוק שתגובת Requirement Assist כוללת confidenceBreakdown עקבי",expected:"base/expertBoost/ambiguityPenalty/conflictPenalty/final קיימים ו-final עקבי",auto:"yes",fn:"checkRequirementAssistConfidenceBreakdownRuntime"},
+  {id:"TC-255",title:"Requirement Assist decision object exists",cat:"מומחה AI",type:"Regression",pri:"High",reqs:"REQ-123",steps:"בדוק שתגובת Requirement Assist כוללת decision",expected:"type/reason קיימים בלי לשבור את המודל הקיים",auto:"yes",fn:"checkRequirementAssistDecisionRuntime"}
 ];
 
 if(TMS.testCases.length < 125){
@@ -1760,6 +1763,45 @@ var AUTOMATION = {
     var found = forbidden.filter(function(token){ return block.indexOf(token) >= 0; });
     if(found.length) return { pass:false, actual:'Hybrid enrichment עדיין מפנה ל: ' + found.join(', ') };
     return { pass: missing.length===0, actual: missing.length ? 'חסרים סימני source ב-hybrid: ' + missing.join(', ') : 'Hybrid expert enrichment נשאר local-only ומתבסס על KB מקומי' };
+  },
+  checkRequirementAssistExplainabilityRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function') return _runtimeFail('runAIAction חסרה');
+      var resp = w.runAIAction('requirement_assist', { text:'The system should be fast and reliable', type:'sys', source:'test' });
+      var exp = resp && resp.explainability;
+      var ok = exp &&
+        typeof exp.why === 'string' &&
+        Array.isArray(exp.evidence) &&
+        Array.isArray(exp.sources) &&
+        Array.isArray(exp.ambiguity) &&
+        Array.isArray(exp.safetyNotes);
+      return ok ? _runtimePass('Requirement Assist כולל explainability מלא') : _runtimeFail('explainability חסר או לא שלם');
+    });
+  },
+  checkRequirementAssistConfidenceBreakdownRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function') return _runtimeFail('runAIAction חסרה');
+      var resp = w.runAIAction('requirement_assist', { text:'The system should be fast and reliable', type:'sys', source:'test' });
+      var b = resp && resp.confidenceBreakdown;
+      if(!b) return _runtimeFail('confidenceBreakdown חסר');
+      var fieldsOk = ['base','expertBoost','ambiguityPenalty','conflictPenalty','final'].every(function(k){ return typeof b[k] === 'number'; });
+      var computed = Number((b.base + b.expertBoost - b.ambiguityPenalty - b.conflictPenalty).toFixed(2));
+      var consistent = Math.abs(computed - b.final) < 0.001 && Math.abs(b.final - resp.confidence) < 0.001;
+      return fieldsOk && consistent
+        ? _runtimePass('confidenceBreakdown קיים ועקבי עם confidence הסופי')
+        : _runtimeFail('confidenceBreakdown חסר או לא עקבי');
+    });
+  },
+  checkRequirementAssistDecisionRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function') return _runtimeFail('runAIAction חסרה');
+      var resp = w.runAIAction('requirement_assist', { text:'The system should be fast and reliable', type:'sys', source:'test' });
+      var decision = resp && resp.decision;
+      var ok = decision &&
+        typeof decision.reason === 'string' &&
+        ['suggestion','caution','refusal'].indexOf(decision.type) >= 0;
+      return ok ? _runtimePass('decision קיים ונשאר תואם למודל התוצאה') : _runtimeFail('decision חסר או לא תקין');
+    });
   },
   checkRiskAssistActionExistsRuntime: async function(){
     return withAppWindow(function(w){
