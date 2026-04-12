@@ -961,7 +961,9 @@ var AI_REQUIREMENT_APPLY_TCS = [
   {id:"TC-247",title:"No audit entry on canceled or blocked apply",cat:"מומחה AI",type:"Regression",pri:"High",reqs:"REQ-123",steps:"בדוק שלא נוצרת רשומת audit כאשר apply מבוטל או נחסם",expected:"אין audit שגוי ב-cancel/duplicate block",auto:"yes",fn:"checkRequirementAssistNoFalseAuditRuntime"},
   {id:"TC-248",title:"Existing requirement flow unaffected after apply support",cat:"דרישות",type:"Regression",pri:"Critical",reqs:"REQ-018",steps:"בדוק שזרימת הדרישות הרגילה עדיין זמינה",expected:"openAddReq/editItem/renderReqs עדיין תקינים",auto:"yes",fn:"checkExistingRequirementFlowRuntime"},
   {id:"TC-249",title:"Requirement validation remains safe after apply",cat:"דרישות",type:"Regression",pri:"High",reqs:"REQ-123",steps:"בדוק שניתן לעצור שמירה עמומה בלי crash",expected:"validation warning לא שוברת את הזרימה",auto:"yes",fn:"checkRequirementAssistValidationSafeRuntime"},
-  {id:"TC-250",title:"Requirement Assist apply remains offline-only and legacy-free",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-123",steps:"בדוק שמסלול ה-apply לא קורא ל-legacy AI או network",expected:"apply נשאר local-only ומבודד",auto:"yes",fn:"checkRequirementAssistApplyOfflineOnlySource"}
+  {id:"TC-250",title:"Requirement Assist apply remains offline-only and legacy-free",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-123",steps:"בדוק שמסלול ה-apply לא קורא ל-legacy AI או network",expected:"apply נשאר local-only ומבודד",auto:"yes",fn:"checkRequirementAssistApplyOfflineOnlySource"},
+  {id:"TC-251",title:"Requirement Assist includes local expert guidance",cat:"מומחה AI",type:"Regression",pri:"High",reqs:"REQ-123",steps:"בדוק שהמענה כולל expert hints ו-trace מקומיים כאשר יש התאמה ל-KB",expected:"המענה ההיברידי כולל expertHints/localTrace בלי legacy AI",auto:"yes",fn:"checkRequirementAssistHybridGuidanceRuntime"},
+  {id:"TC-252",title:"Requirement Assist hybrid enrichment remains deterministic and local",cat:"מומחה AI",type:"Regression",pri:"High",reqs:"REQ-123",steps:"בדוק שקיימות פונקציות hybrid מקומיות ללא fetch/legacy",expected:"העשרת המומחה מתבצעת מקומית בלבד",auto:"yes",fn:"checkRequirementAssistHybridSource"}
 ];
 
 if(TMS.testCases.length < 125){
@@ -1642,6 +1644,122 @@ var AUTOMATION = {
     var forbidden = ['offlineAI(', 'callClaude(', 'callOpenAI(', 'callOfflineAIEndpoint(', 'analyzeWithAPI(', 'fetch('];
     var found = forbidden.filter(function(token){ return block.indexOf(token) >= 0; });
     return { pass: found.length===0, actual: found.length ? 'Requirement Assist apply עדיין מפנה ל: ' + found.join(', ') : 'Requirement Assist apply נשאר local-only וללא תלות ב-network/legacy AI' };
+  },
+  checkRequirementAssistDuplicateBlockRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.openAIRequirementAssistant !== 'function' || typeof w.applyRequirementAssistSuggestion !== 'function') return _runtimeFail('פונקציות Requirement Assist apply חסרות');
+      var originalReqs = JSON.stringify(w.DB.sysReqs || []);
+      var originalAudit = JSON.stringify(w.DB.aiAudit || []);
+      var oldConfirm = w.confirm;
+      try{
+        w.DB.sysReqs = [
+          {id:'REQ-C1',rid:'SYS-301',level:'L1',domain:'פונקציונלי',desc:'The system should be fast',l0:'-',vv:'Test',status:'Draft'},
+          {id:'REQ-C2',rid:'SYS-302',level:'L1',domain:'פונקציונלי',desc:'The system shall be fast under defined operating conditions with measurable acceptance criteria to be defined by engineering review.',l0:'-',vv:'Test',status:'Draft'}
+        ];
+        w.DB.aiAudit = [];
+        w.confirm = function(){ return true; };
+        w.openAIRequirementAssistant('sys', 0);
+        var applied = w.applyRequirementAssistSuggestion();
+        var feedback = w.document.getElementById('reqAssistFeedback');
+        var blocked = feedback && /כפילות|duplicate/i.test(feedback.textContent || '');
+        var editStillClosed = !w.document.getElementById('reqAssistApplyNotice');
+        var auditStillEmpty = (w.DB.aiAudit || []).length === 0;
+        return applied === false && blocked && editStillClosed && auditStillEmpty && w.DB.sysReqs[0].desc === 'The system should be fast'
+          ? _runtimePass('Duplicate protection חסם apply לא בטוח')
+          : _runtimeFail('Duplicate protection לא חסם apply כפול');
+      } finally {
+        w.confirm = oldConfirm;
+        w.closeModal();
+        w.DB.sysReqs = JSON.parse(originalReqs);
+        w.DB.aiAudit = JSON.parse(originalAudit);
+        w.renderReqs('sys');
+      }
+    });
+  },
+  checkRequirementAssistAuditCreatedRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.openAIRequirementAssistant !== 'function' || typeof w.applyRequirementAssistSuggestion !== 'function' || typeof w.saveModal !== 'function') return _runtimeFail('פונקציות Requirement Assist apply חסרות');
+      var originalReqs = JSON.stringify(w.DB.sysReqs || []);
+      var originalAudit = JSON.stringify(w.DB.aiAudit || []);
+      var oldConfirm = w.confirm;
+      try{
+        w.DB.sysReqs = [{id:'REQ-D1',rid:'SYS-401',level:'L1',domain:'פונקציונלי',desc:'The system should be fast',l0:'-',vv:'Test',status:'Draft'}];
+        w.DB.aiAudit = [];
+        w.confirm = function(){ return true; };
+        w.openAIRequirementAssistant('sys', 0);
+        w.applyRequirementAssistSuggestion();
+        w.saveModal();
+        var entry = (w.DB.aiAudit || [])[0];
+        return entry && entry.source === 'requirement_assist_apply' && entry.userConfirmed === true && entry.duplicateBlocked === false && entry.saved === true
+          ? _runtimePass('רשומת audit נוצרה בעת apply מאושר')
+          : _runtimeFail('לא נוצרה רשומת audit תקינה');
+      } finally {
+        w.confirm = oldConfirm;
+        w.closeModal();
+        w.DB.sysReqs = JSON.parse(originalReqs);
+        w.DB.aiAudit = JSON.parse(originalAudit);
+        w.renderReqs('sys');
+      }
+    });
+  },
+  checkRequirementAssistNoFalseAuditRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.openAIRequirementAssistant !== 'function' || typeof w.applyRequirementAssistSuggestion !== 'function') return _runtimeFail('פונקציות Requirement Assist apply חסרות');
+      var originalReqs = JSON.stringify(w.DB.sysReqs || []);
+      var originalAudit = JSON.stringify(w.DB.aiAudit || []);
+      var oldConfirm = w.confirm;
+      try{
+        w.DB.sysReqs = [{id:'REQ-E1',rid:'SYS-501',level:'L1',domain:'פונקציונלי',desc:'The system should be fast',l0:'-',vv:'Test',status:'Draft'}];
+        w.DB.aiAudit = [];
+        w.confirm = function(){ return false; };
+        w.openAIRequirementAssistant('sys', 0);
+        w.applyRequirementAssistSuggestion();
+        if((w.DB.aiAudit || []).length) return _runtimeFail('נוצר audit למרות cancel');
+        w.confirm = function(){ return true; };
+        w.DB.sysReqs.push({id:'REQ-E2',rid:'SYS-502',level:'L1',domain:'פונקציונלי',desc:'The system shall be fast under defined operating conditions with measurable acceptance criteria to be defined by engineering review.',l0:'-',vv:'Test',status:'Draft'});
+        w.openAIRequirementAssistant('sys', 0);
+        w.applyRequirementAssistSuggestion();
+        return (w.DB.aiAudit || []).length === 0
+          ? _runtimePass('לא נוצר audit ב-cancel או ב-duplicate block')
+          : _runtimeFail('נוצר audit שגוי ב-cancel או ב-block');
+      } finally {
+        w.confirm = oldConfirm;
+        w.closeModal();
+        w.DB.sysReqs = JSON.parse(originalReqs);
+        w.DB.aiAudit = JSON.parse(originalAudit);
+        w.renderReqs('sys');
+      }
+    });
+  },
+  checkRequirementAssistHybridGuidanceRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function') return _runtimeFail('runAIAction חסרה');
+      var resp = w.runAIAction('requirement_assist', {
+        text:'The system should support interface control document verification for a system architecture review',
+        type:'sys',
+        source:'test'
+      });
+      var info = resp && resp.requirementAssist;
+      var hasHints = info && Array.isArray(info.expertHints) && info.expertHints.length > 0;
+      var hasTrace = info && Array.isArray(info.localTrace) && info.localTrace.length > 0;
+      var traceOnRoot = resp && resp.trace && Array.isArray(resp.trace.knowledgeSources) && resp.trace.knowledgeSources.length > 0;
+      return hasHints && hasTrace && traceOnRoot
+        ? _runtimePass('Requirement Assist כולל העשרת מומחה מקומית ו-trace בטוח')
+        : _runtimeFail('לא נמצאה העשרת מומחה מקומית מספקת ב-Requirement Assist');
+    });
+  },
+  checkRequirementAssistHybridSource: async function(){
+    var src = await loadAppSource();
+    var start = src.indexOf('function _stripRequirementAssistKnowledgeText(');
+    var end = src.indexOf('function _normalizeRiskStatement(', start);
+    if(start < 0 || end < 0) return { pass:false, actual:'לא נמצא בלוק ה-hybrid של Requirement Assist לבדיקת source' };
+    var block = src.substring(start, end);
+    var required = ['_buildRequirementAssistExpertGuidance', '_KB', 'knowledgeSources'];
+    var missing = required.filter(function(token){ return block.indexOf(token) < 0; });
+    var forbidden = ['offlineAI(', 'callClaude(', 'callOpenAI(', 'callOfflineAIEndpoint(', 'analyzeWithAPI(', 'fetch('];
+    var found = forbidden.filter(function(token){ return block.indexOf(token) >= 0; });
+    if(found.length) return { pass:false, actual:'Hybrid enrichment עדיין מפנה ל: ' + found.join(', ') };
+    return { pass: missing.length===0, actual: missing.length ? 'חסרים סימני source ב-hybrid: ' + missing.join(', ') : 'Hybrid expert enrichment נשאר local-only ומתבסס על KB מקומי' };
   },
   checkRiskAssistActionExistsRuntime: async function(){
     return withAppWindow(function(w){

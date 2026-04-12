@@ -7929,13 +7929,34 @@ function appendAIAuditEntry(entry){
   markDirty();
 }
 
+function _normalizeRequirementAssistText(text){
+  var value = String(text || "").toLowerCase()
+    .replace(/\b(?:should|must|will)\b/g, "shall")
+    .replace(/^(?:the\s+system|the\s+software|the\s+mechanical\s+assembly|the\s+interface|the\s+subsystem|system|software|module|component)\s+shall\s+/i, "")
+    .replace(/^(?:shall)\s+/i, "")
+    .replace(/^(?:המערכת|התוכנה|המכלול|הממשק|הרכיב)\s+(?:צריכה|חייבת|צריכים|צריכות|תידרש|יידרש)\s+/i, "")
+    .replace(/\bunder defined operating conditions\b/g, "")
+    .replace(/\bwith measurable acceptance criteria to be defined by engineering review\b/g, "")
+    .replace(/[^\u0590-\u05ffa-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return value;
+}
+
 function findRequirementAssistDuplicate(arrName, idx, suggestedText){
   var arr = DB[arrName] || [];
   var candidate = Object.assign({}, arr[idx] || {}, { desc: suggestedText });
+  var candidateNorm = _normalizeRequirementAssistText(candidate.desc || "");
   var duplicateIndex = -1;
   arr.some(function(item, itemIdx){
     if(itemIdx === idx) return false;
-    if(_isDupInDB([item], candidate)){
+    var existingNorm = _normalizeRequirementAssistText(item && item.desc || item && item.name || "");
+    var isNormalizedDup = !!candidateNorm && !!existingNorm && (
+      existingNorm === candidateNorm ||
+      (existingNorm.length > 32 && candidateNorm.indexOf(existingNorm) >= 0) ||
+      (candidateNorm.length > 32 && existingNorm.indexOf(candidateNorm) >= 0)
+    );
+    if(_isDupInDB([item], candidate) || isNormalizedDup){
       duplicateIndex = itemIdx;
       return true;
     }
@@ -7977,6 +7998,19 @@ function openRequirementEditFromSuggestion(arrName, idx, suggestedText){
       var edit_desc = k==="desc"?"edit_desc":"edit_"+k;
       DB[arrName][idx][k]=gV(edit_desc);
     });
+    if(_lastRequirementAssistContext && _lastRequirementAssistContext.arrName === arrName && _lastRequirementAssistContext.idx === idx){
+      appendAIAuditEntry({
+        actionType: "apply_to_edit_form",
+        source: "requirement_assist_apply",
+        targetRequirementId: _lastRequirementAssistContext.requirementId,
+        targetRequirementIndex: idx,
+        originalText: _lastRequirementAssistContext.originalText,
+        appliedText: editedDesc,
+        duplicateBlocked: false,
+        userConfirmed: true,
+        saved: true
+      });
+    }
     markDirty();renderPage(getCurrentPage());closeModal();notify("עודכן","ok");
   });
   return true;
@@ -8006,17 +8040,82 @@ function applyRequirementAssistSuggestion(){
     if(feedback) feedback.innerHTML = "<span style='color:var(--danger);'>זוהתה כפילות מול דרישה קיימת. ההצעה לא הוחלה.</span>";
     return false;
   }
-  appendAIAuditEntry({
-    actionType: "apply_to_edit_form",
-    source: "requirement_assist_apply",
-    targetRequirementId: ctx.requirementId,
-    targetRequirementIndex: ctx.idx,
-    originalText: ctx.originalText,
-    appliedText: ctx.suggestedText,
-    duplicateBlocked: false,
-    userConfirmed: true
-  });
   return openRequirementEditFromSuggestion(ctx.arrName, ctx.idx, ctx.suggestedText);
+}
+
+function _stripRequirementAssistKnowledgeText(markdown){
+  return String(markdown || "")
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/^#+\s*/gm, "")
+    .replace(/\*\*/g, "")
+    .replace(/`/g, "")
+    .replace(/[•|]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function _detectRequirementAssistExpertCode(domain, type){
+  if(domain === "software") return "sw";
+  if(domain === "mechanical") return "me";
+  if(domain === "safety") return "safety";
+  if(domain === "interface") return "se";
+  return _requirementAssistDomainLabel(type) === "system" ? "se" : "sw";
+}
+
+function _scoreRequirementAssistKnowledge(text, item, expertCode){
+  if(!item || !item.tags || !item.tags.length) return 0;
+  var ql = String(text || "").toLowerCase();
+  var score = item.exp && (item.exp.indexOf(expertCode) >= 0 || item.exp.indexOf("all") >= 0) ? 4 : 0;
+  item.tags.forEach(function(tag){
+    var tagText = String(tag || "").toLowerCase();
+    if(!tagText) return;
+    if(ql.indexOf(tagText) >= 0) score += tagText.length > 5 ? 4 : 2;
+    else {
+      var tagWords = tagText.split(/\s+/).filter(Boolean);
+      if(tagWords.length > 1 && tagWords.some(function(word){ return word.length > 2 && ql.indexOf(word) >= 0; })) score += 1;
+    }
+  });
+  return score;
+}
+
+function _buildRequirementAssistExpertGuidance(text, domain, type){
+  if(typeof _KB === "undefined" || !_KB || !_KB.length) return { hints: [], rationale: [], trace: [] };
+  var expertCode = _detectRequirementAssistExpertCode(domain, type);
+  var matches = (_KB || []).map(function(item, idx){
+    var score = _scoreRequirementAssistKnowledge(text, item, expertCode);
+    return { item: item, score: score, idx: idx };
+  }).filter(function(entry){
+    return entry.score > 0;
+  }).sort(function(a, b){
+    return b.score - a.score;
+  }).slice(0, 2);
+  var hints = [];
+  var rationale = [];
+  var trace = [];
+  matches.forEach(function(entry){
+    var item = entry.item || {};
+    var rendered = typeof item.answer === "function" ? item.answer(text) : "";
+    var plain = _stripRequirementAssistKnowledgeText(rendered);
+    if(plain){
+      var sentences = plain.match(/[^.!?]+[.!?]?/g) || [plain];
+      sentences = sentences.filter(function(part){ return part && part.trim(); });
+      var excerpt = (sentences.slice(0, 2).join(" ") || plain).trim();
+      if(excerpt){
+        hints.push(excerpt);
+        rationale.push("המאגר המקומי מחזק את ההצעה באמצעות דפוסי ניסוח ובדיקתיות המקובלים בתחום זה.");
+      }
+    }
+    trace.push({
+      expert: expertCode,
+      score: entry.score,
+      tags: (item.tags || []).slice(0, 4)
+    });
+  });
+  return {
+    hints: hints.slice(0, 2),
+    rationale: rationale.slice(0, 2),
+    trace: trace
+  };
 }
 
 function localRequirementAssist(payload){
@@ -8034,11 +8133,13 @@ function localRequirementAssist(payload){
   var vagueMatches = _collectRequirementAssistVagueMatches(text);
   var measurableNotes = _suggestRequirementAssistMeasures(text, domainSuggestion);
   var rewrite = _buildRequirementAssistRewrite(text, type, domainSuggestion);
+  var expertGuidance = _buildRequirementAssistExpertGuidance(text, domainSuggestion, type);
   var qualityNotes = [];
   if(validation._vague) qualityNotes.push("הנוסח המקורי כולל מונחים עמומים שקשה לאמת בצורה עקבית.");
   if(!validation._measurable) qualityNotes.push("הנוסח המקורי לא מגדיר קריטריון מדיד או תנאי קבלה מספיק ברור.");
   if(!/^(?:the\s+(?:system|software|interface|mechanical\s+assembly)|המערכת|התוכנה|הממשק|המכלול)/i.test(String(text || "").trim())) qualityNotes.push("ההצעה מוסיפה פתיח נורמטיבי ברור כדי להפוך את הדרישה לחד-משמעית יותר.");
   qualityNotes.push("הנוסח המוצע שומר על הכוונה המקורית אך מפריד טוב יותר בין דרישה לבין תנאי אימות.");
+  if(expertGuidance.hints.length) qualityNotes.push("נוספו רמזי מומחה מקומיים כדי לחזק מדידות, הקשר תחומי והיגיון הנדסי.");
   var warnings = [];
   if(vagueMatches.length) warnings.push("זוהו מונחים עמומים: " + vagueMatches.join(", "));
   if(!validation._measurable) warnings.push("עדיין נדרש להשלים ערך, סף או תנאי אימות מספרי לפני אישור הדרישה.");
@@ -8046,6 +8147,7 @@ function localRequirementAssist(payload){
   if(validation._vague) confidence -= 0.08;
   if(validation._measurable) confidence += 0.18;
   if(text.length > 40) confidence += 0.08;
+  if(expertGuidance.hints.length) confidence += 0.06;
   confidence = Math.max(0.35, Math.min(0.92, confidence));
   return {
     ok: true,
@@ -8055,7 +8157,9 @@ function localRequirementAssist(payload){
       { type: "rewrite", title: "נוסח מוצע", text: rewrite },
       { type: "domain", title: "רמז לדומיין", text: "הדרישה נראית שייכת בעיקר ל-" + domainSuggestion + "." },
       { type: "quality", title: "מה השתפר", text: qualityNotes[qualityNotes.length - 1] }
-    ],
+    ].concat(expertGuidance.hints.length ? [
+      { type: "expert", title: "רציונל מומחה מקומי", text: expertGuidance.hints[0] }
+    ] : []),
     warnings: warnings,
     duplicates: [],
     needsHumanApproval: true,
@@ -8064,14 +8168,18 @@ function localRequirementAssist(payload){
       suggestedRewrite: rewrite,
       domainSuggestion: domainSuggestion,
       measurableNotes: measurableNotes,
-      qualityNotes: qualityNotes
+      qualityNotes: qualityNotes,
+      expertHints: expertGuidance.hints,
+      rationale: expertGuidance.rationale,
+      localTrace: expertGuidance.trace
     },
     trace: {
       source: "local-requirement-assist",
       taskType: "requirement_assist",
       requirementType: type,
       requirementId: payload.requirementId || "",
-      inputSource: payload.source || "manual"
+      inputSource: payload.source || "manual",
+      knowledgeSources: expertGuidance.trace
     }
   };
 }
@@ -8085,6 +8193,8 @@ function formatRequirementAssistResult(result){
     "<div><b>Warnings</b>"+renderAIActionList(result.warnings || [])+"</div>" +
     "<div><b>Measurability Notes</b>"+renderAIActionList(info.measurableNotes || [])+"</div>" +
     "<div><b>Quality Notes</b>"+renderAIActionList(info.qualityNotes || [])+"</div>" +
+    "<div><b>Expert Rationale</b>"+renderAIActionList(info.expertHints || [])+"</div>" +
+    "<div><b>Local Trace</b>"+renderAIActionList((info.localTrace || []).map(function(item){ return "expert=" + (item.expert || "") + ", score=" + (item.score || 0) + ", tags=" + ((item.tags || []).join(", ") || ""); }))+"</div>" +
     "<div><b>Domain Suggestion</b><div style='margin-top:4px;'>"+esc(info.domainSuggestion || "")+"</div></div>" +
     "<div><b>Confidence</b><div style='margin-top:4px;'>"+esc(String(result.confidence || 0))+"</div></div>" +
     "<div id='reqAssistFeedback' style='font-size:12px;color:var(--g600);'>Suggestion only. Nothing is written to the database automatically. Apply requires explicit user approval.</div>" +
