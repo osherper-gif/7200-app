@@ -8474,6 +8474,35 @@ function localRiskAssist(payload){
 
 function formatRiskAssistResult(result){
   var info = result.riskAssist || {};
+  var explainability = result.explainability || null;
+  var breakdown = result.confidenceBreakdown || null;
+  var decision = result.decision || null;
+  var hasExplain = !!(explainability || breakdown || decision);
+
+  var explainSection = "";
+  if(hasExplain){
+    var exp = explainability || {};
+    var brk = breakdown || {};
+    var dec = decision || {};
+    explainSection =
+      "<details id='riskAssistExplainability' style='border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:rgba(148,163,184,.06);'>" +
+        "<summary style='cursor:pointer;font-weight:700;'>AI Explanation</summary>" +
+        "<div style='display:grid;gap:10px;margin-top:10px;'>" +
+          "<div><b>Why</b><div style='margin-top:4px;'>"+esc(String(exp.why || ""))+"</div></div>" +
+          "<div><b>Key Evidence</b>"+renderAIActionList(exp.evidence || [])+"</div>" +
+          "<div><b>Sources</b>"+renderAIActionList(exp.sources || [])+"</div>" +
+          "<div><b>Ambiguity</b>"+renderAIActionList(exp.ambiguity || [])+"</div>" +
+          "<div><b>Safety Notes</b>"+renderAIActionList(exp.safetyNotes || [])+"</div>" +
+          (dec.type || dec.reason
+            ? "<div><b>Decision</b><div style='margin-top:4px;'>"+esc(String(dec.type || ""))+" — "+esc(String(dec.reason || ""))+"</div></div>"
+            : "") +
+          (brk.final !== undefined || brk.base !== undefined
+            ? "<div><b>Confidence Breakdown</b><div style='margin-top:4px;'>base="+esc(String(brk.base !== undefined ? brk.base : ""))+", completenessBoost="+esc(String(brk.completenessBoost !== undefined ? brk.completenessBoost : ""))+", ambiguityPenalty="+esc(String(brk.ambiguityPenalty !== undefined ? brk.ambiguityPenalty : ""))+", conflictPenalty="+esc(String(brk.conflictPenalty !== undefined ? brk.conflictPenalty : ""))+", final="+esc(String(brk.final !== undefined ? brk.final : (result.confidence || 0)))+"</div></div>"
+            : "") +
+        "</div>" +
+      "</details>";
+  }
+
   return "<div style='display:grid;gap:12px;line-height:1.7;'>" +
     "<div><b>Original Risk</b><div style='margin-top:4px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);white-space:pre-wrap;'>"+esc(info.originalText || "")+"</div></div>" +
     "<div><b>Suggested Risk Wording</b><div style='margin-top:4px;padding:10px;border:1px solid rgba(245,127,23,.35);border-radius:10px;background:rgba(245,127,23,.07);white-space:pre-wrap;'>"+esc(info.suggestedRiskWording || "")+"</div></div>" +
@@ -8483,6 +8512,7 @@ function formatRiskAssistResult(result){
     "<div><b>Residual-Risk Guidance</b>"+renderAIActionList(info.residualGuidance || [])+"</div>" +
     "<div><b>Quality Notes</b>"+renderAIActionList(info.qualityNotes || [])+"</div>" +
     "<div><b>Confidence</b><div style='margin-top:4px;'>"+esc(String(result.confidence || 0))+"</div></div>" +
+    explainSection +
     "<div style='font-size:12px;color:var(--g600);'>Suggestion only. Nothing is written to DB.risks or DB.residualRisks automatically.</div>" +
   "</div>";
 }
@@ -8573,13 +8603,101 @@ function buildDocumentReviewSummary(typeHint, gaps, qualityIssues, interfaceHint
   return parts.join(" ");
 }
 
+function buildDocumentAssistEnhancedResult(baseResult, context){
+  baseResult = baseResult || {};
+  context = context || {};
+  var info = baseResult.documentReview || {};
+  var gaps = Array.isArray(info.gaps) ? info.gaps : [];
+  var qualityIssues = Array.isArray(info.qualityIssues) ? info.qualityIssues : [];
+  var requirementFindings = Array.isArray(info.requirementFindings) ? info.requirementFindings : [];
+  var interfaceHints = Array.isArray(info.interfaceHints) ? info.interfaceHints : [];
+  var verificationHints = Array.isArray(info.verificationHints) ? info.verificationHints : [];
+  var safetyHints = Array.isArray(info.safetyHints) ? info.safetyHints : [];
+  var warnings = Array.isArray(baseResult.warnings) ? baseResult.warnings : [];
+  var text = String(context.text || "");
+  var isEmptyInput = !!context.isEmptyInput;
+  var hasShall = /(?:shall|must|יידרש|חייב)/i.test(text);
+  var hasVague = /(?:should|may|could|אפשר|מומלץ|רצוי|בדרך כלל)/i.test(text) || qualityIssues.some(function(item){
+    return /עמום|לא מחייב|ambiguous|vague/i.test(String(item || ""));
+  });
+  var structureSignals = 0;
+  if(info.typeHint) structureSignals += 1;
+  if(requirementFindings.length) structureSignals += 1;
+  if(interfaceHints.length) structureSignals += 1;
+  if(verificationHints.length) structureSignals += 1;
+  if(safetyHints.length) structureSignals += 1;
+  if(hasShall) structureSignals += 1;
+
+  var signalStrength = isEmptyInput ? 0 : Math.min(0.24, structureSignals * 0.04);
+  var ambiguityPenalty = isEmptyInput ? 0 : Math.min(0.24, (gaps.length * 0.04) + (hasVague ? 0.04 : 0));
+  var conflictPenalty = 0;
+  var baseConfidence = isEmptyInput ? 0 : 0.55;
+  var finalConfidence = isEmptyInput ? Number(baseResult.confidence || 0) : Math.max(0.4, Math.min(0.9, baseConfidence + signalStrength - ambiguityPenalty - conflictPenalty));
+  finalConfidence = Number(finalConfidence.toFixed(2));
+
+  var evidence = []
+    .concat(info.summary ? [info.summary] : [])
+    .concat(qualityIssues.slice(0, 1))
+    .concat(requirementFindings.slice(0, 1))
+    .concat(interfaceHints.slice(0, 1))
+    .concat(verificationHints.slice(0, 1))
+    .filter(Boolean)
+    .slice(0, 4);
+
+  var sources = ["document_analysis_rules"];
+  if(hasShall) sources.push("pattern:SHALL");
+  if(hasVague) sources.push("pattern:VAGUE");
+
+  var ambiguity = []
+    .concat(gaps.slice(0, 3))
+    .concat(hasVague ? ["זוהו ניסוחים עמומים או לא מחייבים במסמך."] : [])
+    .filter(Boolean)
+    .slice(0, 4);
+
+  var why = "הסקירה נשענת על זיהוי תבניות במסמך, חילוץ מבנים אפשריים, ואיתור פערים או ניסוחים חלשים לצורך review מקומי בלבד.";
+  if(isEmptyInput){
+    why = "לא סופק טקסט מסמך מספק לצורך סקירה אמינה.";
+  } else if(ambiguity.length >= 2 || !structureSignals){
+    why = "הסקירה הצליחה לזהות חלק מהמאפיינים במסמך, אך נמצאו פערים או עמימות שמגבילים את רמת הוודאות.";
+  }
+
+  var decision = { type: "suggestion", reason: "המסמך כולל מספיק אותות מבניים כדי להפיק סקירת review שימושית." };
+  if(isEmptyInput){
+    decision = { type: "refusal", reason: "לא סופק טקסט מסמך לבדיקה." };
+  } else if(ambiguity.length >= 2 || structureSignals <= 1){
+    decision = { type: "caution", reason: "הסקירה שימושית, אך המסמך חלקי, עמום או דל מדי ולכן נדרש review אנושי זהיר." };
+  }
+
+  return Object.assign({}, baseResult, {
+    confidence: finalConfidence,
+    explainability: {
+      why: why,
+      evidence: evidence,
+      sources: sources,
+      ambiguity: ambiguity,
+      safetyNotes: safetyHints.slice(0, 3)
+    },
+    confidenceBreakdown: {
+      base: Number(baseConfidence.toFixed(2)),
+      signalStrength: Number(signalStrength.toFixed(2)),
+      ambiguityPenalty: Number(ambiguityPenalty.toFixed(2)),
+      conflictPenalty: Number(conflictPenalty.toFixed(2)),
+      final: finalConfidence
+    },
+    decision: decision
+  });
+}
+
 function localDocumentReview(payload){
   payload = payload || {};
   var text = String(payload.text || "").trim();
   if(!text){
-    return buildAIFoundationResponse("EMPTY_DOCUMENT_TEXT", "local-document-review", {
+    return buildDocumentAssistEnhancedResult(buildAIFoundationResponse("EMPTY_DOCUMENT_TEXT", "local-document-review", {
       warnings: ["לא סופק טקסט מסמך לבדיקה."],
       trace: { source: "local-document-review", taskType: "document_review" }
+    }), {
+      isEmptyInput: true,
+      text: text
     });
   }
   var typeHint = detectDocumentReviewType(text, payload.sourceName || "");
@@ -8592,7 +8710,7 @@ function localDocumentReview(payload){
   var summary = buildDocumentReviewSummary(typeHint, gaps, qualityIssues, interfaceHints, verificationHints, safetyHints);
   var confidence = 0.62 + (qualityIssues.length ? 0.06 : 0) + (gaps.length ? 0.04 : 0);
   confidence = Math.max(0.4, Math.min(0.9, confidence));
-  return {
+  return buildDocumentAssistEnhancedResult({
     ok: true,
     mode: "offline",
     confidence: Number(confidence.toFixed(2)),
@@ -8620,7 +8738,9 @@ function localDocumentReview(payload){
       taskType: "document_review",
       inputType: payload.inputType || "unknown"
     }
-  };
+  }, {
+    text: text
+  });
 }
 
 function formatDocumentReviewResult(result){

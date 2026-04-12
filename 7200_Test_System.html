@@ -954,7 +954,13 @@ var AI_DOCUMENT_REVIEW_TCS = [
   {id:"TC-237",title:"Document Assist stays offline-only and legacy-free",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-122",steps:"בדוק שהמימוש המקומי לא קורא ל-legacy AI או ל-network",expected:"המימוש נשאר local-only ומבודד",auto:"yes",fn:"checkDocumentAssistOfflineOnlySource"},
   {id:"TC-238",title:"Document Assist UI opens and closes safely",cat:"מומחה AI",type:"Regression",pri:"High",reqs:"REQ-122",steps:"פתח את UI של Document Assist ובדוק modal open/close",expected:"ה-modal נפתח ונסגר בלי crash",auto:"yes",fn:"checkDocumentAssistUIRuntime"},
   {id:"TC-239",title:"Existing document flow remains intact",cat:"מסמכים",type:"Regression",pri:"Critical",reqs:"REQ-150",steps:"בדוק ש-openDocUpload, handleDocUpload, openPasteAnalysis ו-runDocumentAnalysisPipeline עדיין זמינים",expected:"זרימת המסמכים הקיימת נשארת תקינה",auto:"yes",fn:"checkExistingDocumentFlowRuntime"},
-  {id:"TC-240",title:"Existing document analysis remains active",cat:"מסמכים",type:"Regression",pri:"High",reqs:"REQ-150",steps:"בדוק ש-runDocumentAnalysisPipeline ו-analysis overlay עדיין עובדים",expected:"ניתוח המסמך הקיים נשאר פעיל",auto:"yes",fn:"checkExistingDocumentAnalysisRuntime"}
+  {id:"TC-240",title:"Existing document analysis remains active",cat:"מסמכים",type:"Regression",pri:"High",reqs:"REQ-150",steps:"בדוק ש-runDocumentAnalysisPipeline ו-analysis overlay עדיין עובדים",expected:"ניתוח המסמך הקיים נשאר פעיל",auto:"yes",fn:"checkExistingDocumentAnalysisRuntime"},
+  {id:"TC-265",title:"Document Assist explainability object exists",cat:"מומחה AI",type:"Regression",pri:"High",reqs:"REQ-122",steps:"בדוק שתגובת Document Assist כוללת explainability",expected:"why/evidence/sources/ambiguity/safetyNotes קיימים",auto:"yes",fn:"checkDocumentAssistExplainabilityRuntime"},
+  {id:"TC-266",title:"Document Assist confidence breakdown exists",cat:"מומחה AI",type:"Regression",pri:"High",reqs:"REQ-122",steps:"בדוק שתגובת Document Assist כוללת confidenceBreakdown",expected:"base/signalStrength/ambiguityPenalty/conflictPenalty/final קיימים",auto:"yes",fn:"checkDocumentAssistConfidenceBreakdownRuntime"},
+  {id:"TC-267",title:"Document Assist decision object exists",cat:"מומחה AI",type:"Regression",pri:"High",reqs:"REQ-122",steps:"בדוק שתגובת Document Assist כוללת decision",expected:"type/reason קיימים בלי לשבור את המודל הקיים",auto:"yes",fn:"checkDocumentAssistDecisionRuntime"},
+  {id:"TC-268",title:"Document Assist final confidence matches top-level confidence",cat:"מומחה AI",type:"Regression",pri:"High",reqs:"REQ-122",steps:"בדוק ש-confidenceBreakdown.final שווה ל-result.confidence",expected:"confidenceBreakdown.final תואם ל-confidence העליון",auto:"yes",fn:"checkDocumentAssistConfidenceFinalMatchesRuntime"},
+  {id:"TC-269",title:"Document Assist caution triggered on weak document",cat:"מומחה AI",type:"Regression",pri:"High",reqs:"REQ-122",steps:"בדוק שמסמך חלש או עמום מפעיל decision=caution",expected:"ambiguityPenalty חיובי ו-decision=caution עבור מסמך חלקי",auto:"yes",fn:"checkDocumentAssistCautionRuntime"},
+  {id:"TC-270",title:"Document Assist refusal only on empty input",cat:"מומחה AI",type:"Regression",pri:"High",reqs:"REQ-122",steps:"בדוק ש-refusal מופעל רק כשאין טקסט מסמך",expected:"decision=refusal רק עבור קלט ריק",auto:"yes",fn:"checkDocumentAssistRefusalRuntime"}
 ];
 
 var AI_REQUIREMENT_APPLY_TCS = [
@@ -2192,6 +2198,82 @@ var AUTOMATION = {
       var overlay = w.document.getElementById('analysisOverlay');
       var footer = w.document.getElementById('analysisFtr');
       return result && result.recs && overlay && footer ? _runtimePass('Document analysis הקיים נשאר פעיל וזמין') : _runtimeFail('ניתוח המסמך הקיים לא החזיר תוצאה תקינה');
+    });
+  },
+  checkDocumentAssistExplainabilityRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function') return _runtimeFail('runAIAction חסר');
+      var resp = w.runAIAction('document_review', { text:'System Requirements Specification\nThe system should be fast.\nInterface: Ethernet.\nSafety: overheat risk.', sourceName:'SRS.txt', inputType:'pasted_text' });
+      var exp = resp && resp.explainability;
+      var ok = exp &&
+        typeof exp.why === 'string' &&
+        Array.isArray(exp.evidence) &&
+        Array.isArray(exp.sources) &&
+        Array.isArray(exp.ambiguity) &&
+        Array.isArray(exp.safetyNotes);
+      return ok ? _runtimePass('Document Assist כולל explainability מלא') : _runtimeFail('explainability חסר או לא שלם ב-Document Assist');
+    });
+  },
+  checkDocumentAssistConfidenceBreakdownRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function') return _runtimeFail('runAIAction חסר');
+      var resp = w.runAIAction('document_review', { text:'System Requirements Specification\nThe system shall respond within 100 ms.\nInterface: Ethernet.\nVerification: Test.', sourceName:'SRS.txt', inputType:'pasted_text' });
+      var b = resp && resp.confidenceBreakdown;
+      if(!b) return _runtimeFail('confidenceBreakdown חסר ב-Document Assist');
+      var fieldsOk = ['base','signalStrength','ambiguityPenalty','conflictPenalty','final'].every(function(k){ return typeof b[k] === 'number'; });
+      var computed = Number((b.base + b.signalStrength - b.ambiguityPenalty - b.conflictPenalty).toFixed(2));
+      var consistent = Math.abs(computed - b.final) < 0.001 && Math.abs(b.final - resp.confidence) < 0.001;
+      return fieldsOk && consistent
+        ? _runtimePass('confidenceBreakdown של Document Assist קיים ועקבי')
+        : _runtimeFail('confidenceBreakdown של Document Assist חסר או לא עקבי');
+    });
+  },
+  checkDocumentAssistDecisionRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function') return _runtimeFail('runAIAction חסר');
+      var resp = w.runAIAction('document_review', { text:'System Requirements Specification\nThe system shall respond within 100 ms.\nInterface: Ethernet.\nVerification: Test.', sourceName:'SRS.txt', inputType:'pasted_text' });
+      var decision = resp && resp.decision;
+      var ok = decision && typeof decision.reason === 'string' && ['suggestion','caution','refusal'].indexOf(decision.type) >= 0;
+      return ok ? _runtimePass('decision קיים ב-Document Assist') : _runtimeFail('decision חסר או לא תקין ב-Document Assist');
+    });
+  },
+  checkDocumentAssistConfidenceFinalMatchesRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function') return _runtimeFail('runAIAction חסר');
+      var resp = w.runAIAction('document_review', { text:'System Requirements Specification\nThe system shall respond within 100 ms.\nInterface: Ethernet.\nVerification: Test.', sourceName:'SRS.txt', inputType:'pasted_text' });
+      var breakdown = resp && resp.confidenceBreakdown;
+      if(!breakdown) return _runtimeFail('confidenceBreakdown חסר');
+      return Math.abs((breakdown.final || 0) - (resp.confidence || 0)) < 0.001
+        ? _runtimePass('confidenceBreakdown.final שווה ל-confidence העליון ב-Document Assist')
+        : _runtimeFail('confidenceBreakdown.final לא תואם ל-confidence העליון ב-Document Assist');
+    });
+  },
+  checkDocumentAssistCautionRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function') return _runtimeFail('runAIAction חסר');
+      var resp = w.runAIAction('document_review', { text:'Notes\nShould improve maybe soon.', sourceName:'WeakDoc.txt', inputType:'pasted_text' });
+      var breakdown = resp && resp.confidenceBreakdown;
+      var decision = resp && resp.decision;
+      if(!breakdown || !decision) return _runtimeFail('confidenceBreakdown או decision חסרים');
+      var caution = decision.type === 'caution';
+      var ambiguityActive = breakdown.ambiguityPenalty > 0;
+      return caution && ambiguityActive
+        ? _runtimePass('Document Assist מפעיל caution עבור מסמך חלש או חלקי')
+        : _runtimeFail('Document Assist לא הפעיל caution עבור מסמך חלש או חלקי');
+    });
+  },
+  checkDocumentAssistRefusalRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function') return _runtimeFail('runAIAction חסר');
+      var emptyResp = w.runAIAction('document_review', { text:'', sourceName:'Empty.txt', inputType:'pasted_text' });
+      var groundedResp = w.runAIAction('document_review', { text:'System Requirements Specification\nThe system shall respond within 100 ms.', sourceName:'ReqDoc.txt', inputType:'pasted_text' });
+      var emptyDecision = emptyResp && emptyResp.decision;
+      var groundedDecision = groundedResp && groundedResp.decision;
+      var emptyRefusal = emptyDecision && emptyDecision.type === 'refusal';
+      var groundedNotRefusal = groundedDecision && groundedDecision.type !== 'refusal';
+      return emptyRefusal && groundedNotRefusal
+        ? _runtimePass('refusal ב-Document Assist מופעל רק במסלול קלט ריק')
+        : _runtimeFail('מסלול refusal של Document Assist אינו מוגבל לקלט ריק');
     });
   },
   checkAIFoundationOfflineStubSource: async function(){
