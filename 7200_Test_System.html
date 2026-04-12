@@ -976,6 +976,24 @@ var AI_ARCHITECTURE_ASSIST_TCS = [
   {id:"TC-280",title:"Existing architecture rendering remains unaffected",cat:"Architecture",type:"Regression",pri:"Critical",reqs:"REQ-124",steps:"Verify renderArch/renderICD still work before and after architecture review",expected:"renderArch/renderICD remain intact",auto:"yes",fn:"checkArchitectureRenderingUnaffectedRuntime"}
 ];
 
+var AI_CONSISTENCY_REVIEW_TCS = [
+  {id:"TC-296",title:"Consistency review action exists",cat:"AI Specialist",type:"Regression",pri:"Critical",reqs:"REQ-125",steps:"Verify openAIConsistencyReview and runAIAction support consistency_review",expected:"A safe consistency review action exists behind the feature flag",auto:"yes",fn:"checkConsistencyReviewActionExistsRuntime"},
+  {id:"TC-297",title:"Consistency review returns structured response",cat:"AI Specialist",type:"Regression",pri:"Critical",reqs:"REQ-125",steps:"Call runAIAction('consistency_review') with local project data and validate the response structure",expected:"ok/mode/confidence/recommendations/warnings/trace all exist",auto:"yes",fn:"checkConsistencyReviewStructuredResponseRuntime"},
+  {id:"TC-298",title:"Consistency review object exists",cat:"AI Specialist",type:"Regression",pri:"Critical",reqs:"REQ-125",steps:"Validate consistencyReview fields on response",expected:"summary/highConfidenceFindings/heuristicFindings/requirementArchitectureGaps/architectureInterfaceGaps/requirementVVGaps/riskArchitectureGaps/orphanElements/traceabilityWarnings all exist",auto:"yes",fn:"checkConsistencyReviewObjectRuntime"},
+  {id:"TC-299",title:"Consistency review explainability exists",cat:"AI Specialist",type:"Regression",pri:"High",reqs:"REQ-125",steps:"Validate explainability fields on consistency review output",expected:"why/evidence/sources/ambiguity/safetyNotes all exist",auto:"yes",fn:"checkConsistencyReviewExplainabilityRuntime"},
+  {id:"TC-300",title:"Consistency review confidence breakdown exists",cat:"AI Specialist",type:"Regression",pri:"High",reqs:"REQ-125",steps:"Validate confidenceBreakdown fields on consistency review output",expected:"base/signalStrength/ambiguityPenalty/conflictPenalty/final all exist and final matches top-level confidence",auto:"yes",fn:"checkConsistencyReviewConfidenceBreakdownRuntime"},
+  {id:"TC-301",title:"Consistency review decision exists",cat:"AI Specialist",type:"Regression",pri:"High",reqs:"REQ-125",steps:"Validate decision object on consistency review output",expected:"type/reason exist without breaking current review flow",auto:"yes",fn:"checkConsistencyReviewDecisionRuntime"},
+  {id:"TC-302",title:"Consistency review does not mutate DB.arch",cat:"AI Specialist",type:"Regression",pri:"Critical",reqs:"REQ-125",steps:"Run consistency review and confirm DB.arch remains unchanged",expected:"No automatic mutation of DB.arch",auto:"yes",fn:"checkConsistencyReviewNoArchMutationRuntime"},
+  {id:"TC-303",title:"Consistency review does not mutate DB.icd",cat:"AI Specialist",type:"Regression",pri:"Critical",reqs:"REQ-125",steps:"Run consistency review and confirm DB.icd remains unchanged",expected:"No automatic mutation of DB.icd",auto:"yes",fn:"checkConsistencyReviewNoICDMutationRuntime"},
+  {id:"TC-304",title:"Consistency review does not mutate requirements",cat:"AI Specialist",type:"Regression",pri:"Critical",reqs:"REQ-125",steps:"Run consistency review and confirm sys/sw/me requirement arrays remain unchanged",expected:"No automatic mutation of requirement arrays",auto:"yes",fn:"checkConsistencyReviewNoRequirementsMutationRuntime"},
+  {id:"TC-305",title:"Consistency review does not mutate risks",cat:"AI Specialist",type:"Regression",pri:"Critical",reqs:"REQ-125",steps:"Run consistency review and confirm risks/residualRisks remain unchanged",expected:"No automatic mutation of risk arrays",auto:"yes",fn:"checkConsistencyReviewNoRisksMutationRuntime"},
+  {id:"TC-306",title:"Consistency review does not mutate VV",cat:"AI Specialist",type:"Regression",pri:"Critical",reqs:"REQ-125",steps:"Run consistency review and confirm DB.vv remains unchanged",expected:"No automatic mutation of DB.vv",auto:"yes",fn:"checkConsistencyReviewNoVVMutationRuntime"},
+  {id:"TC-307",title:"Consistency review does not mutate hazards",cat:"AI Specialist",type:"Regression",pri:"Critical",reqs:"REQ-125",steps:"Run consistency review and confirm DB.hazards remains unchanged",expected:"No automatic mutation of DB.hazards",auto:"yes",fn:"checkConsistencyReviewNoHazardsMutationRuntime"},
+  {id:"TC-308",title:"Consistency review stays offline-only",cat:"AI Specialist",type:"Regression",pri:"Critical",reqs:"REQ-125",steps:"Inspect source of localConsistencyReview and confirm there is no legacy AI or network usage",expected:"Consistency review remains local-only and isolated",auto:"yes",fn:"checkConsistencyReviewOfflineOnlySource"},
+  {id:"TC-309",title:"Consistency review disabled-safe when flag is off",cat:"AI Specialist",type:"Regression",pri:"Critical",reqs:"REQ-125",steps:"Disable aiConsistencyReview and call runAIAction('consistency_review')",expected:"A safe disabled response is returned without crash",auto:"yes",fn:"checkConsistencyReviewDisabledSafeRuntime"},
+  {id:"TC-310",title:"Existing rendering remains unaffected after consistency review",cat:"System Engineering",type:"Regression",pri:"Critical",reqs:"REQ-125",steps:"Verify renderArch/renderICD/renderReqs/renderRisks/renderVV/renderHazards still work before and after consistency review",expected:"Existing rendering remains intact",auto:"yes",fn:"checkConsistencyRenderingUnaffectedRuntime"}
+];
+
 var AI_REQUIREMENT_APPLY_TCS = [
   {id:"TC-241",title:"Requirement Assist apply action exists",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-123",steps:"בדוק שכפתור Apply Suggestion קיים ב-Requirement Assist",expected:"קיים apply control בטוח בתוך modal ההצעה",auto:"yes",fn:"checkRequirementAssistApplyActionExistsRuntime"},
   {id:"TC-242",title:"Suggestion generation does not auto-apply",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-123",steps:"בדוק שפתיחת Requirement Assist לא משנה את הדרישה אוטומטית",expected:"אין auto-apply ואין audit על פתיחת suggestion בלבד",auto:"yes",fn:"checkRequirementAssistNoAutoApplyRuntime"},
@@ -1013,6 +1031,7 @@ ensureTestCasesPresent(AI_REQUIREMENT_ASSIST_TCS);
 ensureTestCasesPresent(AI_RISK_ASSIST_TCS);
 ensureTestCasesPresent(AI_DOCUMENT_REVIEW_TCS);
 ensureTestCasesPresent(AI_ARCHITECTURE_ASSIST_TCS);
+ensureTestCasesPresent(AI_CONSISTENCY_REVIEW_TCS);
 ensureTestCasesPresent(AI_REQUIREMENT_APPLY_TCS);
 saveTMS();
 
@@ -1152,6 +1171,24 @@ async function withAppWindow(run){
   }catch(e){
     return _runtimeFail('שגיאת runtime: ' + e.message);
   }
+}
+
+function _buildConsistencyRuntimePayload(){
+  return {
+    arch:[{id:'ARCH-X1',name:'Mission Computer',type:'Subsystem',subsystem:'Core',interfaces:'Ethernet',connections:'Recorder',flowDesc:'Mission processing path',status:'Draft'}],
+    icd:[{id:'ICD-X1',name:'Ethernet Backbone',type:'Data',a:'Mission Computer',b:'Recorder',ver:'A',status:'Draft'}],
+    sysReqs:[
+      {id:'REQ-X1',rid:'SYS-901',level:'L1',domain:'Interface',desc:'The system shall provide Ethernet mission data exchange.',l0:'L0-1',vv:'Test',status:'Draft'},
+      {id:'REQ-X2',rid:'SYS-902',level:'L1',domain:'Architecture',desc:'The system shall support modular subsystem allocation for mission processing.',l0:'L0-1',vv:'Analysis',status:'Draft'}
+    ],
+    swReqs:[{id:'SW-X1',rid:'SW-901',level:'L2',domain:'Software',desc:'The software shall log Ethernet link status changes.',l0:'SYS-901',vv:'Test',status:'Draft'}],
+    meReqs:[{id:'ME-X1',rid:'ME-901',level:'L2',domain:'Mechanical',desc:'The enclosure shall protect the mission computer during vibration.',l0:'SYS-902',vv:'Inspection',status:'Draft'}],
+    risks:[{id:'RISK-X1',desc:'Integration risk on the Ethernet backbone',cat:'Integration',impact:'Schedule',sev:4,prob:3,mitigation:'Interface design review',detection:'Test',owner:'SE',status:'open'}],
+    residualRisks:[{id:'RR-X1',origRiskId:'RISK-X1',desc:'Residual integration risk after mitigation',sevOrig:4,probOrig:3,mitigationApplied:'Design review',sevRes:2,probRes:2,accepted:'כן',approver:'QA',approvalDate:'2026-04-12'}],
+    vv:[{id:'VV-X1',req:'SYS-901, SW-901',method:'Test',artifact:'ATP',phase:'Integration',owner:'V&V',status:'Planned'}],
+    hazards:[{id:'HZ-X1',desc:'Overheat hazard near mission computer',cause:'Thermal load',effect:'Shutdown',sev:4,prob:2,mitigation:'Thermal review',status:'פתוח'}],
+    documentHints:[{category:'arch',title:'Architecture hint from analysis'},{category:'vv',title:'Verification hint from analysis'}]
+  };
 }
 
 // ── Automation test functions ─────────────────────────────────
@@ -2523,6 +2560,311 @@ var AUTOMATION = {
         w.DB.icd = JSON.parse(prevIcd);
         w.renderArch();
         w.renderICD();
+      }
+    });
+  },
+  checkConsistencyReviewActionExistsRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.openAIConsistencyReview !== 'function' || typeof w.runAIAction !== 'function') return _runtimeFail('openAIConsistencyReview/runAIAction missing');
+      if(!w.FEATURES) return _runtimeFail('FEATURES missing');
+      var prevFlag = w.FEATURES.aiConsistencyReview;
+      var snapshot = JSON.stringify({
+        arch: w.DB.arch || [],
+        icd: w.DB.icd || [],
+        sysReqs: w.DB.sysReqs || [],
+        swReqs: w.DB.swReqs || [],
+        meReqs: w.DB.meReqs || [],
+        risks: w.DB.risks || [],
+        residualRisks: w.DB.residualRisks || [],
+        vv: w.DB.vv || [],
+        hazards: w.DB.hazards || []
+      });
+      try{
+        var payload = _buildConsistencyRuntimePayload();
+        w.FEATURES.aiConsistencyReview = true;
+        Object.keys(payload).forEach(function(key){
+          if(key !== 'documentHints') w.DB[key] = JSON.parse(JSON.stringify(payload[key]));
+        });
+        var result = w.openAIConsistencyReview();
+        return result && result.ok === true ? _runtimePass('Consistency review action exists and returns a review result') : _runtimeFail('Consistency review action did not return a valid result');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        Object.keys(restored).forEach(function(key){ w.DB[key] = restored[key]; });
+        w.FEATURES.aiConsistencyReview = prevFlag;
+      }
+    });
+  },
+  checkConsistencyReviewStructuredResponseRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function' || !w.FEATURES) return _runtimeFail('runAIAction or FEATURES missing');
+      var prevFlag = w.FEATURES.aiConsistencyReview;
+      try{
+        w.FEATURES.aiConsistencyReview = true;
+        var resp = w.runAIAction('consistency_review', _buildConsistencyRuntimePayload());
+        var ok = resp && resp.ok === true && resp.mode === 'offline' && typeof resp.confidence === 'number' &&
+          Array.isArray(resp.recommendations) && Array.isArray(resp.warnings) && Array.isArray(resp.duplicates) &&
+          resp.trace && resp.trace.source === 'local-consistency-review' && resp.trace.taskType === 'consistency_review';
+        return ok ? _runtimePass('Consistency review returns a structured top-level response') : _runtimeFail('Consistency review top-level response is incomplete');
+      } finally {
+        w.FEATURES.aiConsistencyReview = prevFlag;
+      }
+    });
+  },
+  checkConsistencyReviewObjectRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function' || !w.FEATURES) return _runtimeFail('runAIAction or FEATURES missing');
+      var prevFlag = w.FEATURES.aiConsistencyReview;
+      try{
+        w.FEATURES.aiConsistencyReview = true;
+        var info = (w.runAIAction('consistency_review', _buildConsistencyRuntimePayload()) || {}).consistencyReview;
+        var ok = info &&
+          typeof info.summary === 'string' &&
+          Array.isArray(info.highConfidenceFindings) &&
+          Array.isArray(info.heuristicFindings) &&
+          Array.isArray(info.requirementArchitectureGaps) &&
+          Array.isArray(info.architectureInterfaceGaps) &&
+          Array.isArray(info.requirementVVGaps) &&
+          Array.isArray(info.riskArchitectureGaps) &&
+          Array.isArray(info.orphanElements) &&
+          Array.isArray(info.traceabilityWarnings);
+        return ok ? _runtimePass('consistencyReview object is present and complete') : _runtimeFail('consistencyReview object is missing fields');
+      } finally {
+        w.FEATURES.aiConsistencyReview = prevFlag;
+      }
+    });
+  },
+  checkConsistencyReviewExplainabilityRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function' || !w.FEATURES) return _runtimeFail('runAIAction or FEATURES missing');
+      var prevFlag = w.FEATURES.aiConsistencyReview;
+      try{
+        w.FEATURES.aiConsistencyReview = true;
+        var exp = (w.runAIAction('consistency_review', _buildConsistencyRuntimePayload()) || {}).explainability;
+        var ok = exp && typeof exp.why === 'string' && Array.isArray(exp.evidence) && Array.isArray(exp.sources) &&
+          Array.isArray(exp.ambiguity) && Array.isArray(exp.safetyNotes) && exp.sources.indexOf('consistency_rules') >= 0;
+        return ok ? _runtimePass('Consistency review explainability is present and grounded') : _runtimeFail('Consistency review explainability is missing or invalid');
+      } finally {
+        w.FEATURES.aiConsistencyReview = prevFlag;
+      }
+    });
+  },
+  checkConsistencyReviewConfidenceBreakdownRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function' || !w.FEATURES) return _runtimeFail('runAIAction or FEATURES missing');
+      var prevFlag = w.FEATURES.aiConsistencyReview;
+      try{
+        w.FEATURES.aiConsistencyReview = true;
+        var resp = w.runAIAction('consistency_review', _buildConsistencyRuntimePayload());
+        var b = resp && resp.confidenceBreakdown;
+        if(!b) return _runtimeFail('confidenceBreakdown missing');
+        var fieldsOk = ['base','signalStrength','ambiguityPenalty','conflictPenalty','final'].every(function(k){ return typeof b[k] === 'number'; });
+        var computed = Number((b.base + b.signalStrength - b.ambiguityPenalty - b.conflictPenalty).toFixed(2));
+        var consistent = Math.abs(computed - b.final) < 0.001 && Math.abs(b.final - resp.confidence) < 0.001;
+        return fieldsOk && consistent ? _runtimePass('Consistency review confidence breakdown is consistent') : _runtimeFail('Consistency review confidence breakdown is inconsistent');
+      } finally {
+        w.FEATURES.aiConsistencyReview = prevFlag;
+      }
+    });
+  },
+  checkConsistencyReviewDecisionRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function' || !w.FEATURES) return _runtimeFail('runAIAction or FEATURES missing');
+      var prevFlag = w.FEATURES.aiConsistencyReview;
+      try{
+        w.FEATURES.aiConsistencyReview = true;
+        var decision = (w.runAIAction('consistency_review', _buildConsistencyRuntimePayload()) || {}).decision;
+        var ok = decision && typeof decision.reason === 'string' && ['suggestion','caution','refusal'].indexOf(decision.type) >= 0;
+        return ok ? _runtimePass('Consistency review decision object exists') : _runtimeFail('Consistency review decision object is missing or invalid');
+      } finally {
+        w.FEATURES.aiConsistencyReview = prevFlag;
+      }
+    });
+  },
+  checkConsistencyReviewNoArchMutationRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function' || !w.FEATURES || !w.DB) return _runtimeFail('runAIAction, FEATURES, or DB missing');
+      var prevFlag = w.FEATURES.aiConsistencyReview;
+      var before = JSON.stringify(w.DB.arch || []);
+      try{
+        w.FEATURES.aiConsistencyReview = true;
+        w.runAIAction('consistency_review', _buildConsistencyRuntimePayload());
+      } catch(e){
+        return _runtimeFail('Consistency review threw: ' + e.message);
+      } finally {
+        w.FEATURES.aiConsistencyReview = prevFlag;
+      }
+      var after = JSON.stringify(w.DB.arch || []);
+      return before === after ? _runtimePass('Consistency review does not mutate DB.arch') : _runtimeFail('Consistency review mutated DB.arch');
+    });
+  },
+  checkConsistencyReviewNoICDMutationRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function' || !w.FEATURES || !w.DB) return _runtimeFail('runAIAction, FEATURES, or DB missing');
+      var prevFlag = w.FEATURES.aiConsistencyReview;
+      var before = JSON.stringify(w.DB.icd || []);
+      try{
+        w.FEATURES.aiConsistencyReview = true;
+        w.runAIAction('consistency_review', _buildConsistencyRuntimePayload());
+      } catch(e){
+        return _runtimeFail('Consistency review threw: ' + e.message);
+      } finally {
+        w.FEATURES.aiConsistencyReview = prevFlag;
+      }
+      var after = JSON.stringify(w.DB.icd || []);
+      return before === after ? _runtimePass('Consistency review does not mutate DB.icd') : _runtimeFail('Consistency review mutated DB.icd');
+    });
+  },
+  checkConsistencyReviewNoRequirementsMutationRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function' || !w.FEATURES || !w.DB) return _runtimeFail('runAIAction, FEATURES, or DB missing');
+      var prevFlag = w.FEATURES.aiConsistencyReview;
+      var before = JSON.stringify({ sysReqs:w.DB.sysReqs || [], swReqs:w.DB.swReqs || [], meReqs:w.DB.meReqs || [] });
+      try{
+        w.FEATURES.aiConsistencyReview = true;
+        w.runAIAction('consistency_review', _buildConsistencyRuntimePayload());
+      } catch(e){
+        return _runtimeFail('Consistency review threw: ' + e.message);
+      } finally {
+        w.FEATURES.aiConsistencyReview = prevFlag;
+      }
+      var after = JSON.stringify({ sysReqs:w.DB.sysReqs || [], swReqs:w.DB.swReqs || [], meReqs:w.DB.meReqs || [] });
+      return before === after ? _runtimePass('Consistency review does not mutate requirement arrays') : _runtimeFail('Consistency review mutated requirement arrays');
+    });
+  },
+  checkConsistencyReviewNoRisksMutationRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function' || !w.FEATURES || !w.DB) return _runtimeFail('runAIAction, FEATURES, or DB missing');
+      var prevFlag = w.FEATURES.aiConsistencyReview;
+      var before = JSON.stringify({ risks:w.DB.risks || [], residualRisks:w.DB.residualRisks || [] });
+      try{
+        w.FEATURES.aiConsistencyReview = true;
+        w.runAIAction('consistency_review', _buildConsistencyRuntimePayload());
+      } catch(e){
+        return _runtimeFail('Consistency review threw: ' + e.message);
+      } finally {
+        w.FEATURES.aiConsistencyReview = prevFlag;
+      }
+      var after = JSON.stringify({ risks:w.DB.risks || [], residualRisks:w.DB.residualRisks || [] });
+      return before === after ? _runtimePass('Consistency review does not mutate risk arrays') : _runtimeFail('Consistency review mutated risk arrays');
+    });
+  },
+  checkConsistencyReviewNoVVMutationRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function' || !w.FEATURES || !w.DB) return _runtimeFail('runAIAction, FEATURES, or DB missing');
+      var prevFlag = w.FEATURES.aiConsistencyReview;
+      var before = JSON.stringify(w.DB.vv || []);
+      try{
+        w.FEATURES.aiConsistencyReview = true;
+        w.runAIAction('consistency_review', _buildConsistencyRuntimePayload());
+      } catch(e){
+        return _runtimeFail('Consistency review threw: ' + e.message);
+      } finally {
+        w.FEATURES.aiConsistencyReview = prevFlag;
+      }
+      var after = JSON.stringify(w.DB.vv || []);
+      return before === after ? _runtimePass('Consistency review does not mutate DB.vv') : _runtimeFail('Consistency review mutated DB.vv');
+    });
+  },
+  checkConsistencyReviewNoHazardsMutationRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function' || !w.FEATURES || !w.DB) return _runtimeFail('runAIAction, FEATURES, or DB missing');
+      var prevFlag = w.FEATURES.aiConsistencyReview;
+      var before = JSON.stringify(w.DB.hazards || []);
+      try{
+        w.FEATURES.aiConsistencyReview = true;
+        w.runAIAction('consistency_review', _buildConsistencyRuntimePayload());
+      } catch(e){
+        return _runtimeFail('Consistency review threw: ' + e.message);
+      } finally {
+        w.FEATURES.aiConsistencyReview = prevFlag;
+      }
+      var after = JSON.stringify(w.DB.hazards || []);
+      return before === after ? _runtimePass('Consistency review does not mutate DB.hazards') : _runtimeFail('Consistency review mutated DB.hazards');
+    });
+  },
+  checkConsistencyReviewOfflineOnlySource: async function(){
+    var src = await loadAppSource();
+    var start = src.indexOf('function localConsistencyReview(');
+    var end = src.indexOf('function detectDocumentReviewType(', start);
+    if(start < 0 || end < 0) return { pass:false, actual:'localConsistencyReview block not found' };
+    var block = src.substring(start, end);
+    var forbidden = ['offlineAI(', 'callClaude(', 'callOpenAI(', 'callOfflineAIEndpoint(', 'analyzeWithAPI(', 'fetch('];
+    var found = forbidden.filter(function(token){ return block.indexOf(token) >= 0; });
+    return { pass: found.length===0, actual: found.length ? 'Consistency review still references: ' + found.join(', ') : 'Consistency review stays local-only and legacy-free' };
+  },
+  checkConsistencyReviewDisabledSafeRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.runAIAction !== 'function' || !w.FEATURES) return _runtimeFail('runAIAction or FEATURES missing');
+      var prevFlag = w.FEATURES.aiConsistencyReview;
+      try{
+        w.FEATURES.aiConsistencyReview = false;
+        var resp = w.runAIAction('consistency_review', _buildConsistencyRuntimePayload());
+        var ok = resp && resp.ok === false && resp.mode === 'disabled' && resp.reason === 'AI_DISABLED';
+        return ok ? _runtimePass('Consistency review returns a safe disabled response when flag is off') : _runtimeFail('Consistency review did not return disabled-safe response');
+      } finally {
+        w.FEATURES.aiConsistencyReview = prevFlag;
+      }
+    });
+  },
+  checkConsistencyRenderingUnaffectedRuntime: async function(){
+    return withAppWindow(function(w){
+      var fns = ['renderArch','renderICD','renderReqs','renderRisks','renderVV','renderHazards','runAIAction'];
+      var missing = fns.filter(function(name){ return typeof w[name] !== 'function'; });
+      if(missing.length || !w.FEATURES) return _runtimeFail('Required render functions missing: ' + missing.join(', '));
+      var prevFlag = w.FEATURES.aiConsistencyReview;
+      var snapshot = JSON.stringify({
+        arch: w.DB.arch || [],
+        icd: w.DB.icd || [],
+        sysReqs: w.DB.sysReqs || [],
+        risks: w.DB.risks || [],
+        vv: w.DB.vv || [],
+        hazards: w.DB.hazards || []
+      });
+      try{
+        var payload = _buildConsistencyRuntimePayload();
+        w.DB.arch = JSON.parse(JSON.stringify(payload.arch));
+        w.DB.icd = JSON.parse(JSON.stringify(payload.icd));
+        w.DB.sysReqs = JSON.parse(JSON.stringify(payload.sysReqs));
+        w.DB.risks = JSON.parse(JSON.stringify(payload.risks));
+        w.DB.vv = JSON.parse(JSON.stringify(payload.vv));
+        w.DB.hazards = JSON.parse(JSON.stringify(payload.hazards));
+        w.renderReqs('sys');
+        w.renderArch();
+        w.renderICD();
+        w.renderRisks();
+        w.renderVV();
+        w.renderHazards();
+        var beforeOk = (w.document.getElementById('sysReqsBody') || {}).innerHTML &&
+          (w.document.getElementById('archBody') || {}).innerHTML &&
+          (w.document.getElementById('icdBody') || {}).innerHTML &&
+          (w.document.getElementById('risksBody') || {}).innerHTML &&
+          (w.document.getElementById('vvBody') || {}).innerHTML &&
+          (w.document.getElementById('hazardsBody') || {}).innerHTML;
+        w.FEATURES.aiConsistencyReview = true;
+        w.runAIAction('consistency_review', payload);
+        w.renderReqs('sys');
+        w.renderArch();
+        w.renderICD();
+        w.renderRisks();
+        w.renderVV();
+        w.renderHazards();
+        var afterOk = (w.document.getElementById('sysReqsBody') || {}).innerHTML &&
+          (w.document.getElementById('archBody') || {}).innerHTML &&
+          (w.document.getElementById('icdBody') || {}).innerHTML &&
+          (w.document.getElementById('risksBody') || {}).innerHTML &&
+          (w.document.getElementById('vvBody') || {}).innerHTML &&
+          (w.document.getElementById('hazardsBody') || {}).innerHTML;
+        return beforeOk && afterOk ? _runtimePass('Existing rendering remains intact after consistency review') : _runtimeFail('Rendering was affected by consistency review');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        Object.keys(restored).forEach(function(key){ w.DB[key] = restored[key]; });
+        w.FEATURES.aiConsistencyReview = prevFlag;
+        w.renderReqs('sys');
+        w.renderArch();
+        w.renderICD();
+        w.renderRisks();
+        w.renderVV();
+        w.renderHazards();
       }
     });
   },

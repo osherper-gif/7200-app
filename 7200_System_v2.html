@@ -7706,6 +7706,27 @@ function openAIArchitectureAssistant(){
   return result;
 }
 
+function buildConsistencyReviewPayload(){
+  return {
+    arch: DB.arch || [],
+    icd: DB.icd || [],
+    sysReqs: DB.sysReqs || [],
+    swReqs: DB.swReqs || [],
+    meReqs: DB.meReqs || [],
+    risks: DB.risks || [],
+    residualRisks: DB.residualRisks || [],
+    vv: DB.vv || [],
+    hazards: DB.hazards || [],
+    documentHints: Array.isArray(_analysisRecs) ? _analysisRecs.filter(function(item){
+      return item && /^(?:arch|icd|sysReqs|swReqs|meReqs|vv|risks|hazards)$/.test(item.category || "");
+    }) : []
+  };
+}
+
+function openAIConsistencyReview(){
+  return runAIAction("consistency_review", buildConsistencyReviewPayload());
+}
+
 function openAIDocumentReview(){
   if(!_lastAnalysisInput || !_lastAnalysisInput.normalizedText){
     notify("לא נמצא תוכן מסמך לבדיקה", "w");
@@ -7836,6 +7857,7 @@ window.FEATURES = window.FEATURES || {
   aiRiskAssist: true,
   aiDocAssist: true,
   aiArchitectureAssist: false,
+  aiConsistencyReview: true,
   aiMultiProject: false
 };
 const FEATURES = window.FEATURES;
@@ -8745,6 +8767,354 @@ function formatArchitectureAssistResult(result){
   "</div>";
 }
 
+function _normalizeConsistencyText(value){
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^\u0590-\u05ffa-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function _splitConsistencyRefs(value){
+  return String(value || "")
+    .split(/[\s,;|/]+/)
+    .map(function(part){ return _normalizeConsistencyText(part); })
+    .filter(Boolean);
+}
+
+function _pushUniqueConsistencyItem(arr, text){
+  text = String(text || "").trim();
+  if(!text) return;
+  if(arr.indexOf(text) < 0) arr.push(text);
+}
+
+function buildConsistencyReviewEnhancedResult(baseResult, context){
+  baseResult = baseResult || {};
+  context = context || {};
+  var info = baseResult.consistencyReview || {};
+  var highConfidenceFindings = Array.isArray(info.highConfidenceFindings) ? info.highConfidenceFindings : [];
+  var heuristicFindings = Array.isArray(info.heuristicFindings) ? info.heuristicFindings : [];
+  var traceabilityWarnings = Array.isArray(info.traceabilityWarnings) ? info.traceabilityWarnings : [];
+  var orphanElements = Array.isArray(info.orphanElements) ? info.orphanElements : [];
+  var riskArchitectureGaps = Array.isArray(info.riskArchitectureGaps) ? info.riskArchitectureGaps : [];
+  var isEmptyInput = !!context.isEmptyInput;
+  var signalCount = Number(context.signalCount || 0);
+  var ambiguityCount = Number(context.ambiguityCount || 0);
+  var baseConfidence = isEmptyInput ? 0 : 0.6;
+  var signalStrength = isEmptyInput ? 0 : Math.min(0.24, signalCount * 0.04);
+  var ambiguityPenalty = isEmptyInput ? 0 : Math.min(0.28, ambiguityCount * 0.04);
+  var conflictPenalty = 0;
+  var finalConfidence = isEmptyInput
+    ? Number(baseResult.confidence || 0)
+    : Math.max(0.35, Math.min(0.9, baseConfidence + signalStrength - ambiguityPenalty - conflictPenalty));
+  finalConfidence = Number(finalConfidence.toFixed(2));
+  var evidence = []
+    .concat(info.summary ? [info.summary] : [])
+    .concat(highConfidenceFindings.slice(0, 2))
+    .concat(heuristicFindings.slice(0, 1))
+    .filter(Boolean)
+    .slice(0, 4);
+  var ambiguity = []
+    .concat(traceabilityWarnings.slice(0, 2))
+    .concat(orphanElements.slice(0, 2))
+    .concat(heuristicFindings.slice(0, 1))
+    .filter(Boolean)
+    .slice(0, 5);
+  var decision = { type: "suggestion", reason: "יש מספיק נתונים מקומיים לבצע סקירת עקביות רוחבית מועילה." };
+  if(isEmptyInput){
+    decision = { type: "refusal", reason: "לא סופקו נתונים חוצי-תחומים מספקים לבדיקת עקביות." };
+  } else if(!highConfidenceFindings.length || ambiguity.length >= 3 || ambiguityPenalty >= 0.12){
+    decision = { type: "caution", reason: "הסקירה נשענת בחלקה על קישורים חלשים או שדות חסרים ולכן מחייבת review אנושי." };
+  }
+  return Object.assign({}, baseResult, {
+    confidence: finalConfidence,
+    explainability: {
+      why: isEmptyInput
+        ? "לא נמצאו מספיק ישויות מקומיות המקשרות בין דרישות, ארכיטקטורה, ICD, סיכונים ו-V&V."
+        : decision.type === "caution"
+          ? "הסקירה מבוססת על אותות קישור מקומיים קיימים, אך חלק מהקשרים הם היוריסטיים או חסרים בשדות linkage."
+          : "הסקירה מבוססת על קישורים מקומיים קיימים בין מזהי דרישות, כיסוי V&V, נקודות קצה של ICD ושמות רכיבים בארכיטקטורה.",
+      evidence: evidence,
+      sources: ["consistency_rules"],
+      ambiguity: ambiguity,
+      safetyNotes: riskArchitectureGaps.slice(0, 3)
+    },
+    confidenceBreakdown: {
+      base: Number(baseConfidence.toFixed(2)),
+      signalStrength: Number(signalStrength.toFixed(2)),
+      ambiguityPenalty: Number(ambiguityPenalty.toFixed(2)),
+      conflictPenalty: Number(conflictPenalty.toFixed(2)),
+      final: finalConfidence
+    },
+    decision: decision
+  });
+}
+
+function localConsistencyReview(payload){
+  payload = payload || {};
+  var arch = Array.isArray(payload.arch) ? payload.arch.slice() : [];
+  var icd = Array.isArray(payload.icd) ? payload.icd.slice() : [];
+  var sysReqs = Array.isArray(payload.sysReqs) ? payload.sysReqs.slice() : [];
+  var swReqs = Array.isArray(payload.swReqs) ? payload.swReqs.slice() : [];
+  var meReqs = Array.isArray(payload.meReqs) ? payload.meReqs.slice() : [];
+  var risks = Array.isArray(payload.risks) ? payload.risks.slice() : [];
+  var residualRisks = Array.isArray(payload.residualRisks) ? payload.residualRisks.slice() : [];
+  var vv = Array.isArray(payload.vv) ? payload.vv.slice() : [];
+  var hazards = Array.isArray(payload.hazards) ? payload.hazards.slice() : [];
+  var documentHints = Array.isArray(payload.documentHints) ? payload.documentHints.slice() : [];
+  var allReqs = []
+    .concat(sysReqs.map(function(req){ return { source: "sysReqs", item: req }; }))
+    .concat(swReqs.map(function(req){ return { source: "swReqs", item: req }; }))
+    .concat(meReqs.map(function(req){ return { source: "meReqs", item: req }; }));
+
+  if(!arch.length && !icd.length && !allReqs.length && !risks.length && !vv.length && !hazards.length){
+    return buildConsistencyReviewEnhancedResult(buildAIFoundationResponse("EMPTY_CONSISTENCY_INPUT", "local-consistency-review", {
+      warnings: ["לא נמצאו נתונים חוצי-תחומים מספקים לסקירת עקביות."],
+      consistencyReview: {
+        summary: "לא נמצאו נתוני דרישות, ארכיטקטורה, ICD, סיכונים, V&V או hazards לבדיקת עקביות.",
+        highConfidenceFindings: [],
+        heuristicFindings: [],
+        requirementArchitectureGaps: [],
+        architectureInterfaceGaps: [],
+        requirementVVGaps: [],
+        riskArchitectureGaps: [],
+        orphanElements: [],
+        traceabilityWarnings: ["נדרש לפחות מקור נתונים הנדסי אחד לצורך סקירת עקביות."]
+      },
+      trace: {
+        source: "local-consistency-review",
+        taskType: "consistency_review"
+      }
+    }), {
+      isEmptyInput: true
+    });
+  }
+
+  var archNames = {};
+  var archSignalTerms = [];
+  arch.forEach(function(item){
+    var name = String(item && item.name || "").trim();
+    var normName = _normalizeConsistencyText(name);
+    if(normName) archNames[normName] = item;
+    [item && item.name, item && item.subsystem, item && item.interfaces, item && item.connections].forEach(function(part){
+      var norm = _normalizeConsistencyText(part);
+      if(norm) archSignalTerms.push(norm);
+    });
+  });
+  var icdEndpointNames = {};
+  icd.forEach(function(row){
+    var a = _normalizeConsistencyText(row && row.a);
+    var b = _normalizeConsistencyText(row && row.b);
+    if(a) icdEndpointNames[a] = true;
+    if(b) icdEndpointNames[b] = true;
+  });
+  var vvRefs = {};
+  vv.forEach(function(row){
+    _splitConsistencyRefs(row && row.req).forEach(function(ref){
+      vvRefs[ref] = true;
+    });
+  });
+
+  var highConfidenceFindings = [];
+  var heuristicFindings = [];
+  var requirementArchitectureGaps = [];
+  var architectureInterfaceGaps = [];
+  var requirementVVGaps = [];
+  var riskArchitectureGaps = [];
+  var orphanElements = [];
+  var traceabilityWarnings = [];
+
+  allReqs.forEach(function(entry){
+    var req = entry.item || {};
+    var desc = String(req.desc || "");
+    var rid = String(req.rid || "").trim();
+    var domain = String(req.domain || req.cat || "");
+    var combined = desc + " " + domain;
+    var normalized = _normalizeConsistencyText(combined);
+    var impliesInterface = /(?:interface|icd|protocol|ethernet|spi|i2c|1553|api|bus|ממשק|פרוטוקול)/i.test(combined);
+    var impliesArchitecture = /(?:architecture|ארכיטקטורה|subsystem|component|module|allocation|partition|decomposition|flow|latency|processing chain|block diagram)/i.test(combined);
+    var hasStrongArchSignal = Object.keys(archNames).some(function(name){
+      return name && name.length > 3 && normalized.indexOf(name) >= 0;
+    }) || Object.keys(icdEndpointNames).some(function(name){
+      return name && name.length > 3 && normalized.indexOf(name) >= 0;
+    });
+
+    if((impliesArchitecture || impliesInterface) && !hasStrongArchSignal){
+      if(impliesInterface && !icd.length){
+        var reqInterfaceGap = "Requirement " + (rid || req.id || "without-rid") + " implies interface coverage but no ICD records are available.";
+        _pushUniqueConsistencyItem(requirementArchitectureGaps, reqInterfaceGap);
+        _pushUniqueConsistencyItem(heuristicFindings, reqInterfaceGap);
+      } else if(impliesArchitecture && !arch.length){
+        var reqArchGap = "Requirement " + (rid || req.id || "without-rid") + " implies architectural decomposition but no architecture records are available.";
+        _pushUniqueConsistencyItem(requirementArchitectureGaps, reqArchGap);
+        _pushUniqueConsistencyItem(heuristicFindings, reqArchGap);
+      }
+    }
+
+    if(rid){
+      var ridNorm = _normalizeConsistencyText(rid);
+      var hasVV = !!vvRefs[ridNorm];
+      if(!hasVV){
+        var vvGap = "Requirement " + rid + " has no explicit VV linkage in DB.vv.";
+        _pushUniqueConsistencyItem(requirementVVGaps, vvGap);
+        _pushUniqueConsistencyItem(highConfidenceFindings, vvGap);
+      }
+    } else {
+      _pushUniqueConsistencyItem(traceabilityWarnings, "Requirement without explicit rid was found in " + entry.source + ".");
+    }
+
+    if(!String(req.vv || "").trim() && !rid){
+      _pushUniqueConsistencyItem(traceabilityWarnings, "Requirement without rid also lacks a local VV linkage hint.");
+    }
+  });
+
+  arch.forEach(function(item){
+    var name = String(item && item.name || "").trim();
+    var normName = _normalizeConsistencyText(name);
+    var interfaces = String(item && item.interfaces || "").trim();
+    var connections = String(item && item.connections || "").trim();
+    var subsystem = String(item && item.subsystem || "").trim();
+    var flowDesc = String(item && item.flowDesc || "").trim();
+    var hasICDCoverage = icd.some(function(row){
+      return _normalizeConsistencyText(row && row.a) === normName || _normalizeConsistencyText(row && row.b) === normName;
+    });
+    if((interfaces || connections) && name && !hasICDCoverage){
+      var archIcdGap = "Architecture item \"" + name + "\" exposes interfaces/connections but no explicit ICD endpoint references it.";
+      _pushUniqueConsistencyItem(architectureInterfaceGaps, archIcdGap);
+      _pushUniqueConsistencyItem(heuristicFindings, archIcdGap);
+    }
+    if(name && !interfaces && !connections && !subsystem){
+      var orphan = "Architecture item \"" + name + "\" lacks subsystem, connections, and interfaces.";
+      _pushUniqueConsistencyItem(orphanElements, orphan);
+      _pushUniqueConsistencyItem(highConfidenceFindings, orphan);
+    }
+    if(name && !flowDesc){
+      _pushUniqueConsistencyItem(traceabilityWarnings, "Architecture item \"" + name + "\" lacks flowDesc context.");
+    }
+  });
+
+  icd.forEach(function(row){
+    var name = String(row && row.name || "").trim();
+    var a = String(row && row.a || "").trim();
+    var b = String(row && row.b || "").trim();
+    var aNorm = _normalizeConsistencyText(a);
+    var bNorm = _normalizeConsistencyText(b);
+    if(aNorm && !archNames[aNorm]){
+      var missingA = "ICD row \"" + name + "\" references endpoint A \"" + a + "\" that is not present in DB.arch.";
+      _pushUniqueConsistencyItem(architectureInterfaceGaps, missingA);
+      _pushUniqueConsistencyItem(orphanElements, missingA);
+      _pushUniqueConsistencyItem(highConfidenceFindings, missingA);
+    }
+    if(bNorm && !archNames[bNorm]){
+      var missingB = "ICD row \"" + name + "\" references endpoint B \"" + b + "\" that is not present in DB.arch.";
+      _pushUniqueConsistencyItem(architectureInterfaceGaps, missingB);
+      _pushUniqueConsistencyItem(orphanElements, missingB);
+      _pushUniqueConsistencyItem(highConfidenceFindings, missingB);
+    }
+    if(!aNorm || !bNorm){
+      _pushUniqueConsistencyItem(traceabilityWarnings, "ICD row \"" + name + "\" has incomplete endpoint linkage.");
+    }
+  });
+
+  risks.forEach(function(risk){
+    var desc = String(risk && risk.desc || "");
+    var cat = String(risk && risk.cat || "");
+    var impact = String(risk && risk.impact || "");
+    var mitigation = String(risk && risk.mitigation || "");
+    var combined = desc + " " + cat + " " + impact;
+    var touchesArchitecture = /(?:architecture|ארכיטקטורה|interface|ממשק|integration|אינטגרציה|latency|subsystem|component|icd)/i.test(combined);
+    var hasArchMitigation = /(?:architecture|ארכיטקטורה|interface|ממשק|design review|allocation|subsystem|icd|integration review)/i.test(mitigation);
+    if(touchesArchitecture && !hasArchMitigation){
+      var riskGap = "Risk \"" + desc.slice(0, 90) + "\" has architecture/interface signals without explicit architectural mitigation.";
+      _pushUniqueConsistencyItem(riskArchitectureGaps, riskGap);
+      _pushUniqueConsistencyItem(heuristicFindings, riskGap);
+    }
+    if(touchesArchitecture && !arch.length && !icd.length){
+      _pushUniqueConsistencyItem(traceabilityWarnings, "Architecture-related risk exists while DB.arch and DB.icd are empty.");
+    }
+  });
+
+  residualRisks.forEach(function(risk){
+    if(!String(risk && risk.origRiskId || "").trim()){
+      _pushUniqueConsistencyItem(traceabilityWarnings, "Residual risk entry is missing origRiskId linkage.");
+    }
+  });
+
+  vv.forEach(function(row){
+    if(!String(row && row.req || "").trim()){
+      _pushUniqueConsistencyItem(traceabilityWarnings, "VV row without req linkage was found.");
+    }
+  });
+
+  if(documentHints.length){
+    var docHasArchSignals = documentHints.some(function(item){ return item && (item.category === "arch" || item.category === "icd"); });
+    var docHasVVSignals = documentHints.some(function(item){ return item && item.category === "vv"; });
+    if(docHasArchSignals && !arch.length && !icd.length){
+      _pushUniqueConsistencyItem(traceabilityWarnings, "Document analysis includes architecture/interface hints but DB.arch and DB.icd are still empty.");
+    }
+    if(docHasVVSignals && !vv.length){
+      _pushUniqueConsistencyItem(traceabilityWarnings, "Document analysis includes verification hints but DB.vv is empty.");
+    }
+  }
+
+  var summaryParts = [
+    "Requirements: " + allReqs.length + ".",
+    "Architecture items: " + arch.length + ".",
+    "ICD rows: " + icd.length + ".",
+    "VV rows: " + vv.length + ".",
+    "Risks: " + risks.length + "."
+  ];
+  if(highConfidenceFindings.length) summaryParts.push("High-confidence findings: " + highConfidenceFindings.length + ".");
+  if(heuristicFindings.length) summaryParts.push("Heuristic findings: " + heuristicFindings.length + ".");
+  if(traceabilityWarnings.length) summaryParts.push("Traceability warnings: " + traceabilityWarnings.length + ".");
+
+  var signalCount = 0;
+  if(allReqs.length) signalCount += 1;
+  if(arch.length) signalCount += 1;
+  if(icd.length) signalCount += 1;
+  if(vv.length) signalCount += 1;
+  if(risks.length || residualRisks.length) signalCount += 1;
+  if(hazards.length) signalCount += 1;
+  if(documentHints.length) signalCount += 1;
+  var ambiguityCount = heuristicFindings.length + traceabilityWarnings.length + orphanElements.filter(function(item){
+    return /lacks|incomplete/i.test(item);
+  }).length;
+
+  return buildConsistencyReviewEnhancedResult({
+    ok: true,
+    mode: "offline",
+    confidence: 0.6,
+    recommendations: [
+      { type: "summary", title: "Consistency Review Summary", text: summaryParts.join(" ") }
+    ],
+    warnings: []
+      .concat(requirementArchitectureGaps.slice(0, 2))
+      .concat(architectureInterfaceGaps.slice(0, 2))
+      .concat(requirementVVGaps.slice(0, 2))
+      .concat(traceabilityWarnings.slice(0, 2)),
+    duplicates: [],
+    needsHumanApproval: true,
+    consistencyReview: {
+      summary: summaryParts.join(" "),
+      highConfidenceFindings: highConfidenceFindings.slice(0, 8),
+      heuristicFindings: heuristicFindings.slice(0, 8),
+      requirementArchitectureGaps: requirementArchitectureGaps.slice(0, 8),
+      architectureInterfaceGaps: architectureInterfaceGaps.slice(0, 8),
+      requirementVVGaps: requirementVVGaps.slice(0, 8),
+      riskArchitectureGaps: riskArchitectureGaps.slice(0, 8),
+      orphanElements: orphanElements.slice(0, 8),
+      traceabilityWarnings: traceabilityWarnings.slice(0, 8)
+    },
+    trace: {
+      source: "local-consistency-review",
+      taskType: "consistency_review"
+    }
+  }, {
+    signalCount: signalCount,
+    ambiguityCount: ambiguityCount
+  });
+}
+
 function detectDocumentReviewType(text, filename){
   var hint = detectDocType(text || "", filename || "");
   var map = {
@@ -9028,16 +9398,19 @@ window.AIFacade = window.AIFacade || {
     if (taskType === "risk_assist" && FEATURES.aiRiskAssist) {
       return localRiskAssist(payload || {});
     }
-    if (taskType === "document_review" && FEATURES.aiDocAssist) {
-      return localDocumentReview(payload || {});
-    }
-    if (taskType === "architecture_assist" && FEATURES.aiArchitectureAssist) {
-      return localArchitectureAssist(payload || {});
-    }
-    if (!FEATURES.aiEnabled) {
-      notifyAIDisabled();
-      return buildAIFoundationResponse("AI_DISABLED", "ai-foundation-disabled", {
-        trace: { source: "ai-foundation-disabled", taskType: taskType || "" }
+      if (taskType === "document_review" && FEATURES.aiDocAssist) {
+        return localDocumentReview(payload || {});
+      }
+      if (taskType === "architecture_assist" && FEATURES.aiArchitectureAssist) {
+        return localArchitectureAssist(payload || {});
+      }
+      if (taskType === "consistency_review" && FEATURES.aiConsistencyReview) {
+        return localConsistencyReview(payload || {});
+      }
+      if (!FEATURES.aiEnabled) {
+        notifyAIDisabled();
+        return buildAIFoundationResponse("AI_DISABLED", "ai-foundation-disabled", {
+          trace: { source: "ai-foundation-disabled", taskType: taskType || "" }
       });
     }
     return buildAIFoundationResponse("NOT_IMPLEMENTED_YET", "ai-foundation-stub", {
@@ -19503,6 +19876,7 @@ document.addEventListener("DOMContentLoaded", function(){
 
 window.renderPortfolioPage = renderPortfolioPage;
 window.openAIRequirementAssistant = openAIRequirementAssistant;
+window.openAIConsistencyReview = openAIConsistencyReview;
 window.openAddRisk = openAddRisk;
 window.renderProjectPage = renderProjectPage;
 </script>
