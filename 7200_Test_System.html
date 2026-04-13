@@ -1057,6 +1057,16 @@ var SOFTWARE_REQUIREMENTS_EXPANSION_TCS = [
   {id:"TC-370",title:"Expanded software requirement model stays compatible with save load and downstream flows",cat:"Software",type:"Regression",pri:"Critical",reqs:"REQ-131",steps:"Verify expanded software requirement content coexists with save/load and key downstream helpers",expected:"Save/load plus VCRM, impact, consistency, and AI foundation paths remain intact",auto:"yes",fn:"checkSoftwareRequirementCompatibilityRuntime"}
 ];
 
+var IMPACT_PROPAGATION_TCS = [
+  {id:"TC-371",title:"Structured impact object always exists",cat:"Change Impact",type:"Regression",pri:"Critical",reqs:"REQ-130",steps:"Run impact analysis and verify every recommendation carries the full structured contract",expected:"All impacts include id/source/target/severity/confidence/rationale/evidence/action/proposal",auto:"yes",fn:"checkStructuredImpactObjectRuntime"},
+  {id:"TC-372",title:"Architecture link change creates requirement impact",cat:"Change Impact",type:"Regression",pri:"Critical",reqs:"REQ-130",steps:"Analyze an architecture link change and verify requirement-facing impacts are created",expected:"Architecture link change affects requirements or discipline requirements plus ICD/VV review paths",auto:"yes",fn:"checkArchitectureLinkRequirementImpactRuntime"},
+  {id:"TC-373",title:"VV gaps are detected for impacted requirements",cat:"Change Impact",type:"Regression",pri:"High",reqs:"REQ-130",steps:"Analyze an impacted requirement with missing or conflicting VV coverage",expected:"verification_gap or verification_conflict recommendations are raised",auto:"yes",fn:"checkImpactVvGapRuntime"},
+  {id:"TC-374",title:"Risk inconsistencies are detected",cat:"Change Impact",type:"Regression",pri:"High",reqs:"REQ-130",steps:"Analyze an architecture link change against linked risks",expected:"risk_inconsistency recommendations are raised when risk context no longer fits",auto:"yes",fn:"checkImpactRiskInconsistencyRuntime"},
+  {id:"TC-375",title:"VCRM gaps are reflected in impact output",cat:"Change Impact",type:"Regression",pri:"High",reqs:"REQ-130",steps:"Analyze impacted requirements with partial or missing VCRM coverage",expected:"traceability_gap severity reflects VCRM coverage status",auto:"yes",fn:"checkImpactVcrmGapRuntime"},
+  {id:"TC-376",title:"Impact detection does not mutate DB",cat:"Change Impact",type:"Regression",pri:"Critical",reqs:"REQ-130",steps:"Run impact detection across requirements, VV, risks, ICD, and architecture",expected:"Detection remains preview-only and does not mutate domain DB arrays",auto:"yes",fn:"checkImpactDetectionNoMutationRuntime"},
+  {id:"TC-377",title:"Impact proposals require approval",cat:"Change Impact",type:"Regression",pri:"Critical",reqs:"REQ-130",steps:"Generate impact proposals and verify they stay pending until explicit approval/apply",expected:"Proposals are mapped per recommendation and remain approval-gated",auto:"yes",fn:"checkImpactProposalsRequireApprovalRuntime"}
+];
+
 var AI_REQUIREMENT_APPLY_TCS = [
   {id:"TC-241",title:"Requirement Assist apply action exists",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-123",steps:"בדוק שכפתור Apply Suggestion קיים ב-Requirement Assist",expected:"קיים apply control בטוח בתוך modal ההצעה",auto:"yes",fn:"checkRequirementAssistApplyActionExistsRuntime"},
   {id:"TC-242",title:"Suggestion generation does not auto-apply",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-123",steps:"בדוק שפתיחת Requirement Assist לא משנה את הדרישה אוטומטית",expected:"אין auto-apply ואין audit על פתיחת suggestion בלבד",auto:"yes",fn:"checkRequirementAssistNoAutoApplyRuntime"},
@@ -1095,6 +1105,7 @@ ensureTestCasesPresent(AI_RISK_ASSIST_TCS);
 ensureTestCasesPresent(AI_DOCUMENT_REVIEW_TCS);
 ensureTestCasesPresent(AI_ARCHITECTURE_ASSIST_TCS);
 ensureTestCasesPresent(AI_CONSISTENCY_REVIEW_TCS);
+ensureTestCasesPresent(IMPACT_PROPAGATION_TCS);
 ensureTestCasesPresent(SOFTWARE_REQUIREMENTS_EXPANSION_TCS);
 ensureTestCasesPresent(AI_REQUIREMENT_APPLY_TCS);
 saveTMS();
@@ -4055,7 +4066,7 @@ var AUTOMATION = {
         w.DB.updateProposals = [];
         var bundle = w.analyzeProjectImpact(setup.ctx);
         var types = (bundle.recommendations || []).map(function(rec){ return rec.targetType; });
-        var ok = types.indexOf('archLink') >= 0 && types.indexOf('requirement') >= 0 && types.indexOf('consistency') >= 0;
+        var ok = types.indexOf('architecture_link') >= 0 && types.indexOf('requirement') >= 0 && types.indexOf('consistency') >= 0;
         return ok ? _runtimePass('Architecture component change creates explainable impact recommendations') : _runtimeFail('Architecture component impact recommendations are incomplete');
       } finally {
         var restored = JSON.parse(snapshot);
@@ -4067,14 +4078,22 @@ var AUTOMATION = {
     return withAppWindow(function(w){
       if(typeof w.analyzeProjectImpact !== 'function') return _runtimeFail('analyzeProjectImpact missing');
       var setup = _buildImpactRuntimeChange('architecture_link');
-      var snapshot = JSON.stringify({ archLinks:w.DB.archLinks||[], icd:w.DB.icd||[], vv:w.DB.vv||[], sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], impactRecommendations:w.DB.impactRecommendations||[], updateProposals:w.DB.updateProposals||[] });
+      var snapshot = JSON.stringify({ archLinks:w.DB.archLinks||[], icd:w.DB.icd||[], vv:w.DB.vv||[], sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], risks:w.DB.risks||[], impactRecommendations:w.DB.impactRecommendations||[], updateProposals:w.DB.updateProposals||[] });
       try{
         ['archLinks','icd','vv','sysReqs','subsysReqs','swReqs','meReqs'].forEach(function(key){ w.DB[key] = JSON.parse(JSON.stringify(setup.db[key] || [])); });
+        w.DB.risks = [
+          {id:'RISK-L1',desc:'Mission Computer to Recorder integration risk',component:'Mission Computer',req:'SW-410',mitigation:'Legacy CAN review',detection:'Integration test',status:'open'}
+        ];
         w.DB.impactRecommendations = [];
         w.DB.updateProposals = [];
         var bundle = w.analyzeProjectImpact(setup.ctx);
         var types = (bundle.recommendations || []).map(function(rec){ return rec.targetType; });
-        var ok = types.indexOf('document') >= 0 && types.indexOf('requirement') >= 0 && types.indexOf('vv') >= 0 && types.indexOf('consistency') >= 0;
+        var impactTypes = (bundle.recommendations || []).map(function(rec){ return rec.impactType; });
+        var ok = types.indexOf('icd') >= 0 &&
+          types.indexOf('software_requirement') >= 0 &&
+          types.indexOf('vv') >= 0 &&
+          types.indexOf('risk') >= 0 &&
+          impactTypes.indexOf('interface_mismatch') >= 0;
         return ok ? _runtimePass('Architecture link change creates explainable downstream recommendations') : _runtimeFail('Architecture link impact recommendations are incomplete');
       } finally {
         var restored = JSON.parse(snapshot);
@@ -4204,6 +4223,162 @@ var AUTOMATION = {
         Array.isArray(w.DB.impactRecommendations) &&
         Array.isArray(w.DB.updateProposals);
       return ok ? _runtimePass('Impact engine collections coexist with save/load and existing render flows') : _runtimeFail('Impact engine compatibility with existing flows is broken');
+    });
+  },
+  checkStructuredImpactObjectRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.analyzeProjectImpact !== 'function') return _runtimeFail('analyzeProjectImpact missing');
+      var setup = _buildImpactRuntimeChange('architecture_link');
+      var snapshot = JSON.stringify({ archLinks:w.DB.archLinks||[], icd:w.DB.icd||[], vv:w.DB.vv||[], sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], risks:w.DB.risks||[], impactRecommendations:w.DB.impactRecommendations||[], updateProposals:w.DB.updateProposals||[] });
+      try{
+        ['archLinks','icd','vv','sysReqs','subsysReqs','swReqs','meReqs'].forEach(function(key){ w.DB[key] = JSON.parse(JSON.stringify(setup.db[key] || [])); });
+        w.DB.risks = [{id:'RISK-S1',desc:'Mission Computer integration risk',component:'Mission Computer',req:'SW-410',mitigation:'Legacy interface review',status:'open'}];
+        w.DB.impactRecommendations = [];
+        w.DB.updateProposals = [];
+        var bundle = w.analyzeProjectImpact(setup.ctx);
+        var ok = (bundle.recommendations || []).length > 0 && (bundle.recommendations || []).every(function(rec){
+          return typeof rec.id === 'string' &&
+            typeof rec.sourceType === 'string' &&
+            typeof rec.targetType === 'string' &&
+            typeof rec.targetId === 'string' &&
+            typeof rec.impactType === 'string' &&
+            typeof rec.severity === 'string' &&
+            typeof rec.confidence === 'number' &&
+            typeof rec.rationale === 'string' && rec.rationale.length > 0 &&
+            Array.isArray(rec.evidence) &&
+            typeof rec.proposedAction === 'string' &&
+            rec.proposal && typeof rec.proposal.type === 'string';
+        });
+        return ok ? _runtimePass('Every impact recommendation follows the structured impact contract') : _runtimeFail('Structured impact output is missing required fields');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        Object.keys(restored).forEach(function(key){ w.DB[key] = restored[key]; });
+      }
+    });
+  },
+  checkArchitectureLinkRequirementImpactRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.analyzeProjectImpact !== 'function') return _runtimeFail('analyzeProjectImpact missing');
+      var setup = _buildImpactRuntimeChange('architecture_link');
+      var snapshot = JSON.stringify({ archLinks:w.DB.archLinks||[], icd:w.DB.icd||[], vv:w.DB.vv||[], sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], impactRecommendations:w.DB.impactRecommendations||[], updateProposals:w.DB.updateProposals||[] });
+      try{
+        ['archLinks','icd','vv','sysReqs','subsysReqs','swReqs','meReqs'].forEach(function(key){ w.DB[key] = JSON.parse(JSON.stringify(setup.db[key] || [])); });
+        w.DB.swReqs.push({id:'REQ-WX',rid:'SW-999',level:'L4',domain:'Message/Protocol',swCategory:'Message/Protocol',desc:'The software shall exchange Mission Computer to Recorder mission packets over Ethernet.',parentRid:'SUBSYS-410',allocation:'Mission Computer',subsystem:'Mission Computer',source:'Derived',vv:'',status:'Draft'});
+        w.DB.impactRecommendations = [];
+        w.DB.updateProposals = [];
+        var bundle = w.analyzeProjectImpact(setup.ctx);
+        var types = (bundle.recommendations || []).map(function(rec){ return rec.targetType; });
+        var ok = types.indexOf('requirement') >= 0 || types.indexOf('subsystem_requirement') >= 0 || types.indexOf('software_requirement') >= 0;
+        return ok ? _runtimePass('Architecture link change produces requirement-facing impact recommendations') : _runtimeFail('No requirement-facing impacts were created for architecture link change');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        Object.keys(restored).forEach(function(key){ w.DB[key] = restored[key]; });
+      }
+    });
+  },
+  checkImpactVvGapRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.analyzeProjectImpact !== 'function') return _runtimeFail('analyzeProjectImpact missing');
+      var setup = _buildImpactRuntimeChange('architecture_link');
+      var snapshot = JSON.stringify({ archLinks:w.DB.archLinks||[], icd:w.DB.icd||[], vv:w.DB.vv||[], sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], impactRecommendations:w.DB.impactRecommendations||[], updateProposals:w.DB.updateProposals||[] });
+      try{
+        ['archLinks','icd','vv','sysReqs','subsysReqs','swReqs','meReqs'].forEach(function(key){ w.DB[key] = JSON.parse(JSON.stringify(setup.db[key] || [])); });
+        w.DB.swReqs.push({id:'REQ-WY',rid:'SW-998',level:'L4',domain:'Interface',swCategory:'Interface',desc:'The software shall route Mission Computer recorder traffic over Ethernet to the Recorder.',parentRid:'SUBSYS-410',allocation:'Mission Computer',subsystem:'Mission Computer',source:'Derived',vv:'',status:'Draft'});
+        w.DB.vv = (w.DB.vv || []).filter(function(vv){ return String(vv.req || '').indexOf('SW-998') < 0; });
+        w.DB.impactRecommendations = [];
+        w.DB.updateProposals = [];
+        var bundle = w.analyzeProjectImpact(setup.ctx);
+        var hasGap = (bundle.recommendations || []).some(function(rec){ return rec.impactType === 'verification_gap' || rec.impactType === 'verification_conflict'; });
+        return hasGap ? _runtimePass('Impact engine detects VV gaps or conflicts for impacted requirements') : _runtimeFail('VV gaps were not detected for impacted requirements');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        Object.keys(restored).forEach(function(key){ w.DB[key] = restored[key]; });
+      }
+    });
+  },
+  checkImpactRiskInconsistencyRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.analyzeProjectImpact !== 'function') return _runtimeFail('analyzeProjectImpact missing');
+      var setup = _buildImpactRuntimeChange('architecture_link');
+      var snapshot = JSON.stringify({ archLinks:w.DB.archLinks||[], icd:w.DB.icd||[], vv:w.DB.vv||[], sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], risks:w.DB.risks||[], impactRecommendations:w.DB.impactRecommendations||[], updateProposals:w.DB.updateProposals||[] });
+      try{
+        ['archLinks','icd','vv','sysReqs','subsysReqs','swReqs','meReqs'].forEach(function(key){ w.DB[key] = JSON.parse(JSON.stringify(setup.db[key] || [])); });
+        w.DB.risks = [
+          {id:'RISK-ARCH-1',desc:'Mission Computer to Recorder integration risk',component:'Mission Computer',req:'SW-410',mitigation:'Review legacy CAN routing',detection:'Interface test',status:'open'}
+        ];
+        w.DB.impactRecommendations = [];
+        w.DB.updateProposals = [];
+        var bundle = w.analyzeProjectImpact(setup.ctx);
+        var hasRisk = (bundle.recommendations || []).some(function(rec){ return rec.targetType === 'risk' && rec.impactType === 'risk_inconsistency'; });
+        return hasRisk ? _runtimePass('Impact engine detects risk inconsistencies for impacted architecture changes') : _runtimeFail('Risk inconsistency was not raised');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        Object.keys(restored).forEach(function(key){ w.DB[key] = restored[key]; });
+      }
+    });
+  },
+  checkImpactVcrmGapRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.analyzeProjectImpact !== 'function') return _runtimeFail('analyzeProjectImpact missing');
+      var setup = _buildImpactRuntimeChange('architecture_link');
+      var snapshot = JSON.stringify({ archLinks:w.DB.archLinks||[], icd:w.DB.icd||[], vv:w.DB.vv||[], sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], impactRecommendations:w.DB.impactRecommendations||[], updateProposals:w.DB.updateProposals||[] });
+      try{
+        ['archLinks','icd','vv','sysReqs','subsysReqs','swReqs','meReqs'].forEach(function(key){ w.DB[key] = JSON.parse(JSON.stringify(setup.db[key] || [])); });
+        w.DB.swReqs.push({id:'REQ-WZ',rid:'SW-997',level:'L4',domain:'Interface',swCategory:'Interface',desc:'The software shall send Mission Computer packets to the Recorder over Ethernet.',parentRid:'SUBSYS-410',allocation:'Mission Computer',subsystem:'Mission Computer',source:'Derived',vv:'',status:'Draft'});
+        w.DB.impactRecommendations = [];
+        w.DB.updateProposals = [];
+        var bundle = w.analyzeProjectImpact(setup.ctx);
+        var rec = (bundle.recommendations || []).find(function(item){ return item.impactType === 'traceability_gap' && (item.targetId === 'REQ-WZ' || item.targetId === 'SW-997' || item.targetId === 'SW-997::vv-missing'); });
+        var ok = !!rec && (rec.severity === 'high' || rec.severity === 'medium');
+        return ok ? _runtimePass('Impact engine reflects VCRM coverage gaps in structured output') : _runtimeFail('VCRM-driven traceability gap was not detected');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        Object.keys(restored).forEach(function(key){ w.DB[key] = restored[key]; });
+      }
+    });
+  },
+  checkImpactDetectionNoMutationRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.analyzeProjectImpact !== 'function') return _runtimeFail('analyzeProjectImpact missing');
+      var setup = _buildImpactRuntimeChange('architecture_link');
+      var snapshot = JSON.stringify({ archLinks:w.DB.archLinks||[], icd:w.DB.icd||[], vv:w.DB.vv||[], risks:w.DB.risks||[], sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], impactRecommendations:w.DB.impactRecommendations||[], updateProposals:w.DB.updateProposals||[] });
+      try{
+        ['archLinks','icd','vv','sysReqs','subsysReqs','swReqs','meReqs'].forEach(function(key){ w.DB[key] = JSON.parse(JSON.stringify(setup.db[key] || [])); });
+        w.DB.risks = [{id:'RISK-NM',desc:'Recorder integration risk',component:'Recorder',mitigation:'Legacy check',status:'open'}];
+        w.DB.impactRecommendations = [];
+        w.DB.updateProposals = [];
+        var before = JSON.stringify({ archLinks:w.DB.archLinks, icd:w.DB.icd, vv:w.DB.vv, risks:w.DB.risks, sysReqs:w.DB.sysReqs, subsysReqs:w.DB.subsysReqs, swReqs:w.DB.swReqs, meReqs:w.DB.meReqs });
+        w.analyzeProjectImpact(setup.ctx);
+        var after = JSON.stringify({ archLinks:w.DB.archLinks, icd:w.DB.icd, vv:w.DB.vv, risks:w.DB.risks, sysReqs:w.DB.sysReqs, subsysReqs:w.DB.subsysReqs, swReqs:w.DB.swReqs, meReqs:w.DB.meReqs });
+        return before === after ? _runtimePass('Impact detection remains preview-only and does not mutate domain DB arrays') : _runtimeFail('Impact detection mutated domain DB arrays');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        Object.keys(restored).forEach(function(key){ w.DB[key] = restored[key]; });
+      }
+    });
+  },
+  checkImpactProposalsRequireApprovalRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.analyzeProjectImpact !== 'function') return _runtimeFail('analyzeProjectImpact missing');
+      var setup = _buildImpactRuntimeChange('architecture_link');
+      var snapshot = JSON.stringify({ archLinks:w.DB.archLinks||[], icd:w.DB.icd||[], vv:w.DB.vv||[], risks:w.DB.risks||[], sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], impactRecommendations:w.DB.impactRecommendations||[], updateProposals:w.DB.updateProposals||[] });
+      try{
+        ['archLinks','icd','vv','sysReqs','subsysReqs','swReqs','meReqs'].forEach(function(key){ w.DB[key] = JSON.parse(JSON.stringify(setup.db[key] || [])); });
+        w.DB.risks = [{id:'RISK-P1',desc:'Mission Computer integration risk',component:'Mission Computer',status:'open'}];
+        w.DB.impactRecommendations = [];
+        w.DB.updateProposals = [];
+        var before = JSON.stringify({ icd:w.DB.icd, vv:w.DB.vv, risks:w.DB.risks, swReqs:w.DB.swReqs });
+        var bundle = w.analyzeProjectImpact(setup.ctx);
+        var allPending = (bundle.proposals || []).length > 0 && (bundle.proposals || []).every(function(proposal){ return proposal.approvalState === 'pending'; });
+        var mapped = (bundle.recommendations || []).every(function(rec){ return typeof rec.proposalId === 'string' || (bundle.proposals || []).some(function(proposal){ return proposal.recommendationId === rec.id; }); });
+        var after = JSON.stringify({ icd:w.DB.icd, vv:w.DB.vv, risks:w.DB.risks, swReqs:w.DB.swReqs });
+        return allPending && mapped && before === after
+          ? _runtimePass('Impact proposals remain approval-gated and mapped to recommendations')
+          : _runtimeFail('Impact proposals are not safely approval-gated');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        Object.keys(restored).forEach(function(key){ w.DB[key] = restored[key]; });
+      }
     });
   },
   checkSoftwareRequirementCategoryModelRuntime: async function(){
