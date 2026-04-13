@@ -1022,7 +1022,12 @@ var AI_CONSISTENCY_REVIEW_TCS = [
   {id:"TC-338",title:"Software requirement area remains active and non-empty",cat:"Software",type:"Regression",pri:"High",reqs:"REQ-128",steps:"Render software requirement and software architecture areas with local data",expected:"software requirement and architecture bodies exist and render rows",auto:"yes",fn:"checkSoftwareParityRuntime"},
   {id:"TC-339",title:"Mechanical requirement area remains active and non-empty",cat:"Mechanical",type:"Regression",pri:"High",reqs:"REQ-129",steps:"Render mechanical requirement and mechanical decomposition areas with local data",expected:"mechanical requirement and decomposition bodies exist and render rows",auto:"yes",fn:"checkMechanicalParityRuntime"},
   {id:"TC-340",title:"Engineering decomposition render paths stay read-only",cat:"System Engineering",type:"Regression",pri:"Critical",reqs:"REQ-126,REQ-127",steps:"Render subsystem requirements and architecture links while tracking core arrays",expected:"no mutation regression to AI/VCRM/VV/requirements data occurs",auto:"yes",fn:"checkEngineeringDecompositionNoMutationRuntime"},
-  {id:"TC-341",title:"Existing syseng rendering remains intact with subsystem and links",cat:"System Engineering",type:"Regression",pri:"Critical",reqs:"REQ-126,REQ-127",steps:"Render syseng artifacts including subsystem requirements and architecture links",expected:"renderReqs/renderSubsysReqs/renderArch/renderArchLinks/renderICD/renderVV coexist without breakage",auto:"yes",fn:"checkEngineeringDecompositionSysengRuntime"}
+  {id:"TC-341",title:"Existing syseng rendering remains intact with subsystem and links",cat:"System Engineering",type:"Regression",pri:"Critical",reqs:"REQ-126,REQ-127",steps:"Render syseng artifacts including subsystem requirements and architecture links",expected:"renderReqs/renderSubsysReqs/renderArch/renderArchLinks/renderICD/renderVV coexist without breakage",auto:"yes",fn:"checkEngineeringDecompositionSysengRuntime"},
+  {id:"TC-342",title:"Engineering baseline populates linked requirement layers",cat:"System Engineering",type:"Regression",pri:"Critical",reqs:"REQ-126,REQ-128,REQ-129",steps:"Reset engineering requirement arrays and invoke _ensureEngineeringStructures",expected:"System, subsystem, software, and mechanical requirement collections gain meaningful linked rows",auto:"yes",fn:"checkEngineeringBaselineRequirementsRuntime"},
+  {id:"TC-343",title:"Engineering baseline populates connected architecture content",cat:"Architecture",type:"Regression",pri:"Critical",reqs:"REQ-127",steps:"Reset architecture arrays and invoke _ensureEngineeringStructures",expected:"Architecture components, links, and mechanical decomposition are populated with connected content",auto:"yes",fn:"checkEngineeringBaselineArchitectureRuntime"},
+  {id:"TC-344",title:"System architecture diagram renders arrows from archLinks",cat:"Architecture",type:"Regression",pri:"High",reqs:"REQ-127",steps:"Render the system architecture diagram from DB.archLinks",expected:"SVG arrows and link labels appear for architecture links",auto:"yes",fn:"checkArchitectureDiagramArrowsRuntime"},
+  {id:"TC-345",title:"openAddReq runtime still pushes into DB.sysReqs",cat:"ניהול דרישות",type:"Regression",pri:"Critical",reqs:"REQ-031",steps:"Open the system requirement modal and save one runtime requirement",expected:"DB.sysReqs grows by one with the new requirement",auto:"yes",fn:"checkOpenAddReqRuntime"},
+  {id:"TC-346",title:"Save/load wiring remains intact after engineering population",cat:"שמירת נתונים",type:"Regression",pri:"High",reqs:"REQ-001,REQ-004,REQ-005",steps:"Verify save/load functions and file input after engineering baseline population",expected:"manualSave, loadFromFile, handleFileLoad, and fileInput remain available",auto:"yes",fn:"checkEngineeringSaveLoadWiringRuntime"}
 ];
 
 var AI_REQUIREMENT_APPLY_TCS = [
@@ -3743,6 +3748,141 @@ var AUTOMATION = {
         w.DB.icd = restored.icd;
         w.DB.vv = restored.vv;
       }
+    });
+  },
+  checkEngineeringBaselineRequirementsRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w._ensureEngineeringStructures !== 'function' || !w.DB) return _runtimeFail('_ensureEngineeringStructures or DB missing');
+      var snapshot = JSON.stringify({
+        sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], swArch:w.DB.swArch||[], meArch:w.DB.meArch||[]
+      });
+      try{
+        w.DB.sysReqs = [];
+        w.DB.subsysReqs = [];
+        w.DB.swReqs = [];
+        w.DB.meReqs = [];
+        w.DB.swArch = [];
+        w.DB.meArch = [];
+        w._ensureEngineeringStructures();
+        var ok = w.DB.sysReqs.length >= 4 &&
+          w.DB.subsysReqs.some(function(r){ return r.parentRid && r.subsystem && r.desc; }) &&
+          w.DB.swReqs.some(function(r){ return r.parentRid && r.allocation && /software|mission computer|service/i.test([r.subsystem, r.allocation, r.desc].join(' ')); }) &&
+          w.DB.meReqs.some(function(r){ return r.parentRid && r.allocation && /mechanical|tray|thermal|connector/i.test([r.subsystem, r.allocation, r.desc].join(' ')); });
+        return ok ? _runtimePass('Engineering baseline seeds linked subsystem, software, and mechanical requirements') : _runtimeFail('Engineering baseline did not populate meaningful linked requirement rows');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        w.DB.sysReqs = restored.sysReqs;
+        w.DB.subsysReqs = restored.subsysReqs;
+        w.DB.swReqs = restored.swReqs;
+        w.DB.meReqs = restored.meReqs;
+        w.DB.swArch = restored.swArch;
+        w.DB.meArch = restored.meArch;
+      }
+    });
+  },
+  checkEngineeringBaselineArchitectureRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w._ensureEngineeringStructures !== 'function' || !w.DB) return _runtimeFail('_ensureEngineeringStructures or DB missing');
+      var snapshot = JSON.stringify({ arch:w.DB.arch||[], archLinks:w.DB.archLinks||[], meArch:w.DB.meArch||[], meArchLinks:w.DB.meArchLinks||[] });
+      try{
+        w.DB.arch = [];
+        w.DB.archLinks = [];
+        w.DB.meArch = [];
+        w.DB.meArchLinks = [];
+        w._ensureEngineeringStructures();
+        var ok = w.DB.arch.length >= 6 &&
+          w.DB.archLinks.length >= 6 &&
+          w.DB.arch.some(function(c){ return c.name === 'Mission Computer'; }) &&
+          w.DB.archLinks.some(function(link){ return link.sourceComponent === 'Mission Computer' && link.targetComponent === 'Recorder'; }) &&
+          Array.isArray(w.DB.meArch) && w.DB.meArch.length >= 3;
+        return ok ? _runtimePass('Engineering baseline seeds connected architecture components and links') : _runtimeFail('Engineering baseline architecture content is incomplete');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        w.DB.arch = restored.arch;
+        w.DB.archLinks = restored.archLinks;
+        w.DB.meArch = restored.meArch;
+        w.DB.meArchLinks = restored.meArchLinks;
+      }
+    });
+  },
+  checkArchitectureDiagramArrowsRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.renderArch !== 'function' || !w.DB) return _runtimeFail('renderArch or DB missing');
+      var snapshot = JSON.stringify({ arch:w.DB.arch||[], archLinks:w.DB.archLinks||[] });
+      try{
+        var payload = _buildEngineeringDecompositionRuntimePayload();
+        w.DB.arch = [
+          {id:'ARCH-1',name:'Mission Computer',type:'SW',subsystem:'Signal Processing',desc:'Main mission compute node',interfaces:'Ethernet',connections:'Recorder',flowDesc:'Mission data path',status:'Draft'},
+          {id:'ARCH-2',name:'Recorder',type:'System',subsystem:'Data Recording',desc:'Mission recorder',interfaces:'Ethernet',connections:'Mission Computer',flowDesc:'Mission recording path',status:'Draft'},
+          {id:'ARCH-3',name:'Power Supply',type:'Power',subsystem:'Power Distribution',desc:'Protected power source',interfaces:'28VDC',connections:'Mission Computer',flowDesc:'Primary power feed',status:'Defined'}
+        ];
+        w.DB.archLinks = JSON.parse(JSON.stringify(payload.archLinks));
+        w.renderArch();
+        var html = ((w.document.getElementById('sysArchDiagram') || {}).innerHTML || '');
+        var ok = html.indexOf('marker-end="url(#arrow_') >= 0 && html.indexOf('Mission Data') >= 0;
+        return ok ? _runtimePass('System architecture diagram renders labeled arrows from archLinks') : _runtimeFail('Architecture diagram did not render archLinks-derived arrows');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        w.DB.arch = restored.arch;
+        w.DB.archLinks = restored.archLinks;
+      }
+    });
+  },
+  checkOpenAddReqRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.openAddReq !== 'function' || typeof w.saveModal !== 'function' || !w.DB) return _runtimeFail('openAddReq/saveModal/DB missing');
+      var snapshot = JSON.stringify({ sysReqs:w.DB.sysReqs||[] });
+      try{
+        var before = (w.DB.sysReqs || []).length;
+        w.openAddReq('sys');
+        if(w.document.getElementById('rId')) w.document.getElementById('rId').value = 'SYS-TC090';
+        if(w.document.getElementById('rDesc')) w.document.getElementById('rDesc').value = 'The system shall preserve the add requirement flow for system requirements.';
+        if(w.document.getElementById('rDomain')) w.document.getElementById('rDomain').value = 'פונקציונלי';
+        if(w.document.getElementById('rParent')) w.document.getElementById('rParent').value = 'CUST-TC090';
+        if(w.document.getElementById('rAllocation')) w.document.getElementById('rAllocation').value = 'System Engineering';
+        if(w.document.getElementById('rSource')) w.document.getElementById('rSource').value = 'Runtime test';
+        if(w.document.getElementById('rSubsystem')) w.document.getElementById('rSubsystem').value = 'Mission System';
+        if(w.document.getElementById('rStatus')) w.document.getElementById('rStatus').value = 'Draft';
+        w.saveModal();
+        var after = (w.DB.sysReqs || []).length;
+        var added = w.DB.sysReqs[w.DB.sysReqs.length - 1] || {};
+        var ok = after === before + 1 && added.rid === 'SYS-TC090' && /add requirement flow/i.test(added.desc || '');
+        if(typeof w.closeModal === 'function') w.closeModal();
+        return ok ? _runtimePass('openAddReq still appends a system requirement into DB.sysReqs') : _runtimeFail('openAddReq did not append to DB.sysReqs as expected');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        w.DB.sysReqs = restored.sysReqs;
+        if(typeof w.closeModal === 'function') w.closeModal();
+      }
+    });
+  },
+  checkEngineeringSaveLoadWiringRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w._ensureEngineeringStructures === 'function'){
+        var snapshot = JSON.stringify({
+          sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[],
+          arch:w.DB.arch||[], archLinks:w.DB.archLinks||[]
+        });
+        try{
+          w.DB.sysReqs = [];
+          w.DB.subsysReqs = [];
+          w.DB.swReqs = [];
+          w.DB.meReqs = [];
+          w.DB.arch = [];
+          w.DB.archLinks = [];
+          w._ensureEngineeringStructures();
+        } finally {
+          var restored = JSON.parse(snapshot);
+          w.DB.sysReqs = restored.sysReqs;
+          w.DB.subsysReqs = restored.subsysReqs;
+          w.DB.swReqs = restored.swReqs;
+          w.DB.meReqs = restored.meReqs;
+          w.DB.arch = restored.arch;
+          w.DB.archLinks = restored.archLinks;
+        }
+      }
+      var ok = typeof w.manualSave === 'function' && typeof w.loadFromFile === 'function' && typeof w.handleFileLoad === 'function' && !!w.document.getElementById('fileInput');
+      return ok ? _runtimePass('Save/load wiring remains intact after engineering baseline population') : _runtimeFail('Save/load wiring broke after engineering population changes');
     });
   },
   checkAIFoundationOfflineStubSource: async function(){

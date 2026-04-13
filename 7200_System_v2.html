@@ -2445,12 +2445,23 @@ tbody tr:hover { background: #f0f6ff; }
   </div>
 
   <div class="tab-pane active" id="se-reqs">
+    <!-- Requirement hierarchy legend -->
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 12px;background:var(--surface1);border-radius:8px;margin-bottom:12px;font-size:12px;color:var(--g600);">
+      <span style="font-weight:700;color:var(--g800);">היררכיית דרישות:</span>
+      <span style="padding:2px 8px;border-radius:6px;background:#dbeafe;color:#1e40af;font-weight:700;">L0 — דרישות לקוח / תפעוליות</span>
+      <span style="color:var(--g400);">→</span>
+      <span style="padding:2px 8px;border-radius:6px;background:#dcfce7;color:#166534;font-weight:700;">L1 — דרישות מערכת (SyRS)</span>
+      <span style="color:var(--g400);">→</span>
+      <span style="padding:2px 8px;border-radius:6px;background:#fef3c7;color:#92400e;font-weight:700;">L2 — דרישות תת-מערכת</span>
+      <span style="color:var(--g400);">→</span>
+      <span style="padding:2px 8px;border-radius:6px;background:#f3e8ff;color:#6b21a8;font-weight:700;">Subsystem — הקצאת דרישות לרכיב</span>
+    </div>
     <div class="pg-actions" style="margin-bottom:14px;">
       <button class="btn btn-primary" onclick="openAddReq('sys')">➕ דרישה חדשה</button>
       <button class="btn btn-outline" onclick="filterReqs('all')">הכל</button>
-      <button class="btn btn-outline" onclick="filterReqs('L0')">L0 לקוח</button>
-      <button class="btn btn-outline" onclick="filterReqs('L1')">L1 מערכת</button>
-      <button class="btn btn-outline" onclick="filterReqs('L2')">L2 תת-מערכת</button>
+      <button class="btn btn-outline" onclick="filterReqs('L0')">L0 — לקוח</button>
+      <button class="btn btn-outline" onclick="filterReqs('L1')">L1 — מערכת</button>
+      <button class="btn btn-outline" onclick="filterReqs('L2')">L2 — תת-מערכת</button>
     </div>
     <div class="card"><div class="card-body tbl-wrap">
       <table><thead><tr>
@@ -2505,14 +2516,14 @@ tbody tr:hover { background: #f0f6ff; }
     </div>
     <div class="card" style="margin-bottom:18px;">
       <div class="card-hdr">
-        <div class="card-title">🔁 Architecture Links / Interfaces</div>
+        <div class="card-title">🔁 קישורי ארכיטקטורה — ממשקים וזרימות בין רכיבים</div>
         <div style="display:flex;gap:6px;">
           <button class="btn btn-primary btn-sm" onclick="openAddArchLink()">➕ הוסף קישור</button>
         </div>
       </div>
       <div class="card-body tbl-wrap">
         <table><thead><tr>
-          <th>#</th><th>מקור</th><th>יעד</th><th>שם זרימה</th><th>סוג</th><th>Payload / Message</th><th>תדירות / קצב</th><th>Protocol / Medium</th><th>Voltage / Power</th><th>הערות</th><th>סטטוס</th><th>פעולות</th>
+          <th>#</th><th>רכיב מקור</th><th>רכיב יעד</th><th>שם זרימה</th><th>סוג זרימה</th><th>מטען / מסר</th><th>תדירות / קצב</th><th>פרוטוקול / מדיום</th><th>מתח / הספק</th><th>הערות</th><th>סטטוס</th><th>פעולות</th>
         </tr></thead>
         <tbody id="archLinksBody"></tbody></table>
       </div>
@@ -2601,7 +2612,7 @@ tbody tr:hover { background: #f0f6ff; }
 <!-- ===== SOFTWARE ===== -->
 <div class="page" id="page-software">
   <div class="pg-header"><div class="pg-title">💻 הנדסת תוכנה</div>
-    <div class="pg-subtitle">T603-ESG | SRS · SDD · מודולים · בדיקות · ליקויים · גרסאות</div>
+    <div class="pg-subtitle">T603-ESG | דרישות (SRS) · ארכיטקטורה (SDD) · מודולים · V&amp;V · ליקויים · גרסאות · מסמכים</div>
   </div>
   <div class="tabs">
     <div class="tab active" onclick="switchTab(this,'sw-reqs')">📋 דרישות (SRS)</div>
@@ -2614,11 +2625,24 @@ tbody tr:hover { background: #f0f6ff; }
   </div>
 
   <div class="tab-pane active" id="sw-reqs">
-    <div class="pg-actions" style="margin-bottom:14px;display:flex;gap:8px;">
+    <!-- SW requirement hierarchy legend -->
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 12px;background:var(--surface1);border-radius:8px;margin-bottom:12px;font-size:12px;color:var(--g600);">
+      <span style="font-weight:700;color:var(--g800);">היררכיית דרישות תוכנה:</span>
+      <span style="padding:2px 8px;border-radius:6px;background:#dbeafe;color:#1e40af;font-weight:700;">L1 — ממשק מערכת (נגזר מ-SyRS)</span>
+      <span style="color:var(--g400);">→</span>
+      <span style="padding:2px 8px;border-radius:6px;background:#dcfce7;color:#166534;font-weight:700;">L2 — דרישת תוכנה (SRS)</span>
+      <span style="color:var(--g400);">→</span>
+      <span style="padding:2px 8px;border-radius:6px;background:#fef3c7;color:#92400e;font-weight:700;">L3 — דרישת מודול</span>
+    </div>
+    <div class="pg-actions" style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap;">
       <button class="btn btn-primary" onclick="openAddReq('sw')">➕ דרישת תוכנה</button>
+      <button class="btn btn-outline" onclick="filterSWReqs('all')">הכל</button>
+      <button class="btn btn-outline" onclick="filterSWReqs('L1')">L1 — ממשק מערכת</button>
+      <button class="btn btn-outline" onclick="filterSWReqs('L2')">L2 — תוכנה</button>
+      <button class="btn btn-outline" onclick="filterSWReqs('L3')">L3 — מודול</button>
     </div>
     <div class="card"><div class="card-body tbl-wrap">
-      <table><thead><tr><th>#</th><th>מזהה</th><th>קטגוריה</th><th>תיאור</th><th>Parent</th><th>תת-מערכת / הקצאה</th><th>מקור</th><th>סטטוס</th><th>בדיקה</th><th>פעולות</th></tr></thead>
+      <table><thead><tr><th>#</th><th>מזהה</th><th>קטגוריה</th><th>תיאור</th><th>Parent (SyRS)</th><th>תת-מערכת / הקצאה</th><th>מקור</th><th>סטטוס</th><th>בדיקה</th><th>פעולות</th></tr></thead>
       <tbody id="swReqsBody"></tbody></table>
     </div></div>
   </div>
@@ -2637,7 +2661,7 @@ tbody tr:hover { background: #f0f6ff; }
     <!-- Software Module Architecture Table (extended) -->
     <div class="card" style="margin-bottom:18px;">
       <div class="card-hdr">
-        <div class="card-title">💻 Software Architecture — מודולים ותלויות</div>
+        <div class="card-title">💻 ארכיטקטורת תוכנה — מודולים, שכבות ותלויות</div>
         <div style="display:flex;gap:6px;">
           <button class="btn btn-primary btn-sm" onclick="openAddSWArchModule()">➕ הוסף מודול</button>
         </div>
@@ -2717,7 +2741,7 @@ tbody tr:hover { background: #f0f6ff; }
 <!-- ===== MECHANICAL ===== -->
 <div class="page" id="page-mechanical">
   <div class="pg-header"><div class="pg-title">🔩 הנדסה מכאנית</div>
-    <div class="pg-subtitle">T604-ESG | MRS · MDD · BOM · ציורים · בדיקות</div>
+    <div class="pg-subtitle">T604-ESG | דרישות (MRS) · פירוק מכאני (MDD) · ממשקי מכלולים · BOM · ציורים · בדיקות · מסמכים</div>
   </div>
   <div class="tabs">
     <div class="tab active" onclick="switchTab(this,'me-reqs')">📋 דרישות (MRS)</div>
@@ -2729,19 +2753,33 @@ tbody tr:hover { background: #f0f6ff; }
   </div>
 
   <div class="tab-pane active" id="me-reqs">
-    <div class="pg-actions" style="margin-bottom:14px;display:flex;gap:8px;">
+    <!-- ME requirement hierarchy legend -->
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 12px;background:var(--surface1);border-radius:8px;margin-bottom:12px;font-size:12px;color:var(--g600);">
+      <span style="font-weight:700;color:var(--g800);">היררכיית דרישות מכאניות:</span>
+      <span style="padding:2px 8px;border-radius:6px;background:#dbeafe;color:#1e40af;font-weight:700;">L1 — דרישת מערכת (נגזר מ-SyRS)</span>
+      <span style="color:var(--g400);">→</span>
+      <span style="padding:2px 8px;border-radius:6px;background:#dcfce7;color:#166534;font-weight:700;">L2 — דרישת מכלול (MRS)</span>
+      <span style="color:var(--g400);">→</span>
+      <span style="padding:2px 8px;border-radius:6px;background:#fef3c7;color:#92400e;font-weight:700;">L3 — דרישת רכיב / חומר</span>
+    </div>
+    <div class="pg-actions" style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap;">
       <button class="btn btn-primary" onclick="openAddReq('me')">➕ דרישה מכאנית</button>
+      <button class="btn btn-outline" onclick="filterMEReqs('all')">הכל</button>
+      <button class="btn btn-outline" onclick="filterMEReqs('L1')">L1 — מערכת</button>
+      <button class="btn btn-outline" onclick="filterMEReqs('L2')">L2 — מכלול</button>
+      <button class="btn btn-outline" onclick="filterMEReqs('L3')">L3 — רכיב</button>
     </div>
     <div class="card"><div class="card-body tbl-wrap">
-      <table><thead><tr><th>#</th><th>מזהה</th><th>קטגוריה</th><th>תיאור</th><th>Parent</th><th>תת-מערכת / הקצאה</th><th>מקור</th><th>סטטוס</th><th>בדיקה</th><th>פעולות</th></tr></thead>
+      <table><thead><tr><th>#</th><th>מזהה</th><th>קטגוריה</th><th>תיאור</th><th>Parent (SyRS)</th><th>תת-מערכת / הקצאה</th><th>מקור</th><th>סטטוס</th><th>בדיקה</th><th>פעולות</th></tr></thead>
       <tbody id="meReqsBody"></tbody></table>
     </div></div>
   </div>
 
   <div class="tab-pane" id="me-arch">
-    <div class="card">
+    <!-- ME decomposition table -->
+    <div class="card" style="margin-bottom:18px;">
       <div class="card-hdr">
-        <div class="card-title">🔩 Mechanical Decomposition — מכלולים וממשקים</div>
+        <div class="card-title">🔩 פירוק מכאני — מכלולים ותת-מכלולים</div>
         <div style="display:flex;gap:6px;">
           <button class="btn btn-primary btn-sm" onclick="openAddMEArchItem()">➕ הוסף מכלול</button>
         </div>
@@ -2751,6 +2789,21 @@ tbody tr:hover { background: #f0f6ff; }
           <th>#</th><th>מכלול / רכיב</th><th>סוג</th><th>תת-מערכת</th><th>תיאור</th><th>ממשקים</th><th>חיבורים</th><th>תצורה / חומר</th><th>סטטוס</th><th>פעולות</th>
         </tr></thead>
         <tbody id="meArchBody"></tbody></table>
+      </div>
+    </div>
+    <!-- ME assembly interface links table -->
+    <div class="card">
+      <div class="card-hdr">
+        <div class="card-title">🔗 ממשקי מכלולים — קישורים מכאניים, תרמיים וחשמליים</div>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-primary btn-sm" onclick="openAddMEArchLink()">➕ הוסף ממשק</button>
+        </div>
+      </div>
+      <div class="card-body tbl-wrap">
+        <table><thead><tr>
+          <th>#</th><th>מכלול מקור</th><th>מכלול יעד</th><th>סוג ממשק</th><th>תיאור / פונקציה</th><th>תקן / מפרט</th><th>חומר / מחבר</th><th>עומס / ערך</th><th>הערות</th><th>סטטוס</th><th>פעולות</th>
+        </tr></thead>
+        <tbody id="meArchLinksBody"></tbody></table>
       </div>
     </div>
   </div>
@@ -3722,6 +3775,109 @@ function _ensureEngineeringStructures(){
   if(!Array.isArray(DB.subsysReqs)) DB.subsysReqs = [];
   if(!Array.isArray(DB.archLinks)) DB.archLinks = [];
   if(!Array.isArray(DB.meArch)) DB.meArch = [];
+  if(!Array.isArray(DB.meArchLinks)) DB.meArchLinks = [];
+  _populateEngineeringBaselineContent();
+}
+
+function _cloneSeedItems(items){
+  return JSON.parse(JSON.stringify(items||[]));
+}
+
+function _appendSeedItemsIfEmpty(targetArr, items){
+  if(!Array.isArray(targetArr) || targetArr.length || !Array.isArray(items) || !items.length) return;
+  Array.prototype.push.apply(targetArr, _cloneSeedItems(items));
+}
+
+function _pickSeedParentRid(pattern, fallbackRid){
+  var reqs = Array.isArray(DB.sysReqs) ? DB.sysReqs : [];
+  var matcher = pattern instanceof RegExp ? pattern : null;
+  var match = reqs.find(function(req){
+    var txt = [req.rid, req.desc, req.domain, req.allocation, req.subsystem].join(" ").toLowerCase();
+    return matcher ? matcher.test(txt) : false;
+  });
+  if(match && match.rid) return match.rid;
+  return (reqs[0] && reqs[0].rid) || fallbackRid || "";
+}
+
+function _buildEngineeringSeedData(){
+  var systemSeed = [
+    {id:"seed_sys_001",rid:"SYS-410",level:"L1",domain:"פונקציונלי",desc:"The system shall acquire wideband RF inputs, process them into mission data, and distribute the resulting frames to the recorder and operator console.",parentRid:"CUST-7200-01",allocation:"Mission System",source:"Customer baseline",origin:"Customer baseline",subsystem:"Mission System",vv:"Test",vvPhase:"CDR",status:"Draft"},
+    {id:"seed_sys_002",rid:"SYS-420",level:"L1",domain:"ממשק",desc:"The system shall provide operator command, status, and health monitoring over the primary Ethernet control interface.",parentRid:"CUST-7200-02",allocation:"Command and Control",source:"CONOPS",origin:"CONOPS",subsystem:"Mission Computer",vv:"Inspection",vvPhase:"PDR",status:"Draft"},
+    {id:"seed_sys_003",rid:"SYS-430",level:"L2",domain:"ביצועים",desc:"The system shall sustain a 10 Hz end-to-end update rate for mission-status distribution under nominal operating load.",parentRid:"CUST-7200-03",allocation:"Signal Processing",source:"Derived analysis",origin:"Derived analysis",subsystem:"Mission Computer",vv:"Test",vvPhase:"FAT",status:"Draft"},
+    {id:"seed_sys_004",rid:"SYS-440",level:"L2",domain:"סביבתי",desc:"The system shall maintain mechanical integrity and connector retention during vibration and thermal cycling in the installed platform environment.",parentRid:"CUST-7200-04",allocation:"Mechanical Assembly",source:"Environmental profile",origin:"Environmental profile",subsystem:"Mechanical Assembly",vv:"Inspection",vvPhase:"Qualification",status:"Draft"}
+  ];
+  var missionParent = _pickSeedParentRid(/mission|data|signal|control|ethernet|console|rf/, "SYS-410");
+  var performanceParent = _pickSeedParentRid(/10 hz|update|performance|latency|status/, "SYS-430");
+  var mechanicalParent = _pickSeedParentRid(/mechanical|vibration|thermal|mount|enclosure|connector/, "SYS-440");
+
+  return {
+    sysReqs: systemSeed,
+    subsysReqs: [
+      {id:"seed_subsys_001",rid:"SUBSYS-410",parentRid:missionParent,subsystem:"RF Front End",domain:"פונקציונלי",desc:"The RF Front End subsystem shall condition the antenna input and provide digitized wideband samples to the Mission Computer without loss of commandable gain-state awareness.",source:"SyRS decomposition",origin:"SyRS decomposition",allocation:"RF Front End",vv:"Test",vvPhase:"CDR",status:"Draft"},
+      {id:"seed_subsys_002",rid:"SUBSYS-420",parentRid:missionParent,subsystem:"Mission Computer",domain:"ממשק",desc:"The Mission Computer subsystem shall assemble mission packets, distribute health telemetry, and manage recorder and console interfaces through the project Ethernet backbone.",source:"SyRS decomposition",origin:"SyRS decomposition",allocation:"Mission Computer",vv:"Test",vvPhase:"CDR",status:"Draft"},
+      {id:"seed_subsys_003",rid:"SUBSYS-430",parentRid:performanceParent,subsystem:"Power Distribution",domain:"ביצועים",desc:"The Power Distribution subsystem shall provide protected 28VDC feeds to mission components and preserve regulated service during mission-mode peak loading.",source:"Power concept",origin:"Power concept",allocation:"Power Distribution",vv:"Analysis",vvPhase:"FAT",status:"Draft"},
+      {id:"seed_subsys_004",rid:"SUBSYS-440",parentRid:mechanicalParent,subsystem:"Mechanical Assembly",domain:"סביבתי",desc:"The Mechanical Assembly subsystem shall secure the Mission Computer, Recorder, and RF modules while preserving thermal paths, connector strain relief, and maintenance access.",source:"Mechanical concept",origin:"Mechanical concept",allocation:"Mechanical Assembly",vv:"Inspection",vvPhase:"Qualification",status:"Draft"}
+    ],
+    swReqs: [
+      {id:"seed_sw_001",rid:"SW-410",level:"L4",domain:"פונקציונלי",desc:"The software shall serialize mission detections and health information into recorder-ready mission packets with explicit time tags and source identifiers.",parentRid:"SUBSYS-420",allocation:"Mission Data Service",source:"System decomposition",origin:"System decomposition",subsystem:"Mission Computer",vv:"Test",vvPhase:"CDR",status:"Draft"},
+      {id:"seed_sw_002",rid:"SW-420",level:"L4",domain:"ממשק",desc:"The software shall expose command, status, and built-in-test summaries over the Ethernet control interface using a stable application protocol contract.",parentRid:"SUBSYS-420",allocation:"Operator Interface Service",source:"System decomposition",origin:"System decomposition",subsystem:"Mission Computer",vv:"Inspection",vvPhase:"PDR",status:"Draft"},
+      {id:"seed_sw_003",rid:"SW-430",level:"L4",domain:"אמינות",desc:"The software shall monitor recorder, RF front-end, and power-feed health inputs and raise degraded-mode status within one mission update cycle.",parentRid:"SUBSYS-420",allocation:"Health Monitor",source:"System decomposition",origin:"System decomposition",subsystem:"Mission Computer",vv:"Test",vvPhase:"FAT",status:"Draft"}
+    ],
+    meReqs: [
+      {id:"seed_me_001",rid:"ME-410",level:"L4",domain:"מבני",desc:"The mechanical design shall support the installed recorder and mission-computer mass under platform vibration without loss of connector retention or mounting integrity.",parentRid:"SUBSYS-440",allocation:"Recorder Tray",source:"System decomposition",origin:"System decomposition",subsystem:"Mechanical Assembly",vv:"Inspection",vvPhase:"Qualification",status:"Draft"},
+      {id:"seed_me_002",rid:"ME-420",level:"L4",domain:"תרמי",desc:"The mechanical design shall provide a continuous thermal path from the Mission Computer and RF Front End to the enclosure heat-spreading structure.",parentRid:"SUBSYS-440",allocation:"Thermal Interface Plate",source:"System decomposition",origin:"System decomposition",subsystem:"Mechanical Assembly",vv:"Analysis",vvPhase:"CDR",status:"Draft"},
+      {id:"seed_me_003",rid:"ME-430",level:"L4",domain:"ממשק",desc:"The mechanical design shall route and support external connectors so that power, Ethernet, RF, and maintenance access are preserved without cable overstress.",parentRid:"SUBSYS-440",allocation:"Connector Panel",source:"System decomposition",origin:"System decomposition",subsystem:"Mechanical Assembly",vv:"Inspection",vvPhase:"FAT",status:"Draft"}
+    ],
+    arch: [
+      {id:"seed_arch_001",name:"Antenna Assembly",type:"Sensor",subsystem:"RF Front End",desc:"Wideband RF collection assembly",interfaces:"RF coax",connections:"RF Front End",flowDesc:"Wideband RF energy",status:"Concept"},
+      {id:"seed_arch_002",name:"RF Front End",type:"HW",subsystem:"RF Front End",desc:"Conditions, filters, and digitizes RF input",interfaces:"RF, Control, Power",connections:"Mission Computer, Power Distribution Unit",flowDesc:"Digitized IQ samples + status",status:"Design In Progress"},
+      {id:"seed_arch_003",name:"Mission Computer",type:"SW",subsystem:"Signal Processing",desc:"Runs mission software, health monitoring, and interface management",interfaces:"Ethernet, Recorder API, BIT",connections:"Recorder, Operator Console, Power Distribution Unit",flowDesc:"Mission packets, control, telemetry",status:"Design In Progress"},
+      {id:"seed_arch_004",name:"Recorder",type:"System",subsystem:"Data Recording",desc:"Stores mission packets and retrieval metadata",interfaces:"Ethernet, Maintenance",connections:"Mission Computer, Operator Console, Power Distribution Unit",flowDesc:"Mission packet recording and retrieval",status:"Draft"},
+      {id:"seed_arch_005",name:"Operator Console",type:"Interface",subsystem:"Command and Control",desc:"Provides operator command and status view",interfaces:"Ethernet",connections:"Mission Computer, Recorder",flowDesc:"Commands and operator status",status:"Draft"},
+      {id:"seed_arch_006",name:"Power Distribution Unit",type:"Power",subsystem:"Power Distribution",desc:"Protected 28VDC distribution to mission components",interfaces:"28VDC, discrete status",connections:"RF Front End, Mission Computer, Recorder",flowDesc:"Primary power and power-good status",status:"Released"},
+      {id:"seed_arch_007",name:"Enclosure and Mounting",type:"Mech",subsystem:"Mechanical Assembly",desc:"Structural enclosure, thermal path, and mounting frame",interfaces:"Mounting, thermal, connector panel",connections:"Mission Computer, Recorder, RF Front End",flowDesc:"Mechanical support and thermal path",status:"Draft"}
+    ],
+    archLinks: [
+      {id:"seed_link_001",sourceComponent:"Antenna Assembly",targetComponent:"RF Front End",flowName:"RF Input",flowType:"RF",payloadOrMessage:"Wideband RF input",frequencyOrRate:"continuous",protocolOrMedium:"RF coax",voltageOrPower:"-",notes:"Primary receive path",status:"Defined"},
+      {id:"seed_link_002",sourceComponent:"RF Front End",targetComponent:"Mission Computer",flowName:"IQ Sample Stream",flowType:"data",payloadOrMessage:"Digitized IQ samples and gain status",frequencyOrRate:"10 Hz mission frame / continuous sample ingress",protocolOrMedium:"High-speed serial",voltageOrPower:"-",notes:"Processing input stream",status:"Defined"},
+      {id:"seed_link_003",sourceComponent:"Mission Computer",targetComponent:"Recorder",flowName:"Mission Data",flowType:"data",payloadOrMessage:"Mission packets and metadata",frequencyOrRate:"10 Hz",protocolOrMedium:"Ethernet",voltageOrPower:"-",notes:"Primary recorder feed",status:"Defined"},
+      {id:"seed_link_004",sourceComponent:"Operator Console",targetComponent:"Mission Computer",flowName:"Operator Command",flowType:"command",payloadOrMessage:"Mode changes and operator requests",frequencyOrRate:"on demand",protocolOrMedium:"Ethernet",voltageOrPower:"-",notes:"Command uplink",status:"Draft"},
+      {id:"seed_link_005",sourceComponent:"Mission Computer",targetComponent:"Operator Console",flowName:"System Status",flowType:"telemetry",payloadOrMessage:"Health, BIT, and mission status",frequencyOrRate:"10 Hz",protocolOrMedium:"Ethernet",voltageOrPower:"-",notes:"Console status feedback",status:"Draft"},
+      {id:"seed_link_006",sourceComponent:"Power Distribution Unit",targetComponent:"RF Front End",flowName:"Primary Power",flowType:"power",payloadOrMessage:"Protected power feed",frequencyOrRate:"continuous",protocolOrMedium:"Power harness",voltageOrPower:"28VDC",notes:"Nominal RF power",status:"Released"},
+      {id:"seed_link_007",sourceComponent:"Power Distribution Unit",targetComponent:"Mission Computer",flowName:"Primary Power",flowType:"power",payloadOrMessage:"Protected power feed",frequencyOrRate:"continuous",protocolOrMedium:"Power harness",voltageOrPower:"28VDC",notes:"Nominal compute power",status:"Released"},
+      {id:"seed_link_008",sourceComponent:"Power Distribution Unit",targetComponent:"Recorder",flowName:"Primary Power",flowType:"power",payloadOrMessage:"Protected power feed",frequencyOrRate:"continuous",protocolOrMedium:"Power harness",voltageOrPower:"28VDC",notes:"Nominal recorder power",status:"Released"},
+      {id:"seed_link_009",sourceComponent:"Enclosure and Mounting",targetComponent:"Mission Computer",flowName:"Mounting and Thermal Path",flowType:"mechanical",payloadOrMessage:"Mounting loads and heat dissipation path",frequencyOrRate:"static",protocolOrMedium:"Mechanical interface",voltageOrPower:"-",notes:"Structural and thermal support",status:"Draft"},
+      {id:"seed_link_010",sourceComponent:"Enclosure and Mounting",targetComponent:"Recorder",flowName:"Mounting and Thermal Path",flowType:"mechanical",payloadOrMessage:"Mounting loads and heat dissipation path",frequencyOrRate:"static",protocolOrMedium:"Mechanical interface",voltageOrPower:"-",notes:"Structural and thermal support",status:"Draft"}
+    ],
+    swArch: [
+      {id:"seed_swarch_001",name:"Mission Data Service",layer:"Service / API",lang:"C++",desc:"Packages mission detections and metadata for recorder delivery",apis:"Recorder Ethernet API",connections:"Health Monitor, Operator Interface Service",interfaceType:"Data Stream",flowDesc:"Processed mission data -> recorder packets",status:"Draft"},
+      {id:"seed_swarch_002",name:"Health Monitor",layer:"Application / Logic",lang:"C++",desc:"Aggregates RF, recorder, and power health inputs",apis:"BIT/status API",connections:"Mission Data Service, Operator Interface Service",interfaceType:"Event/Pub-Sub",flowDesc:"BIT updates and degraded-mode alarms",status:"Draft"},
+      {id:"seed_swarch_003",name:"Operator Interface Service",layer:"External / Integration",lang:"C++",desc:"Manages Ethernet operator commands and status responses",apis:"Ethernet control API",connections:"Mission Data Service, Health Monitor",interfaceType:"Request/Response",flowDesc:"Operator command ingress and status egress",status:"Draft"}
+    ],
+    meArch: [
+      {id:"seed_mearch_001",name:"Recorder Tray",type:"Assembly",subsystem:"Mechanical Assembly",desc:"Supports recorder installation and service access",interfaces:"Mounting, grounding",connections:"Enclosure Shell, Thermal Interface Plate",configuration:"Al 6061",status:"Draft"},
+      {id:"seed_mearch_002",name:"Connector Panel",type:"Enclosure",subsystem:"Mechanical Assembly",desc:"Routes RF, Ethernet, and power connectors with strain relief",interfaces:"Connector retention, EMI bonding",connections:"Enclosure Shell, Cable Harness",configuration:"Machined panel",status:"Draft"},
+      {id:"seed_mearch_003",name:"Thermal Interface Plate",type:"Thermal",subsystem:"Mechanical Assembly",desc:"Conducts heat from compute modules to enclosure walls",interfaces:"Thermal contact surfaces",connections:"Mission Computer Bracket, Enclosure Shell",configuration:"Aluminum plate",status:"Draft"}
+    ],
+    meArchLinks: [
+      {id:"seed_melink_001",sourceAssembly:"Recorder Tray",targetAssembly:"Enclosure Shell",interfaceType:"מכאני",description:"Tray fastens to enclosure frame and carries recorder loads",standard:"Drawing baseline",materialOrConnector:"Fasteners + inserts",loadOrValue:"Operational vibration loads",notes:"Primary structural support",status:"Draft"},
+      {id:"seed_melink_002",sourceAssembly:"Thermal Interface Plate",targetAssembly:"Mission Computer Bracket",interfaceType:"תרמי",description:"Thermal plate couples heat from mission computer bracket into enclosure structure",standard:"Thermal stack-up",materialOrConnector:"TIM + fasteners",loadOrValue:"Continuous dissipation path",notes:"Controls compute thermal margin",status:"Draft"},
+      {id:"seed_melink_003",sourceAssembly:"Connector Panel",targetAssembly:"Enclosure Shell",interfaceType:"חשמלי",description:"Connector panel bonds external connectors and strain relief hardware to enclosure",standard:"Harness interface",materialOrConnector:"EMI gasket / strain relief",loadOrValue:"Cable retention loads",notes:"Supports service access",status:"Draft"}
+    ]
+  };
+}
+
+function _populateEngineeringBaselineContent(){
+  var seed = _buildEngineeringSeedData();
+  _appendSeedItemsIfEmpty(DB.sysReqs, seed.sysReqs);
+  _appendSeedItemsIfEmpty(DB.subsysReqs, seed.subsysReqs);
+  _appendSeedItemsIfEmpty(DB.swReqs, seed.swReqs);
+  _appendSeedItemsIfEmpty(DB.meReqs, seed.meReqs);
+  _appendSeedItemsIfEmpty(DB.arch, seed.arch);
+  _appendSeedItemsIfEmpty(DB.archLinks, seed.archLinks);
+  _appendSeedItemsIfEmpty(DB.swArch, seed.swArch);
+  _appendSeedItemsIfEmpty(DB.meArch, seed.meArch);
+  _appendSeedItemsIfEmpty(DB.meArchLinks, seed.meArchLinks);
 }
 
 // ─── UTILS ────────────────────────────────────────────────
@@ -3785,7 +3941,7 @@ function renderPage(id){
     "stakeholders":function(){navigateTo("project");}, // redirect to project page
     "syseng":function(){renderReqs("sys");renderSubsysReqs();renderArch();renderArchLinks();renderICD();renderVV();renderVCRM();renderDocRegistry();},
     "software":function(){renderReqs("sw");renderSWModules();renderSWArchBody();renderDefects();renderSWTests();renderVersions();renderSWDocRegistry();},
-    "mechanical":function(){renderReqs("me");renderMEArch();renderBOM();renderDrawings();renderMETests();renderMEDocRegistry();},
+    "mechanical":function(){renderReqs("me");renderMEArch();renderMEArchLinks();renderBOM();renderDrawings();renderMETests();renderMEDocRegistry();},
     "safety":function(){renderSSPP();renderHazards();renderAnalyses();renderSRB();renderSAR();},
     "quality":function(){renderQAStats();renderNCR();renderFOD();renderAudits();},
     "tests":function(){renderTests();renderDebriefs();renderTrainings();},
@@ -4526,7 +4682,7 @@ function openAddReq(type){
     "</div>"+
     formGroup("סטטוס","<select class='form-select' id='rStatus'><option>Draft</option><option>Baselined</option><option>Approved</option><option>TBD</option></select>"),
     function(){
-      DB[cfg.arrName].push({
+      var item = {
         id:uid(),
         rid:gV("rId"),
         level:gV("rLevel") || (type==="sys"?"L1":"L4"),
@@ -4541,7 +4697,12 @@ function openAddReq(type){
         vv:gV("rVV"),
         vvPhase:gV("rVVPhase"),
         status:gV("rStatus")
-      });
+      };
+      if(type==="sys"){
+        DB.sysReqs.push(item);
+      } else {
+        DB[cfg.arrName].push(item);
+      }
       markDirty();renderReqs(type);closeModal();notify("דרישה נוספה","ok");
     }
   );
@@ -4575,6 +4736,27 @@ function filterReqs(f){
     if(f==="all"){r.style.display="";return;}
     var cells=r.querySelectorAll("td");
     r.style.display=cells[2]&&cells[2].textContent.includes(f)?"":"none";
+  });
+}
+
+function filterSWReqs(f){
+  var rows=document.querySelectorAll("#swReqsBody tr");
+  rows.forEach(function(r){
+    if(f==="all"){r.style.display="";return;}
+    var cells=r.querySelectorAll("td");
+    // match against level field (col 2) or category field (col 2) — whichever contains f
+    var levelCell = cells[2] ? cells[2].textContent : "";
+    r.style.display = levelCell.includes(f) ? "" : "none";
+  });
+}
+
+function filterMEReqs(f){
+  var rows=document.querySelectorAll("#meReqsBody tr");
+  rows.forEach(function(r){
+    if(f==="all"){r.style.display="";return;}
+    var cells=r.querySelectorAll("td");
+    var levelCell = cells[2] ? cells[2].textContent : "";
+    r.style.display = levelCell.includes(f) ? "" : "none";
   });
 }
 
@@ -4656,20 +4838,20 @@ function renderArchLinks(){
 }
 
 function openAddArchLink(){
-  openModal("Architecture Link / Interface",
+  openModal("קישור ארכיטקטורה — ממשק / זרימה בין רכיבים",
     "<div class='form-row'>"+
-      formGroup("Source Component","<input class='form-input' id='alSource' placeholder='Mission Computer'>")+
-      formGroup("Target Component","<input class='form-input' id='alTarget' placeholder='Recorder'>")+
-      formGroup("Flow Name","<input class='form-input' id='alFlowName' placeholder='Mission data stream'>")+
+      formGroup("רכיב מקור","<input class='form-input' id='alSource' placeholder='Mission Computer'>")+
+      formGroup("רכיב יעד","<input class='form-input' id='alTarget' placeholder='Recorder'>")+
+      formGroup("שם זרימה","<input class='form-input' id='alFlowName' placeholder='Mission data stream'>")+
     "</div>"+
     "<div class='form-row'>"+
-      formGroup("Flow Type","<select class='form-select' id='alFlowType'><option>data</option><option>command</option><option>telemetry</option><option>power</option><option>mechanical</option><option>RF</option><option>bus</option><option>network</option></select>")+
-      formGroup("Payload / Message","<input class='form-input' id='alPayload' placeholder='IQ samples / status words'>")+
-      formGroup("Frequency / Rate","<input class='form-input' id='alRate' placeholder='10 Hz / 1 Gbps'>")+
+      formGroup("סוג זרימה","<select class='form-select' id='alFlowType'><option>data</option><option>command</option><option>telemetry</option><option>power</option><option>mechanical</option><option>RF</option><option>bus</option><option>network</option></select>")+
+      formGroup("מטען / מסר","<input class='form-input' id='alPayload' placeholder='IQ samples / status words'>")+
+      formGroup("תדירות / קצב","<input class='form-input' id='alRate' placeholder='10 Hz / 1 Gbps'>")+
     "</div>"+
     "<div class='form-row'>"+
-      formGroup("Protocol / Medium","<input class='form-input' id='alProtocol' placeholder='Ethernet / 1553 / RS-422'>")+
-      formGroup("Voltage / Power","<input class='form-input' id='alPower' placeholder='28VDC / 5W'>")+
+      formGroup("פרוטוקול / מדיום","<input class='form-input' id='alProtocol' placeholder='Ethernet / 1553 / RS-422'>")+
+      formGroup("מתח / הספק","<input class='form-input' id='alPower' placeholder='28VDC / 5W'>")+
       formGroup("סטטוס","<select class='form-select' id='alStatus'><option>Draft</option><option>Defined</option><option>Released</option></select>")+
     "</div>"+
     formRow2("הערות","alNotes",""),
@@ -4772,6 +4954,57 @@ function openAddMEArchItem(){
         status:gV("meaStatus")
       });
       markDirty();renderMEArch();closeModal();notify("מכלול מכאני נוסף","ok");
+    }
+  );
+}
+
+function renderMEArchLinks(){
+  renderTable("meArchLinksBody", DB.meArchLinks || [], [], function(link, i){
+    return "<td>"+(i+1)+"</td>" +
+      "<td>"+esc(link.sourceAssembly || "")+"</td>" +
+      "<td>"+esc(link.targetAssembly || "")+"</td>" +
+      "<td>"+esc(link.interfaceType || "")+"</td>" +
+      "<td style='max-width:220px;white-space:normal;'>"+esc(link.description || "")+"</td>" +
+      "<td>"+esc(link.standard || "-")+"</td>" +
+      "<td>"+esc(link.materialOrConnector || "-")+"</td>" +
+      "<td>"+esc(link.loadOrValue || "-")+"</td>" +
+      "<td style='max-width:160px;font-size:12px;color:var(--g600);'>"+esc(link.notes || "-")+"</td>" +
+      "<td>"+ragBadge(link.status || "Draft")+"</td>" +
+      "<td>"+actionBtns(i, "meArchLinks")+"</td>";
+  });
+}
+
+function openAddMEArchLink(){
+  openModal("ממשק מכלולים — קישור מכאני / תרמי / חשמלי",
+    "<div class='form-row'>"+
+      formGroup("מכלול מקור","<input class='form-input' id='malSource' placeholder='מכלול A'>")+
+      formGroup("מכלול יעד","<input class='form-input' id='malTarget' placeholder='מכלול B'>")+
+      formGroup("סוג ממשק","<select class='form-select' id='malType'><option>מכאני</option><option>תרמי</option><option>חשמלי</option><option>RF</option><option>Fluid</option><option>Structural Load</option><option>Vibration</option></select>")+
+    "</div>"+
+    formRow2("תיאור / פונקציה","malDesc","")+
+    "<div class='form-row'>"+
+      formGroup("תקן / מפרט","<input class='form-input' id='malStandard' placeholder='MIL-STD-810 / ISO 9001'>")+
+      formGroup("חומר / מחבר","<input class='form-input' id='malMaterial' placeholder='Al 6061 / D-Sub 25'>")+
+      formGroup("עומס / ערך","<input class='form-input' id='malLoad' placeholder='50N / 5W / 28VDC'>")+
+    "</div>"+
+    "<div class='form-row'>"+
+      formGroup("סטטוס","<select class='form-select' id='malStatus'><option>Draft</option><option>Defined</option><option>Released</option></select>")+
+      formGroup("הערות","<input class='form-input' id='malNotes' placeholder='הערות נוספות'>")+
+    "</div>",
+    function(){
+      DB.meArchLinks.push({
+        id: uid(),
+        sourceAssembly: gV("malSource"),
+        targetAssembly: gV("malTarget"),
+        interfaceType: gV("malType"),
+        description: gV("malDesc"),
+        standard: gV("malStandard"),
+        materialOrConnector: gV("malMaterial"),
+        loadOrValue: gV("malLoad"),
+        notes: gV("malNotes"),
+        status: gV("malStatus")
+      });
+      markDirty(); renderMEArchLinks(); closeModal(); notify("ממשק מכלולים נוסף","ok");
     }
   );
 }
@@ -20088,6 +20321,7 @@ function renderSystemArchitectureDiagram() {
   if (!el) return;
   var legendEl = document.getElementById("sysArchLegend");
   var comps = DB.arch || [];
+  var archLinks = DB.archLinks || [];
 
   if (!comps.length) {
     el.innerHTML = '<div class="arch-diagram-empty"><span class="arch-empty-icon">🏗️</span><span>הוסף רכיבים לטבלה כדי להציג את הדיאגרמה</span></div>';
@@ -20118,12 +20352,48 @@ function renderSystemArchitectureDiagram() {
     var col = _archTypeColor(c.type);
     if (arrowColors.indexOf(col.border) < 0) arrowColors.push(col.border);
   });
+  if (arrowColors.indexOf("#2563eb") < 0) arrowColors.push("#2563eb");
 
   var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="'+svgW+'" height="'+svgH+
     '" style="font-family:Segoe UI,Arial,sans-serif;display:block;">';
   svg += _svgDefs(arrowColors);
 
   // Draw arrows first (behind nodes)
+  function drawEdge(from, to, label, color, dashArr) {
+    if (!from || !to) return;
+    var dx = to.cx - from.cx, dy = to.cy - from.cy;
+    var ang = Math.atan2(dy, dx);
+    var halfW = nodeW/2+4, halfH = nodeH/2+4;
+    var ex, ey;
+    if (Math.abs(dx) * nodeH > Math.abs(dy) * nodeW) {
+      ex = from.cx + (dx>0 ? halfW : -halfW);
+      ey = from.cy + (dx>0 ? halfW : -halfW) * Math.tan(ang);
+    } else {
+      ey = from.cy + (dy>0 ? halfH : -halfH);
+      ex = from.cx + (dy>0 ? halfH : -halfH) / Math.tan(ang||0.001);
+    }
+    var dx2 = from.cx-to.cx, dy2 = from.cy-to.cy;
+    var ang2 = Math.atan2(dy2, dx2);
+    var tx, ty;
+    if (Math.abs(dx2) * nodeH > Math.abs(dy2) * nodeW) {
+      tx = to.cx + (dx2>0 ? halfW : -halfW);
+      ty = to.cy + (dx2>0 ? halfW : -halfW) * Math.tan(ang2);
+    } else {
+      ty = to.cy + (dy2>0 ? halfH : -halfH);
+      tx = to.cx + (dy2>0 ? halfH : -halfH) / Math.tan(ang2||0.001);
+    }
+    svg += _svgArrow(ex, ey, tx, ty, label, color, dashArr);
+  }
+
+  archLinks.forEach(function(link) {
+    var from = pos[link.sourceComponent];
+    var to = pos[link.targetComponent];
+    if (!from || !to) return;
+    var sourceComp = comps.find(function(c){ return c.name === link.sourceComponent; });
+    var color = sourceComp ? _archTypeColor(sourceComp.type).border : "#2563eb";
+    var label = link.flowName || link.flowType || link.protocolOrMedium || link.payloadOrMessage || "";
+    drawEdge(from, to, label, color, link.flowType === "mechanical" ? "4 3" : "");
+  });
   comps.forEach(function(c) {
     if (!c.connections) return;
     var targets = c.connections.split(',').map(function(s){return s.trim();}).filter(Boolean);
@@ -20131,31 +20401,8 @@ function renderSystemArchitectureDiagram() {
     var col = _archTypeColor(c.type);
     targets.forEach(function(tname) {
       var to = pos[tname]; if (!to) return;
-      // Compute entry/exit on node edges
-      var dx = to.cx - from.cx, dy = to.cy - from.cy;
-      var ang = Math.atan2(dy, dx);
-      var halfW = nodeW/2+4, halfH = nodeH/2+4;
-      // Exit point from source
-      var ex, ey;
-      if (Math.abs(dx) * nodeH > Math.abs(dy) * nodeW) {
-        ex = from.cx + (dx>0 ? halfW : -halfW);
-        ey = from.cy + (dx>0 ? halfW : -halfW) * Math.tan(ang);
-      } else {
-        ey = from.cy + (dy>0 ? halfH : -halfH);
-        ex = from.cx + (dy>0 ? halfH : -halfH) / Math.tan(ang||0.001);
-      }
-      // Entry point to target
-      var dx2 = from.cx-to.cx, dy2 = from.cy-to.cy;
-      var ang2 = Math.atan2(dy2, dx2);
-      var tx, ty;
-      if (Math.abs(dx2) * nodeH > Math.abs(dy2) * nodeW) {
-        tx = to.cx + (dx2>0 ? halfW : -halfW);
-        ty = to.cy + (dx2>0 ? halfW : -halfW) * Math.tan(ang2);
-      } else {
-        ty = to.cy + (dy2>0 ? halfH : -halfH);
-        tx = to.cx + (dy2>0 ? halfH : -halfH) / Math.tan(ang2||0.001);
-      }
-      svg += _svgArrow(ex, ey, tx, ty, c.flowDesc||"", col.border);
+      if (archLinks.some(function(link){ return link.sourceComponent === c.name && link.targetComponent === tname; })) return;
+      drawEdge(from, to, c.flowDesc||"", col.border, "3 3");
     });
   });
 
