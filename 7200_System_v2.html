@@ -986,6 +986,59 @@ tbody tr:last-child td{border-bottom:none;}
 }
 [data-theme=dark] .arch-diagram-wrap { background: #161b22; border-color: #30363d; }
 
+/* ── SVG Arch Diagram Node/Link Styles ───────────────────── */
+.arch-node-label { font-family: inherit; font-size: 12px; font-weight: 700; }
+.arch-node-type  { font-family: inherit; font-size: 10px; }
+.arch-link-label { font-family: inherit; font-size: 10px; font-weight: 600; }
+.arch-col-header { font-family: inherit; font-size: 11px; font-weight: 700; letter-spacing: .5px; }
+
+/* ── Impact Recommendation Modal ─────────────────────────── */
+#impactModal {
+  position: fixed; inset: 0; z-index: 9800;
+  background: rgba(0,0,0,.55);
+  display: none; align-items: center; justify-content: center;
+}
+#impactModal.open { display: flex; }
+.impact-modal-box {
+  background: var(--surface0); border-radius: var(--r2);
+  box-shadow: 0 12px 48px rgba(0,0,0,.35);
+  width: min(680px,96vw); max-height: 85vh;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.impact-modal-hdr {
+  padding: 16px 20px 12px; border-bottom: 1px solid var(--line);
+  display: flex; align-items: flex-start; gap: 10px;
+}
+.impact-modal-badge {
+  background: #fef3c7; color: #92400e;
+  border-radius: 6px; padding: 2px 9px;
+  font-size: 11px; font-weight: 700; white-space: nowrap; margin-top: 2px;
+}
+.impact-modal-body { overflow-y: auto; padding: 16px 20px; flex: 1; }
+.impact-change-summary {
+  background: var(--surface1); border-radius: 8px;
+  padding: 10px 14px; margin-bottom: 14px; font-size: 13px;
+  border-right: 3px solid var(--primary);
+}
+.impact-suggestion {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 10px 12px; border-radius: 8px;
+  background: var(--surface1); margin-bottom: 8px;
+  border: 1px solid var(--line);
+}
+.impact-suggestion input[type=checkbox] { margin-top: 3px; flex-shrink: 0; cursor: pointer; }
+.impact-suggestion-content { flex: 1; }
+.impact-suggestion-title { font-weight: 700; font-size: 13px; margin-bottom: 3px; }
+.impact-suggestion-reason { font-size: 12px; color: var(--g600); }
+.impact-modal-footer {
+  padding: 12px 20px; border-top: 1px solid var(--line);
+  display: flex; gap: 8px; justify-content: flex-end; align-items: center;
+}
+.impact-local-note {
+  font-size: 11px; color: var(--g500); flex: 1;
+  display: flex; align-items: center; gap: 4px;
+}
+
 /* ── Global Tooltip Engine ──────────────────────────────────── */
 #appTooltip {
   position: fixed; z-index: 99999; pointer-events: none;
@@ -3682,6 +3735,25 @@ tbody tr:hover { background: #f0f6ff; }
   </div>
 </div>
 
+<!-- CHANGE IMPACT RECOMMENDATION MODAL -->
+<div id="impactModal">
+  <div class="impact-modal-box">
+    <div class="impact-modal-hdr">
+      <div style="flex:1;">
+        <div style="font-weight:800;font-size:16px;margin-bottom:4px;">💡 המלצות לעדכון — נדרש אישור משתמש</div>
+        <div style="font-size:12px;color:var(--g600);">זוהו אלמנטים שעשויים להיות מושפעים מהשינוי. בחר מה לסמן לבדיקה ואשר.</div>
+      </div>
+      <span class="impact-modal-badge">סקירה מקומית בלבד</span>
+    </div>
+    <div class="impact-modal-body" id="impactModalBody"></div>
+    <div class="impact-modal-footer">
+      <div class="impact-local-note">🔒 לא מתבצע עדכון אוטומטי — כל שינוי מחייב אישור מפורש</div>
+      <button class="btn btn-outline" onclick="closeImpactModal()">בטל</button>
+      <button class="btn btn-primary" onclick="approveSelectedImpacts()">✅ אשר סימון לבדיקה</button>
+    </div>
+  </div>
+</div>
+
 <input type="file" id="fileInput" accept=".json" style="display:none" onchange="handleFileLoad(event)">
 
 <script>
@@ -3767,6 +3839,9 @@ var DB = {
   discussions: [], lessons: [], deliverables: [],
   closureData: {summary:"",lessons:"",recs:""},
   aiAudit: [],
+  impactAudit: [],
+  impactRecommendations: [],
+  updateProposals: [],
   ai: {provider:"local",apiKey:""},
   docRegistry: {}
 };
@@ -3776,7 +3851,14 @@ function _ensureEngineeringStructures(){
   if(!Array.isArray(DB.archLinks)) DB.archLinks = [];
   if(!Array.isArray(DB.meArch)) DB.meArch = [];
   if(!Array.isArray(DB.meArchLinks)) DB.meArchLinks = [];
+  ensureImpactEngineStructures();
   _populateEngineeringBaselineContent();
+}
+
+function ensureImpactEngineStructures(){
+  if(!Array.isArray(DB.impactRecommendations)) DB.impactRecommendations = [];
+  if(!Array.isArray(DB.updateProposals)) DB.updateProposals = [];
+  if(!Array.isArray(DB.impactAudit)) DB.impactAudit = [];
 }
 
 function _cloneSeedItems(items){
@@ -4703,6 +4785,14 @@ function openAddReq(type){
       } else {
         DB[cfg.arrName].push(item);
       }
+      _runImpactAnalysisForChange(buildChangeContext({
+        sourceType: _impactSourceTypeFromArray(cfg.arrName) || "requirement",
+        sourceId: item.id || item.rid,
+        triggerType: "manual_edit",
+        changedFields: Object.keys(item).filter(function(key){ return !!item[key]; }),
+        before: null,
+        after: item
+      }), { openModal: false });
       markDirty();renderReqs(type);closeModal();notify("דרישה נוספה","ok");
     }
   );
@@ -4833,7 +4923,8 @@ function renderArchLinks(){
       "<td>"+esc(link.flowName||"")+"</td><td>"+esc(link.flowType||"")+"</td><td style='max-width:180px;'>"+esc(link.payloadOrMessage||"")+"</td>"+
       "<td>"+esc(link.frequencyOrRate||"-")+"</td><td>"+esc(link.protocolOrMedium||"-")+"</td><td>"+esc(link.voltageOrPower||"-")+"</td>"+
       "<td style='max-width:160px;'>"+esc(link.notes||"-")+"</td><td>"+ragBadge(link.status||"Draft")+"</td>"+
-      "<td>"+actionBtns(i,"archLinks")+"</td>";
+      "<td><button class='btn btn-xs btn-outline' onclick='openEditArchLink("+i+")' title='ערוך'>✏️</button> "+
+          "<button class='btn btn-xs btn-outline' style='color:#dc2626;' onclick='deleteItem(\"archLinks\","+i+")' title='מחק'>🗑️</button></td>";
   });
 }
 
@@ -4856,7 +4947,7 @@ function openAddArchLink(){
     "</div>"+
     formRow2("הערות","alNotes",""),
     function(){
-      DB.archLinks.push({
+      var item = {
         id:uid(),
         sourceComponent:gV("alSource"),
         targetComponent:gV("alTarget"),
@@ -4868,10 +4959,883 @@ function openAddArchLink(){
         voltageOrPower:gV("alPower"),
         notes:gV("alNotes"),
         status:gV("alStatus")
-      });
+      };
+      DB.archLinks.push(item);
+      _runImpactAnalysisForChange(buildChangeContext({
+        sourceType: "architecture_link",
+        sourceId: item.id,
+        triggerType: "architecture_edit",
+        changedFields: Object.keys(item).filter(function(key){ return !!item[key]; }),
+        before: null,
+        after: item
+      }), { openModal: true });
       markDirty();renderArchLinks();closeModal();notify("קישור ארכיטקטורה נוסף","ok");
     }
   );
+}
+
+// ─── EDIT ARCH LINK — dedicated pre-filled modal ──────────
+function openEditArchLink(i){
+  var link=DB.archLinks[i];
+  if(!link)return;
+  var ftOpts=["data","command","telemetry","power","mechanical","RF","bus","network"].map(function(ft){
+    return "<option"+(link.flowType===ft?" selected":"")+">"+ft+"</option>";
+  }).join("");
+  var stOpts=["Draft","Defined","Released"].map(function(s){
+    return "<option"+(link.status===s?" selected":"")+">"+s+"</option>";
+  }).join("");
+  openModal("עריכת קישור ארכיטקטורה",
+    "<div class='form-row'>"+
+      formGroup("רכיב מקור","<input class='form-input' id='alSource' value='"+esc(link.sourceComponent||"")+"'>")+
+      formGroup("רכיב יעד","<input class='form-input' id='alTarget' value='"+esc(link.targetComponent||"")+"'>")+
+      formGroup("שם זרימה","<input class='form-input' id='alFlowName' value='"+esc(link.flowName||"")+"'>")+
+    "</div>"+
+    "<div class='form-row'>"+
+      formGroup("סוג זרימה","<select class='form-select' id='alFlowType'>"+ftOpts+"</select>")+
+      formGroup("מטען / מסר","<input class='form-input' id='alPayload' value='"+esc(link.payloadOrMessage||"")+"'>")+
+      formGroup("תדירות / קצב","<input class='form-input' id='alRate' value='"+esc(link.frequencyOrRate||"")+"'>")+
+    "</div>"+
+    "<div class='form-row'>"+
+      formGroup("פרוטוקול / מדיום","<input class='form-input' id='alProtocol' value='"+esc(link.protocolOrMedium||"")+"'>")+
+      formGroup("מתח / הספק","<input class='form-input' id='alPower' value='"+esc(link.voltageOrPower||"")+"'>")+
+      formGroup("סטטוס","<select class='form-select' id='alStatus'>"+stOpts+"</select>")+
+    "</div>"+
+    formRow2("הערות","alNotes",link.notes||""),
+    function(){
+      var oldSnap=JSON.parse(JSON.stringify(DB.archLinks[i]));
+      DB.archLinks[i]={
+        id:link.id||uid(),
+        sourceComponent:gV("alSource"),
+        targetComponent:gV("alTarget"),
+        flowName:gV("alFlowName"),
+        flowType:gV("alFlowType"),
+        payloadOrMessage:gV("alPayload"),
+        frequencyOrRate:gV("alRate"),
+        protocolOrMedium:gV("alProtocol"),
+        voltageOrPower:gV("alPower"),
+        notes:gV("alNotes"),
+        status:gV("alStatus")
+      };
+      markDirty();
+      renderArchLinks();
+      renderSystemArchitectureDiagram();
+      closeModal();
+      notify("קישור ארכיטקטורה עודכן","ok");
+      _runImpactAnalysisForChange(buildChangeContext({
+        sourceType: "architecture_link",
+        sourceId: DB.archLinks[i].id || oldSnap.id || ("archLink_"+i),
+        triggerType: "architecture_edit",
+        changedFields: Object.keys(DB.archLinks[i]).filter(function(key){
+          return JSON.stringify(DB.archLinks[i][key]) !== JSON.stringify(oldSnap[key]);
+        }),
+        before: oldSnap,
+        after: DB.archLinks[i]
+      }), { openModal: true });
+    },
+    "💾 עדכן"
+  );
+}
+
+// ─── SYSTEM ARCHITECTURE DIAGRAM (SVG block diagram) ──────
+var _archFlowColors={
+  "data":     {stroke:"#2563eb",fill:"#eff6ff"},
+  "command":  {stroke:"#16a34a",fill:"#f0fdf4"},
+  "telemetry":{stroke:"#9333ea",fill:"#faf5ff"},
+  "power":    {stroke:"#f59e0b",fill:"#fffbeb"},
+  "mechanical":{stroke:"#64748b",fill:"#f1f5f9"},
+  "RF":       {stroke:"#ef4444",fill:"#fef2f2"},
+  "bus":      {stroke:"#0891b2",fill:"#ecfeff"},
+  "network":  {stroke:"#06b6d4",fill:"#ecfeff"},
+  "_default": {stroke:"#6b7280",fill:"#f9fafb"}
+};
+var _archTypeCol={"Sensor":0,"Power":0,"HW":1,"Mech":1,"SW":2,"System":2,"Interface":3,"Output":3};
+
+function _archFlowCol(type){return _archFlowColors[type]||_archFlowColors["_default"];}
+function _archNodeCol(t){var v=_archTypeCol[t];return v!==undefined?v:2;}
+
+function renderSystemArchitectureDiagram(){
+  var wrap=document.getElementById("sysArchDiagram");
+  if(!wrap)return;
+  var comps=DB.arch||[];
+  var links=DB.archLinks||[];
+  if(!comps.length){
+    wrap.innerHTML="<div class='arch-diagram-empty'><span class='arch-empty-icon'>🏗️</span><span>הוסף רכיבי ארכיטקטורה לטבלה כדי להציג את הדיאגרמה</span></div>";
+    return;
+  }
+  // Assign components to columns
+  var cols=[[],[],[],[]];
+  comps.forEach(function(c){cols[_archNodeCol(c.type)].push(c);});
+  // Layout constants
+  var BW=150,BH=56,HGAP=80,VGAP=16,PL=20,PT=54;
+  var colX=[PL,PL+BW+HGAP,PL+2*(BW+HGAP),PL+3*(BW+HGAP)];
+  var maxRows=Math.max(1,cols[0].length,cols[1].length,cols[2].length,cols[3].length);
+  var svgW=colX[3]+BW+PL;
+  var svgH=PT+maxRows*(BH+VGAP)+VGAP+20;
+  // Build node position map: name → {x,y,cx,cy}
+  var posMap={};
+  cols.forEach(function(colArr,ci){
+    var totalH=colArr.length*(BH+VGAP)-VGAP;
+    var startY=PT+(maxRows*(BH+VGAP)-VGAP-totalH)/2;
+    colArr.forEach(function(c,ri){
+      var x=colX[ci],y=startY+ri*(BH+VGAP);
+      posMap[c.name]={x:x,y:y,cx:x+BW/2,cy:y+BH/2};
+    });
+  });
+  // Status colors for node borders
+  var _sc=function(s){var m={"Released":"#16a34a","Defined":"#2563eb","Design In Progress":"#f59e0b","Concept":"#9333ea","Draft":"#9ca3af","TBD":"#9ca3af"};return m[s]||"#9ca3af";};
+  var _sf=function(s){var m={"Released":"#f0fdf4","Defined":"#eff6ff","Design In Progress":"#fffbeb","Concept":"#faf5ff","Draft":"#f9fafb","TBD":"#f9fafb"};return m[s]||"#f9fafb";};
+  // Arrow marker defs per unique stroke color
+  var usedColors={};
+  links.forEach(function(l){usedColors[_archFlowCol(l.flowType).stroke]=true;});
+  var defs="<defs>";
+  Object.keys(usedColors).forEach(function(color){
+    var mid="arr_"+color.replace(/#/g,"");
+    defs+="<marker id='"+mid+"' markerWidth='7' markerHeight='7' refX='6' refY='3' orient='auto'>"+
+      "<path d='M0,0 L0,6 L7,3 z' fill='"+color+"'/></marker>";
+  });
+  defs+="</defs>";
+  // Column headers
+  var colLabels=["קלט / חיישנים","חומרה / מכאני","עיבוד / תוכנה","ממשק / פלט"];
+  var hdrSVG="";
+  colX.forEach(function(cx,i){
+    hdrSVG+="<text x='"+(cx+BW/2)+"' y='24' text-anchor='middle' class='arch-col-header' fill='#6b7280'>"+colLabels[i]+"</text>";
+    hdrSVG+="<line x1='"+cx+"' y1='34' x2='"+(cx+BW)+"' y2='34' stroke='#e2e8f0' stroke-width='1.5'/>";
+  });
+  // Link paths (drawn first, behind nodes)
+  var pathsSVG="";
+  links.forEach(function(l){
+    var sp=posMap[l.sourceComponent],tp=posMap[l.targetComponent];
+    if(!sp||!tp)return;
+    var fc=_archFlowCol(l.flowType);
+    var mid="arr_"+fc.stroke.replace(/#/g,"");
+    var x1,y1,x2,y2,cp1x,cp1y,cp2x,cp2y;
+    if(sp.x<tp.x){
+      x1=sp.x+BW;y1=sp.cy;x2=tp.x;y2=tp.cy;
+      var dx=(x2-x1)*0.55;cp1x=x1+dx;cp1y=y1;cp2x=x2-dx;cp2y=y2;
+    } else if(sp.x>tp.x){
+      x1=sp.x;y1=sp.cy;x2=tp.x+BW;y2=tp.cy;
+      var dx=Math.abs(x1-x2)*0.4;
+      cp1x=x1-dx;cp1y=y1-50;cp2x=x2+dx;cp2y=y2-50;
+    } else {
+      x1=sp.x+BW/2;y1=sp.y+BH;x2=tp.x+BW/2;y2=tp.y;
+      cp1x=x1+70;cp1y=y1+20;cp2x=x2+70;cp2y=y2-20;
+    }
+    pathsSVG+="<path d='M"+x1+","+y1+" C"+cp1x+","+cp1y+" "+cp2x+","+cp2y+" "+x2+","+y2+"' "+
+      "stroke='"+fc.stroke+"' stroke-width='1.8' fill='none' opacity='.75' "+
+      "marker-end='url(#"+mid+")'><title>"+esc(l.flowName)+" ["+esc(l.flowType)+"] "+esc(l.payloadOrMessage||"")+"</title></path>";
+    var mx=(x1+x2)/2,my=(y1+y2)/2-8;
+    pathsSVG+="<text x='"+mx+"' y='"+my+"' text-anchor='middle' class='arch-link-label' fill='"+fc.stroke+"' "+
+      "style='paint-order:stroke;stroke:white;stroke-width:3px;stroke-linejoin:round;'>"+esc(l.flowName)+"</text>";
+  });
+  // Node rectangles + labels (drawn on top)
+  var nodesSVG="";
+  comps.forEach(function(c){
+    var p=posMap[c.name];if(!p)return;
+    var sc=_sc(c.status),sf=_sf(c.status);
+    nodesSVG+="<rect x='"+p.x+"' y='"+p.y+"' width='"+BW+"' height='"+BH+"' "+
+      "fill='"+sf+"' stroke='"+sc+"' stroke-width='2' rx='8' ry='8'>"+
+      "<title>"+esc(c.name)+" ["+esc(c.type)+"] "+esc(c.status)+"\n"+esc(c.desc||"")+"</title></rect>";
+    var name=c.name,line1=esc(name),line2="";
+    if(name.length>16){var s=name.lastIndexOf(" ",16);if(s>4){line1=esc(name.substring(0,s));line2=esc(name.substring(s+1));}}
+    if(line2){
+      nodesSVG+="<text x='"+(p.x+BW/2)+"' y='"+(p.y+16)+"' text-anchor='middle' class='arch-node-label' fill='#1e293b'>"+line1+"</text>";
+      nodesSVG+="<text x='"+(p.x+BW/2)+"' y='"+(p.y+30)+"' text-anchor='middle' class='arch-node-label' fill='#1e293b'>"+line2+"</text>";
+    } else {
+      nodesSVG+="<text x='"+(p.x+BW/2)+"' y='"+(p.y+23)+"' text-anchor='middle' class='arch-node-label' fill='#1e293b'>"+line1+"</text>";
+    }
+    nodesSVG+="<text x='"+(p.x+BW/2)+"' y='"+(p.y+BH-8)+"' text-anchor='middle' class='arch-node-type' fill='"+sc+"'>"+esc(c.type||"")+"</text>";
+  });
+  // Flow-type legend
+  var legendEl=document.getElementById("sysArchLegend");
+  if(legendEl){
+    var seen={},lhtml="";
+    links.forEach(function(l){if(l.flowType&&!seen[l.flowType]){seen[l.flowType]=true;}});
+    Object.keys(seen).forEach(function(ft){
+      var fc=_archFlowCol(ft);
+      lhtml+="<span class='arch-legend-chip' style='background:"+fc.fill+";color:"+fc.stroke+";border:1px solid "+fc.stroke+"40;'>"+
+        "<svg width='14' height='4' style='display:inline;vertical-align:middle;margin-left:3px;'>"+
+          "<line x1='0' y1='2' x2='14' y2='2' stroke='"+fc.stroke+"' stroke-width='2'/></svg>"+
+        esc(ft)+"</span>";
+    });
+    legendEl.innerHTML=lhtml;
+  }
+  wrap.innerHTML="<svg width='"+svgW+"' height='"+svgH+"' style='font-family:inherit;direction:ltr;display:block;'>"+
+    defs+hdrSVG+pathsSVG+nodesSVG+"</svg>";
+}
+
+// ─── SOFTWARE ARCH TABLE + DIAGRAM ────────────────────────
+function renderSWArchBody(){
+  renderTable("swArchBody",DB.swArch||[],[],function(m,i){
+    return "<td>"+(i+1)+"</td>"+
+      "<td><b>"+esc(m.name||"")+"</b></td>"+
+      "<td>"+esc(m.layer||"")+"</td>"+
+      "<td>"+esc(m.lang||"")+"</td>"+
+      "<td style='max-width:200px;'>"+esc(m.desc||"")+"</td>"+
+      "<td>"+esc(m.apis||"-")+"</td>"+
+      "<td style='max-width:140px;font-size:11px;'>"+esc(m.connections||"-")+"</td>"+
+      "<td>"+esc(m.interfaceType||"-")+"</td>"+
+      "<td style='max-width:150px;font-size:11px;color:var(--g600);'>"+esc(m.flowDesc||"-")+"</td>"+
+      "<td>"+ragBadge(m.status||"Draft")+"</td>"+
+      "<td>"+actionBtns(i,"swArch")+"</td>";
+  });
+  renderSoftwareArchitectureDiagram();
+}
+
+var _swLayerOrder=["Drivers","Application","Service","External","Integration"];
+var _swLayerColors={
+  "Drivers":    {fill:"#fef3c7",stroke:"#d97706"},
+  "Application":{fill:"#eff6ff",stroke:"#2563eb"},
+  "Service":    {fill:"#f0fdf4",stroke:"#16a34a"},
+  "External":   {fill:"#faf5ff",stroke:"#9333ea"},
+  "Integration":{fill:"#faf5ff",stroke:"#9333ea"},
+  "_default":   {fill:"#f1f5f9",stroke:"#64748b"}
+};
+function _swLayerColor(layer){
+  if(!layer)return _swLayerColors["_default"];
+  for(var i=0;i<_swLayerOrder.length;i++){
+    if(layer.indexOf(_swLayerOrder[i])>=0)return _swLayerColors[_swLayerOrder[i]];
+  }
+  return _swLayerColors["_default"];
+}
+
+function renderSoftwareArchitectureDiagram(){
+  var wrap=document.getElementById("swArchDiagram");
+  if(!wrap)return;
+  var mods=DB.swArch||[];
+  if(!mods.length){
+    wrap.innerHTML="<div class='arch-diagram-empty'><span class='arch-empty-icon'>💻</span><span>הוסף מודולים לטבלה כדי להציג את הדיאגרמה</span></div>";
+    return;
+  }
+  // Group by layer (preserve insertion order)
+  var layerKeys=[],layerMap={};
+  mods.forEach(function(m){
+    var l=m.layer||"General";
+    if(!layerMap[l]){layerMap[l]=[];layerKeys.push(l);}
+    layerMap[l].push(m);
+  });
+  // Sort layers by canonical order (best effort)
+  layerKeys.sort(function(a,b){
+    var ai=999,bi=999;
+    _swLayerOrder.forEach(function(k,i){if(a.indexOf(k)>=0)ai=Math.min(ai,i);if(b.indexOf(k)>=0)bi=Math.min(bi,i);});
+    return ai-bi;
+  });
+  var BW=160,BH=60,HGAP=20,LH=100,PL=16,PT=16;
+  var maxInLayer=1;
+  layerKeys.forEach(function(l){if(layerMap[l].length>maxInLayer)maxInLayer=layerMap[l].length;});
+  var contentW=maxInLayer*(BW+HGAP)-HGAP;
+  var svgW=PL+120+contentW+PL;
+  var svgH=PT+layerKeys.length*LH+PT;
+  // Position map
+  var posMap={};
+  layerKeys.forEach(function(l,li){
+    var arr=layerMap[l];
+    var totalW=arr.length*(BW+HGAP)-HGAP;
+    var startX=PL+120+(contentW-totalW)/2;
+    var y=PT+li*LH+(LH-BH)/2;
+    arr.forEach(function(m,mi){
+      var x=startX+mi*(BW+HGAP);
+      posMap[m.name]={x:x,y:y,cx:x+BW/2,cy:y+BH/2};
+    });
+  });
+  // Layer bands
+  var bandsSVG="";
+  layerKeys.forEach(function(l,li){
+    var lc=_swLayerColor(l);
+    var y=PT+li*LH;
+    bandsSVG+="<rect x='0' y='"+y+"' width='"+svgW+"' height='"+LH+"' fill='"+lc.fill+"' opacity='.4'/>";
+    bandsSVG+="<line x1='0' y1='"+(y+LH)+"' x2='"+svgW+"' y2='"+(y+LH)+"' stroke='"+lc.stroke+"' stroke-width='.5' opacity='.4'/>";
+    var shortLabel=l.length>22?l.substring(0,20)+"…":l;
+    bandsSVG+="<text x='"+(PL+110)+"' y='"+(y+LH/2+5)+"' text-anchor='end' class='swarch-layer-label' fill='"+lc.stroke+"'>"+esc(shortLabel)+"</text>";
+  });
+  // Connection lines between modules (dashed)
+  var connSVG="";
+  mods.forEach(function(m){
+    if(!m.connections)return;
+    var sp=posMap[m.name];if(!sp)return;
+    m.connections.split(",").forEach(function(cn){
+      var tp=posMap[cn.trim()];if(!tp)return;
+      var x1=sp.cx,y1=sp.cy>tp.cy?sp.y:sp.y+BH;
+      var x2=tp.cx,y2=sp.cy>tp.cy?tp.y+BH:tp.y;
+      connSVG+="<line x1='"+x1+"' y1='"+y1+"' x2='"+x2+"' y2='"+y2+"' "+
+        "stroke='#94a3b8' stroke-width='1.5' stroke-dasharray='4,3' opacity='.65'/>";
+    });
+  });
+  // Node boxes
+  var nodesSVG="";
+  mods.forEach(function(m){
+    var p=posMap[m.name];if(!p)return;
+    var lc=_swLayerColor(m.layer||"");
+    var name=m.name,line1=esc(name),line2="";
+    if(name.length>17){var s=name.lastIndexOf(" ",17);if(s>4){line1=esc(name.substring(0,s));line2=esc(name.substring(s+1));}}
+    nodesSVG+="<rect x='"+p.x+"' y='"+p.y+"' width='"+BW+"' height='"+BH+"' "+
+      "fill='white' stroke='"+lc.stroke+"' stroke-width='2' rx='8'>"+
+      "<title>"+esc(m.name)+"\n"+esc(m.desc||"")+"</title></rect>";
+    if(line2){
+      nodesSVG+="<text x='"+(p.x+BW/2)+"' y='"+(p.y+18)+"' text-anchor='middle' class='arch-node-label' fill='#1e293b'>"+line1+"</text>";
+      nodesSVG+="<text x='"+(p.x+BW/2)+"' y='"+(p.y+33)+"' text-anchor='middle' class='arch-node-label' fill='#1e293b'>"+line2+"</text>";
+    } else {
+      nodesSVG+="<text x='"+(p.x+BW/2)+"' y='"+(p.y+26)+"' text-anchor='middle' class='arch-node-label' fill='#1e293b'>"+line1+"</text>";
+    }
+    nodesSVG+="<text x='"+(p.x+BW/2)+"' y='"+(p.y+BH-8)+"' text-anchor='middle' class='arch-node-type' fill='"+lc.stroke+"'>"+esc(m.lang||"")+"</text>";
+  });
+  // Legend
+  var legendEl=document.getElementById("swArchLegend");
+  if(legendEl){
+    var lhtml="";
+    layerKeys.forEach(function(l){
+      var lc=_swLayerColor(l);
+      lhtml+="<span class='arch-legend-chip' style='background:"+lc.fill+";color:"+lc.stroke+";border:1px solid "+lc.stroke+"40;'>"+esc(l)+"</span>";
+    });
+    legendEl.innerHTML=lhtml;
+  }
+  wrap.innerHTML="<svg width='"+svgW+"' height='"+svgH+"' style='font-family:inherit;direction:ltr;display:block;'>"+
+    bandsSVG+connSVG+nodesSVG+"</svg>";
+}
+
+// ─── CHANGE IMPACT DETECTION ──────────────────────────────
+var _impactCtx=null;
+function _normalizeImpactText(text){
+  return String(text||"").toLowerCase().replace(/[^\u0590-\u05ffa-z0-9\s]/g," ").replace(/\s+/g," ").trim();
+}
+
+function _impactSourceTypeFromArray(arrName){
+  return {
+    sysReqs:"requirement",
+    subsysReqs:"subsystem_requirement",
+    swReqs:"sw_requirement",
+    meReqs:"me_requirement",
+    arch:"architecture_component",
+    archLinks:"architecture_link",
+    icd:"document",
+    vv:"vv"
+  }[arrName] || null;
+}
+
+function _impactEntityCollections(entityType){
+  var map = {
+    requirement:["sysReqs"],
+    subsystem_requirement:["subsysReqs"],
+    sw_requirement:["swReqs"],
+    me_requirement:["meReqs"],
+    architecture_component:["arch"],
+    architecture_link:["archLinks"],
+    vv:["vv"],
+    icd:["icd"],
+    document:["engDocs","swDocs","meDocs"]
+  };
+  return map[entityType] || [];
+}
+
+function _findImpactTarget(entityType, entityId){
+  var found = null;
+  _impactEntityCollections(entityType).some(function(arrName){
+    var arr = DB[arrName] || [];
+    var idx = arr.findIndex(function(item){
+      return item && (item.id === entityId || item.rid === entityId || item.name === entityId);
+    });
+    if(idx >= 0){
+      found = { arrName: arrName, idx: idx, item: arr[idx] };
+      return true;
+    }
+    return false;
+  });
+  return found;
+}
+
+function appendImpactAuditEntry(entry){
+  ensureImpactEngineStructures();
+  DB.impactAudit.push(Object.assign({
+    id: uid(),
+    timestamp: new Date().toISOString(),
+    source: "impact_propagation_apply"
+  }, entry || {}));
+  markDirty();
+}
+
+function buildChangeContext(partial){
+  partial = partial || {};
+  return {
+    sourceType: partial.sourceType || "requirement",
+    sourceId: partial.sourceId || uid(),
+    triggerType: partial.triggerType || "manual_edit",
+    changedFields: Array.isArray(partial.changedFields) ? partial.changedFields.slice() : [],
+    before: partial.before ? JSON.parse(JSON.stringify(partial.before)) : null,
+    after: partial.after ? JSON.parse(JSON.stringify(partial.after)) : null,
+    timestamp: partial.timestamp || new Date().toISOString(),
+    actor: partial.actor || "user"
+  };
+}
+
+function _createImpactRecommendation(changeContext, patch){
+  return {
+    id: uid(),
+    sourceType: changeContext.sourceType,
+    sourceId: changeContext.sourceId,
+    sourceField: (changeContext.changedFields || []).join(", "),
+    triggerType: changeContext.triggerType,
+    targetType: patch.targetType,
+    targetId: patch.targetId || null,
+    impactType: patch.impactType,
+    severity: patch.severity || "medium",
+    confidence: patch.confidence == null ? 0.65 : patch.confidence,
+    rationale: patch.rationale || "",
+    evidence: Array.isArray(patch.evidence) ? patch.evidence.slice() : [],
+    proposedAction: patch.proposedAction || "review",
+    proposedPatch: patch.proposedPatch ? JSON.parse(JSON.stringify(patch.proposedPatch)) : null,
+    requiresApproval: true,
+    status: "proposed",
+    targetEntityType: patch.targetEntityType || patch.targetType || null
+  };
+}
+
+function _createUpdateProposal(rec, entityType, entityId, action, before, after, changedFields, summary){
+  return {
+    proposalId: uid(),
+    recommendationId: rec.id,
+    entityType: entityType || rec.targetEntityType || rec.targetType || null,
+    entityId: entityId || rec.targetId || null,
+    action: action || rec.proposedAction || "review",
+    before: before ? JSON.parse(JSON.stringify(before)) : null,
+    after: after ? JSON.parse(JSON.stringify(after)) : null,
+    changedFields: Array.isArray(changedFields) ? changedFields.slice() : [],
+    summary: summary || rec.rationale || "",
+    approvalState: "pending",
+    createdAt: new Date().toISOString(),
+    localOnly: true
+  };
+}
+
+function _buildImpactStatusPatch(changeContext, reason){
+  return {
+    impactStatus: "review_pending",
+    impactReason: reason,
+    impactSourceId: changeContext.sourceId,
+    impactSourceType: changeContext.sourceType,
+    impactTriggerType: changeContext.triggerType,
+    impactChangedFields: (changeContext.changedFields || []).slice(),
+    impactUpdatedAt: changeContext.timestamp
+  };
+}
+
+function _reqRefsMatch(vvReq, rid){
+  if(!vvReq || !rid) return false;
+  return String(vvReq).split(",").map(function(token){ return token.trim(); }).filter(Boolean).indexOf(String(rid)) >= 0;
+}
+
+function _collectRequirementChildren(sourceRid){
+  var hits = [];
+  [["subsysReqs","subsystem_requirement"],["swReqs","sw_requirement"],["meReqs","me_requirement"]].forEach(function(pair){
+    (DB[pair[0]] || []).forEach(function(item){
+      var refs = [item.parentRid, item.source, item.origin, item.allocation].join(" ");
+      if(item.parentRid === sourceRid || refs.indexOf(sourceRid) >= 0){
+        hits.push({ entityType: pair[1], targetType: "requirement", item: item });
+      }
+    });
+  });
+  return hits;
+}
+
+function _requirementMentions(texts, terms){
+  var hay = _normalizeImpactText((texts || []).join(" "));
+  return terms.some(function(term){ return term && hay.indexOf(_normalizeImpactText(term)) >= 0; });
+}
+
+function buildImpactRecommendations(changeContext){
+  ensureImpactEngineStructures();
+  changeContext = buildChangeContext(changeContext);
+  var recs = [];
+  var after = changeContext.after || {};
+  var before = changeContext.before || {};
+  var sourceRid = after.rid || before.rid || changeContext.sourceId;
+  var sourceName = after.name || before.name || sourceRid;
+  var changedTerms = [before.name, after.name, before.sourceComponent, after.sourceComponent, before.targetComponent, after.targetComponent, sourceRid, sourceName].filter(Boolean);
+
+  if(["requirement","subsystem_requirement","sw_requirement","me_requirement"].indexOf(changeContext.sourceType) >= 0){
+    _collectRequirementChildren(sourceRid).forEach(function(hit){
+      recs.push(_createImpactRecommendation(changeContext, {
+        targetType: "requirement",
+        targetEntityType: hit.entityType,
+        targetId: hit.item.id || hit.item.rid,
+        impactType: "derived_update",
+        severity: "high",
+        confidence: 0.9,
+        rationale: "הדרישה ההורית השתנתה ולכן ייתכן שהדרישה הנגזרת אינה מעודכנת.",
+        evidence: ["parentRid="+(hit.item.parentRid||"-"), "sourceRid="+sourceRid],
+        proposedAction: "mark_stale",
+        proposedPatch: _buildImpactStatusPatch(changeContext, "Parent requirement changed")
+      }));
+    });
+    (DB.vv || []).forEach(function(vv){
+      if(_reqRefsMatch(vv.req, sourceRid)){
+        recs.push(_createImpactRecommendation(changeContext, {
+          targetType: "vv",
+          targetEntityType: "vv",
+          targetId: vv.id || vv.req,
+          impactType: "verification_gap",
+          severity: "medium",
+          confidence: 0.82,
+          rationale: "פריט V&V מקושר לדרישה ששונתה ולכן נדרש review של שיטת האימות והארטיפקט.",
+          evidence: ["vv.req="+String(vv.req||""), "changedFields="+(changeContext.changedFields||[]).join(", ")],
+          proposedAction: "mark_stale",
+          proposedPatch: _buildImpactStatusPatch(changeContext, "Linked requirement changed")
+        }));
+      }
+    });
+    recs.push(_createImpactRecommendation(changeContext, {
+      targetType: "vcrm",
+      targetEntityType: "vcrm",
+      targetId: sourceRid,
+      impactType: "traceability_gap",
+      severity: "medium",
+      confidence: 0.78,
+      rationale: "שינוי בדרישה מחייב רענון של מטריצת הכיסוי והקישור לאימות.",
+      evidence: ["requirement="+sourceRid],
+      proposedAction: "review",
+      proposedPatch: null
+    }));
+    recs.push(_createImpactRecommendation(changeContext, {
+      targetType: "consistency",
+      targetEntityType: "consistency",
+      targetId: "system",
+      impactType: "content_stale",
+      severity: "medium",
+      confidence: 0.72,
+      rationale: "מומלץ להריץ consistency review מחדש לאחר שינוי בדרישה.",
+      evidence: ["sourceType="+changeContext.sourceType],
+      proposedAction: "review",
+      proposedPatch: null
+    }));
+  }
+
+  if(changeContext.sourceType === "architecture_component"){
+    (DB.archLinks || []).forEach(function(link){
+      var refers = [link.sourceComponent, link.targetComponent].indexOf(before.name || after.name) >= 0 || [link.sourceComponent, link.targetComponent].indexOf(before.name) >= 0;
+      if(refers){
+        var patch = _buildImpactStatusPatch(changeContext, "Architecture component changed");
+        if(before.name && after.name && before.name !== after.name){
+          if(link.sourceComponent === before.name) patch.sourceComponent = after.name;
+          if(link.targetComponent === before.name) patch.targetComponent = after.name;
+        }
+        recs.push(_createImpactRecommendation(changeContext, {
+          targetType: "archLink",
+          targetEntityType: "architecture_link",
+          targetId: link.id,
+          impactType: "interface_mismatch",
+          severity: "high",
+          confidence: before.name && after.name && before.name !== after.name ? 0.91 : 0.76,
+          rationale: "קישור ארכיטקטורה מפנה לרכיב ששונה ולכן יש לאשר relink או review.",
+          evidence: ["link="+(link.flowName||link.id), "component="+(before.name||after.name)],
+          proposedAction: before.name && after.name && before.name !== after.name ? "relink" : "mark_stale",
+          proposedPatch: patch
+        }));
+      }
+    });
+    [["sysReqs","requirement"],["subsysReqs","subsystem_requirement"],["swReqs","sw_requirement"],["meReqs","me_requirement"]].forEach(function(pair){
+      (DB[pair[0]] || []).forEach(function(req){
+        if(_requirementMentions([req.desc, req.allocation, req.subsystem], changedTerms)){
+          recs.push(_createImpactRecommendation(changeContext, {
+            targetType: "requirement",
+            targetEntityType: pair[1],
+            targetId: req.id || req.rid,
+            impactType: "allocation_mismatch",
+            severity: "medium",
+            confidence: 0.74,
+            rationale: "הדרישה מתייחסת לרכיב ארכיטקטורה ששונה ולכן ייתכן שנדרש עדכון הקצאה או תיאור.",
+            evidence: ["requirement="+(req.rid||req.id), "component="+(before.name||after.name)],
+            proposedAction: "mark_stale",
+            proposedPatch: _buildImpactStatusPatch(changeContext, "Referenced architecture component changed")
+          }));
+        }
+      });
+    });
+    (DB.icd || []).forEach(function(icd){
+      if(_requirementMentions([icd.name, icd.a, icd.b, icd.sourceComp, icd.targetComp, icd.compA, icd.compB], changedTerms)){
+        recs.push(_createImpactRecommendation(changeContext, {
+          targetType: "document",
+          targetEntityType: "icd",
+          targetId: icd.id || icd.name,
+          impactType: "interface_mismatch",
+          severity: "medium",
+          confidence: 0.8,
+          rationale: "רשומת ICD מזכירה רכיב ששונה ולכן נדרש review של שמות הממשק והקצוות.",
+          evidence: ["icd="+(icd.name||icd.id), "component="+(before.name||after.name)],
+          proposedAction: "mark_stale",
+          proposedPatch: _buildImpactStatusPatch(changeContext, "Referenced architecture component changed")
+        }));
+      }
+    });
+    recs.push(_createImpactRecommendation(changeContext, {
+      targetType: "consistency",
+      targetEntityType: "consistency",
+      targetId: "system",
+      impactType: "architecture_gap",
+      severity: "medium",
+      confidence: 0.7,
+      rationale: "שינוי ברכיב ארכיטקטורה מצדיק רענון של consistency review.",
+      evidence: ["component="+(after.name||before.name)],
+      proposedAction: "review",
+      proposedPatch: null
+    }));
+  }
+
+  if(changeContext.sourceType === "architecture_link"){
+    (DB.icd || []).forEach(function(icd){
+      var icdTexts = [icd.name, icd.a, icd.b, icd.type, icd.sourceComp, icd.targetComp, icd.compA, icd.compB];
+      if(_requirementMentions(icdTexts, changedTerms)){
+        recs.push(_createImpactRecommendation(changeContext, {
+          targetType: "document",
+          targetEntityType: "icd",
+          targetId: icd.id || icd.name,
+          impactType: "interface_mismatch",
+          severity: "high",
+          confidence: 0.88,
+          rationale: "שינוי בקישור ארכיטקטורה עשוי לייתר או לשנות הגדרות ICD מקומיות.",
+          evidence: ["icd="+(icd.name||icd.id), "link="+(after.flowName||before.flowName||changeContext.sourceId)],
+          proposedAction: "mark_stale",
+          proposedPatch: _buildImpactStatusPatch(changeContext, "Architecture link changed")
+        }));
+      }
+    });
+    [["sysReqs","requirement"],["subsysReqs","subsystem_requirement"],["swReqs","sw_requirement"],["meReqs","me_requirement"]].forEach(function(pair){
+      (DB[pair[0]] || []).forEach(function(req){
+        if(_requirementMentions([req.desc, req.allocation, req.subsystem], changedTerms)){
+          recs.push(_createImpactRecommendation(changeContext, {
+            targetType: "requirement",
+            targetEntityType: pair[1],
+            targetId: req.id || req.rid,
+            impactType: "interface_mismatch",
+            severity: "medium",
+            confidence: 0.73,
+            rationale: "הדרישה מזכירה רכיבים/ממשק ששונו בקישור הארכיטקטורה ולכן נדרש review.",
+            evidence: ["requirement="+(req.rid||req.id), "link="+(after.flowName||before.flowName||changeContext.sourceId)],
+            proposedAction: "mark_stale",
+            proposedPatch: _buildImpactStatusPatch(changeContext, "Referenced architecture link changed")
+          }));
+        }
+      });
+    });
+    (DB.vv || []).forEach(function(vv){
+      if(_requirementMentions([vv.req, vv.artifact, vv.owner, vv.method], changedTerms)){
+        recs.push(_createImpactRecommendation(changeContext, {
+          targetType: "vv",
+          targetEntityType: "vv",
+          targetId: vv.id || vv.req,
+          impactType: "verification_gap",
+          severity: "medium",
+          confidence: 0.68,
+          rationale: "מומלץ לעדכן או לבדוק פריט V&V המתייחס לקישור/ממשק ששונה.",
+          evidence: ["vv="+(vv.id||vv.req), "link="+(after.flowName||before.flowName||changeContext.sourceId)],
+          proposedAction: "mark_stale",
+          proposedPatch: _buildImpactStatusPatch(changeContext, "Architecture link changed")
+        }));
+      }
+    });
+    recs.push(_createImpactRecommendation(changeContext, {
+      targetType: "consistency",
+      targetEntityType: "consistency",
+      targetId: "system",
+      impactType: "content_stale",
+      severity: "medium",
+      confidence: 0.72,
+      rationale: "לאחר שינוי בקישור ארכיטקטורה מומלץ לרענן consistency review והדיאגרמה.",
+      evidence: ["sourceComponent="+(after.sourceComponent||before.sourceComponent||""), "targetComponent="+(after.targetComponent||before.targetComponent||"")],
+      proposedAction: "review",
+      proposedPatch: null
+    }));
+  }
+
+  if(changeContext.sourceType === "document"){
+    ["requirement","arch","vv","vcrm","consistency"].forEach(function(targetType){
+      var severity = targetType === "consistency" ? "medium" : "low";
+      var confidence = targetType === "consistency" ? 0.7 : 0.62;
+      recs.push(_createImpactRecommendation(changeContext, {
+        targetType: targetType,
+        targetEntityType: targetType,
+        targetId: targetType === "consistency" ? "system" : null,
+        impactType: targetType === "arch" ? "architecture_gap" : targetType === "vv" || targetType === "vcrm" ? "traceability_gap" : "content_stale",
+        severity: severity,
+        confidence: confidence,
+        rationale: "עדכון מסמך מקומי עשוי להשפיע על "+(targetType === "arch" ? "הנחות ארכיטקטורה" : targetType === "vv" ? "כיסוי אימות" : targetType === "vcrm" ? "מטריצת העקיבות" : targetType === "consistency" ? "בדיקת consistency" : "דרישות נגזרות")+".",
+        evidence: ["document="+(changeContext.sourceId||""), "trigger="+changeContext.triggerType],
+        proposedAction: "review",
+        proposedPatch: null
+      }));
+    });
+  }
+
+  return recs;
+}
+
+function buildUpdateProposals(recommendations){
+  ensureImpactEngineStructures();
+  return (recommendations || []).map(function(rec){
+    var target = rec.targetEntityType ? _findImpactTarget(rec.targetEntityType, rec.targetId) : null;
+    var before = target && target.item ? JSON.parse(JSON.stringify(target.item)) : null;
+    var after = before && rec.proposedPatch ? Object.assign({}, before, JSON.parse(JSON.stringify(rec.proposedPatch))) : null;
+    var changedFields = rec.proposedPatch ? Object.keys(rec.proposedPatch) : [];
+    return _createUpdateProposal(
+      rec,
+      rec.targetEntityType || rec.targetType,
+      rec.targetId,
+      rec.proposedAction,
+      before,
+      after,
+      changedFields,
+      rec.rationale
+    );
+  });
+}
+
+function _prunePendingImpactArtifacts(changeContext){
+  ensureImpactEngineStructures();
+  DB.impactRecommendations = (DB.impactRecommendations || []).filter(function(rec){
+    var sameSource = rec.sourceType === changeContext.sourceType && rec.sourceId === changeContext.sourceId;
+    return !(sameSource && ["proposed","approved"].indexOf(rec.status) >= 0);
+  });
+  var activeRecIds = {};
+  (DB.impactRecommendations || []).forEach(function(rec){ activeRecIds[rec.id] = true; });
+  DB.updateProposals = (DB.updateProposals || []).filter(function(proposal){
+    return proposal.approvalState === "applied" || proposal.approvalState === "rejected" || activeRecIds[proposal.recommendationId];
+  });
+}
+
+function analyzeProjectImpact(changeContext){
+  ensureImpactEngineStructures();
+  changeContext = buildChangeContext(changeContext);
+  _prunePendingImpactArtifacts(changeContext);
+  var recommendations = buildImpactRecommendations(changeContext);
+  var proposals = buildUpdateProposals(recommendations);
+  DB.impactRecommendations = (DB.impactRecommendations || []).concat(recommendations);
+  DB.updateProposals = (DB.updateProposals || []).concat(proposals);
+  markDirty();
+  return { changeContext: changeContext, recommendations: recommendations, proposals: proposals };
+}
+
+function approveUpdateProposals(proposalIds){
+  ensureImpactEngineStructures();
+  var ids = Array.isArray(proposalIds) ? proposalIds : [];
+  DB.updateProposals.forEach(function(proposal){
+    if(ids.indexOf(proposal.proposalId) >= 0 && proposal.approvalState === "pending"){
+      proposal.approvalState = "approved";
+      var rec = (DB.impactRecommendations || []).find(function(item){ return item.id === proposal.recommendationId; });
+      if(rec) rec.status = "approved";
+    }
+  });
+  markDirty();
+  return DB.updateProposals.filter(function(proposal){ return ids.indexOf(proposal.proposalId) >= 0; });
+}
+
+function rejectUpdateProposals(proposalIds){
+  ensureImpactEngineStructures();
+  var ids = Array.isArray(proposalIds) ? proposalIds : [];
+  DB.updateProposals.forEach(function(proposal){
+    if(ids.indexOf(proposal.proposalId) >= 0 && proposal.approvalState !== "applied"){
+      proposal.approvalState = "rejected";
+      var rec = (DB.impactRecommendations || []).find(function(item){ return item.id === proposal.recommendationId; });
+      if(rec) rec.status = "rejected";
+    }
+  });
+  markDirty();
+  return DB.updateProposals.filter(function(proposal){ return ids.indexOf(proposal.proposalId) >= 0; });
+}
+
+function applyApprovedProposals(proposalIds){
+  ensureImpactEngineStructures();
+  var ids = Array.isArray(proposalIds) ? proposalIds : [];
+  var applied = [];
+  var skipped = [];
+  DB.updateProposals.forEach(function(proposal){
+    if(ids.indexOf(proposal.proposalId) < 0 || proposal.approvalState !== "approved") return;
+    var target = proposal.entityType ? _findImpactTarget(proposal.entityType, proposal.entityId) : null;
+    if(!target || !proposal.after || !proposal.changedFields || !proposal.changedFields.length){
+      skipped.push(proposal.proposalId);
+      return;
+    }
+    var before = JSON.parse(JSON.stringify(target.item));
+    target.item = Object.assign(target.item, JSON.parse(JSON.stringify(proposal.after)));
+    DB[target.arrName][target.idx] = target.item;
+    proposal.before = before;
+    proposal.after = JSON.parse(JSON.stringify(target.item));
+    proposal.approvalState = "applied";
+    var rec = (DB.impactRecommendations || []).find(function(item){ return item.id === proposal.recommendationId; });
+    if(rec) rec.status = "applied";
+    appendImpactAuditEntry({
+      actionType: "apply_approved_proposal",
+      proposalId: proposal.proposalId,
+      recommendationId: proposal.recommendationId,
+      entityType: proposal.entityType,
+      entityId: proposal.entityId,
+      changedFields: proposal.changedFields.slice(),
+      before: before,
+      after: JSON.parse(JSON.stringify(target.item))
+    });
+    applied.push(proposal.proposalId);
+  });
+  if(applied.length) renderPage(getCurrentPage());
+  markDirty();
+  return { applied: applied, skipped: skipped };
+}
+
+function _impactChangeSummary(ctx){
+  var after = ctx.after || {};
+  if(ctx.sourceType === "architecture_link"){
+    return "קישור ארכיטקטורה: <b>"+esc(after.sourceComponent||ctx.sourceId||"")+"</b> → <b>"+esc(after.targetComponent||"")+"</b><br><span style='font-size:12px;color:var(--g500);'>"+esc(after.flowName||after.flowType||"")+"</span>";
+  }
+  if(ctx.sourceType === "architecture_component"){
+    return "רכיב ארכיטקטורה: <b>"+esc(after.name||ctx.sourceId||"")+"</b>";
+  }
+  if(ctx.sourceType === "document"){
+    return "מסמך/קלט: <b>"+esc(ctx.sourceId||"מסמך מקומי")+"</b>";
+  }
+  return "דרישה: <b>"+esc(after.rid||ctx.sourceId||"")+"</b><br><span style='font-size:12px;color:var(--g500);'>"+esc(after.desc||"")+"</span>";
+}
+
+function _showImpactModal(bundle){
+  _impactCtx = {
+    changeContext: bundle.changeContext,
+    recommendations: (bundle.recommendations || []).map(function(rec){ return Object.assign({checked:false}, rec); }),
+    proposals: bundle.proposals || []
+  };
+  var html = "<div class='impact-change-summary'><div style='font-size:11px;color:var(--g500);font-weight:700;margin-bottom:4px;'>שינוי שזוהה:</div><div>"+_impactChangeSummary(bundle.changeContext)+"</div></div>";
+  html += "<div style='font-size:13px;font-weight:700;color:var(--g700);margin-bottom:10px;'>זוהו "+_impactCtx.recommendations.length+" המלצות השפעה מקומיות. בחר/י אילו proposals לאשר בלבד:</div>";
+  _impactCtx.recommendations.forEach(function(rec, i){
+    html += "<div class='impact-suggestion'>"+
+      "<input type='checkbox' id='imp_"+i+"' onchange=\"_impactCtx.recommendations["+i+"].checked=this.checked\">"+
+      "<label for='imp_"+i+"' class='impact-suggestion-content' style='cursor:pointer;'>"+
+        "<div class='impact-suggestion-title'><span style='font-size:10px;background:var(--surface0);border:1px solid var(--line);padding:1px 7px;border-radius:8px;margin-left:8px;'>"+esc(rec.targetType)+"</span>"+esc(rec.impactType)+"</div>"+
+        "<div class='impact-suggestion-reason'>"+esc(rec.rationale)+"</div>"+
+        "<div style='font-size:11px;color:var(--g500);margin-top:4px;'>חומרה: "+esc(rec.severity)+" | ביטחון: "+Number(rec.confidence||0).toFixed(2)+"</div>"+
+      "</label>"+
+    "</div>";
+  });
+  document.getElementById("impactModalBody").innerHTML = html;
+  document.getElementById("impactModal").classList.add("open");
+}
+
+function closeImpactModal(){
+  document.getElementById("impactModal").classList.remove("open");
+  _impactCtx = null;
+}
+
+function approveSelectedImpacts(){
+  if(!_impactCtx || !_impactCtx.recommendations) return;
+  var selectedRecIds = _impactCtx.recommendations.filter(function(rec){ return rec.checked; }).map(function(rec){ return rec.id; });
+  if(!selectedRecIds.length){ notify("לא נבחרו המלצות", "w"); return; }
+  var proposalIds = (_impactCtx.proposals || []).filter(function(proposal){
+    return selectedRecIds.indexOf(proposal.recommendationId) >= 0;
+  }).map(function(proposal){ return proposal.proposalId; });
+  approveUpdateProposals(proposalIds);
+  notify(proposalIds.length+" proposals אושרו. לא בוצע apply אוטומטי.", "ok");
+  closeImpactModal();
+}
+
+function _runImpactAnalysisForChange(changeContext, options){
+  options = options || {};
+  var bundle = analyzeProjectImpact(changeContext);
+  if(bundle.recommendations.length && options.openModal !== false){
+    _showImpactModal(bundle);
+  }
+  return bundle;
 }
 
 // ─── SYSENG ───────────────────────────────────────────────
@@ -4908,11 +5872,20 @@ function openAddArch(){
     "</div>"+
     formGroup("סטטוס","<select class='form-select' id='arStatus'><option>TBD</option><option>Concept</option><option>Design In Progress</option><option>Detailed Design</option><option>Released</option></select>"),
     function(){
-      DB.arch.push({
+      var item = {
         id:uid(),name:gV("arName"),type:gV("arType"),subsystem:gV("arSub"),
         interfaces:gV("arInt"),desc:gV("arDesc"),status:gV("arStatus"),
         connections:gV("arConnections"),flowDesc:gV("arFlowDesc")
-      });
+      };
+      DB.arch.push(item);
+      _runImpactAnalysisForChange(buildChangeContext({
+        sourceType: "architecture_component",
+        sourceId: item.id,
+        triggerType: "architecture_edit",
+        changedFields: Object.keys(item).filter(function(key){ return !!item[key]; }),
+        before: null,
+        after: item
+      }), { openModal: true });
       markDirty();renderArch();closeModal();
     }
   );
@@ -16236,6 +17209,8 @@ function editItem(arrName,idx){
   // Generic edit – open a JSON textarea for now
   if(!DB[arrName] || idx < 0 || !DB[arrName][idx]) return;
   var item=DB[arrName][idx];
+  var sourceType = _impactSourceTypeFromArray(arrName);
+  var beforeSnapshot = sourceType ? JSON.parse(JSON.stringify(item)) : null;
   var isReqArr = arrName==="sysReqs" || arrName==="swReqs" || arrName==="meReqs";
   var keys=Object.keys(item).filter(function(k){return k!=="id";});
   var html=keys.map(function(k){
@@ -16245,6 +17220,22 @@ function editItem(arrName,idx){
   }).join("");
   openModal("עריכת פריט",html,function(){
     keys.forEach(function(k){var edit_desc = k==="desc"?"edit_desc":"edit_"+k; DB[arrName][idx][k]=gV(edit_desc);});
+    if(sourceType){
+      var updated = DB[arrName][idx];
+      var changedFields = keys.filter(function(k){
+        return JSON.stringify(updated[k]) !== JSON.stringify(beforeSnapshot[k]);
+      });
+      if(changedFields.length){
+        _runImpactAnalysisForChange(buildChangeContext({
+          sourceType: sourceType,
+          sourceId: updated.id || updated.rid || updated.name || (arrName+"_"+idx),
+          triggerType: sourceType === "architecture_component" || sourceType === "architecture_link" ? "architecture_edit" : "manual_edit",
+          changedFields: changedFields,
+          before: beforeSnapshot,
+          after: updated
+        }), { openModal: sourceType !== "document" });
+      }
+    }
     markDirty();renderPage(getCurrentPage());closeModal();notify("עודכן","ok");
   });
 }
@@ -16578,6 +17569,19 @@ function executeAnalysisForSource(source) {
       console.error('Autonomous project pipeline failed', pipelineErr);
       result.autonomousProject = null;
     }
+    result.impactBundle = _runImpactAnalysisForChange(buildChangeContext({
+      sourceType: "document",
+      sourceId: source.sourceName || _uploadedFileName || "local_document",
+      triggerType: source.inputType === "file" ? "document_update" : "local_analysis",
+      changedFields: ["normalizedText","analysisSummary","recommendations"],
+      before: null,
+      after: {
+        sourceName: source.sourceName || "",
+        inputType: source.inputType || "",
+        summary: result.summary || "",
+        recommendationCount: (result.recs || []).length
+      }
+    }), { openModal: false });
     showRecommendations(result.recs, source.normalizedText, source.sourceName, result.summary);
     return result;
   }).catch(function(err) {
