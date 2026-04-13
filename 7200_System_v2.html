@@ -2432,7 +2432,7 @@ tbody tr:hover { background: #f0f6ff; }
   <div class="pg-header"><div class="pg-title">⚙️ הנדסת מערכת</div>
     <div class="pg-subtitle">T601-ESG | SyRS · SEMP · OCD · ICD · V&V</div>
     <div class="pg-actions" style="margin-top:10px;">
-      <button class="btn btn-outline" id="consistencyReviewBtn" onclick="openAIConsistencyReview()">🧭 Consistency Review</button>
+      <button class="btn btn-outline" id="consistencyReviewBtn" onclick="openAIConsistencyReview()">🧭 סקירת עקביות</button>
     </div>
   </div>
   <div class="tabs">
@@ -7560,17 +7560,104 @@ function showAIActionResult(title, html){
   openModal(title, html, function(){ closeModal(); }, "סגור");
 }
 
+function humanizeConsistencyBucketLabel(key){
+  var labels = {
+    highConfidenceFindings: "ממצאים חזקים",
+    heuristicFindings: "ממצאים משוערים",
+    requirementArchitectureGaps: "פערי דרישות ↔ ארכיטקטורה",
+    architectureInterfaceGaps: "פערי ארכיטקטורה ↔ ICD",
+    requirementVVGaps: "פערי דרישות ↔ V&V",
+    riskArchitectureGaps: "פערי סיכונים ↔ ארכיטקטורה",
+    orphanElements: "פריטים יתומים",
+    traceabilityWarnings: "אזהרות עקיבות",
+    evidence: "עדויות",
+    ambiguity: "אי-ודאות",
+    safetyNotes: "הערות בטיחות"
+  };
+  return labels[key] || key;
+}
+
+function _humanizeConsistencySummary(text){
+  return String(text || "")
+    .replace(/Requirements:\s*(\d+)\./g, "דרישות: $1.")
+    .replace(/Architecture items:\s*(\d+)\./g, "פריטי ארכיטקטורה: $1.")
+    .replace(/ICD rows:\s*(\d+)\./g, "רשומות ICD: $1.")
+    .replace(/VV rows:\s*(\d+)\./g, "רשומות V&V: $1.")
+    .replace(/Risks:\s*(\d+)\./g, "סיכונים: $1.")
+    .replace(/High-confidence findings:\s*(\d+)\./g, "ממצאים חזקים: $1.")
+    .replace(/Heuristic findings:\s*(\d+)\./g, "ממצאים משוערים: $1.")
+    .replace(/Traceability warnings:\s*(\d+)\./g, "אזהרות עקיבות: $1.");
+}
+
+function _humanizeConsistencyDecisionType(type){
+  var norm = String(type || "").toLowerCase();
+  if(norm === "suggestion") return "סקירה שימושית";
+  if(norm === "caution") return "זהירות";
+  if(norm === "refusal") return "לא ניתן לקבוע";
+  return type || "";
+}
+
+function humanizeConsistencyFinding(text, bucket){
+  var raw = String(text || "").trim();
+  if(!raw) return "";
+  var out = raw
+    .replace(/Requirement\s+(.+?)\s+has no explicit VV linkage in DB\.vv\./i, "נמצא פער עקיבות לדרישה \"$1\": אין קישור מפורש ל־V&V ברשומות המקומיות.")
+    .replace(/Requirement without explicit rid was found in (.+?)\./i, "נמצאה דרישה ללא RID מפורש ב־$1.")
+    .replace(/Requirement without rid also lacks a local VV linkage hint\./i, "לדרישה ללא RID גם אין רמז מקומי לקישור V&V.")
+    .replace(/Requirement\s+(.+?)\s+implies interface coverage but no ICD records are available\./i, "הדרישה \"$1\" מצביעה על צורך בממשק, אך אין רשומות ICD זמינות.")
+    .replace(/Requirement\s+(.+?)\s+implies architectural decomposition but no architecture records are available\./i, "הדרישה \"$1\" מצביעה על צורך בפירוק ארכיטקטוני, אך אין רשומות ארכיטקטורה זמינות.")
+    .replace(/Architecture item "(.+?)" exposes interfaces\/connections but no explicit ICD endpoint references it\./i, "פריט הארכיטקטורה \"$1\" מציג ממשקים או חיבורים, אך אין לו התאמה מפורשת בנקודות הקצה של ה־ICD.")
+    .replace(/Architecture item "(.+?)" lacks subsystem, connections, and interfaces\./i, "פריט הארכיטקטורה \"$1\" אינו מוגדר במלואו: חסרים תת־מערכת, חיבורים וממשקים.")
+    .replace(/Architecture item "(.+?)" lacks flowDesc context\./i, "לפריט הארכיטקטורה \"$1\" חסר תיאור זרימה (Flow).")
+    .replace(/ICD row "(.+?)" references endpoint A "(.+?)" that is not present in DB\.arch\./i, "רשומת ICD \"$1\" מפנה לנקודת קצה A בשם \"$2\", אך היא לא קיימת ברשימת רכיבי הארכיטקטורה.")
+    .replace(/ICD row "(.+?)" references endpoint B "(.+?)" that is not present in DB\.arch\./i, "רשומת ICD \"$1\" מפנה לנקודת קצה B בשם \"$2\", אך היא לא קיימת ברשימת רכיבי הארכיטקטורה.")
+    .replace(/ICD row "(.+?)" has incomplete endpoint linkage\./i, "רשומת ICD \"$1\" אינה כוללת קישור מלא בין נקודות הקצה.")
+    .replace(/Risk "(.+?)" has architecture\/interface signals without explicit architectural mitigation\./i, "הסיכון \"$1\" קשור לארכיטקטורה או לממשקים, אך לא מופיעה עבורו התייחסות להפחתה ארכיטקטונית.")
+    .replace(/Architecture-related risk exists while DB\.arch and DB\.icd are empty\./i, "קיים סיכון בעל הקשר ארכיטקטוני, אך רשימות הארכיטקטורה וה־ICD ריקות.")
+    .replace(/Residual risk entry is missing origRiskId linkage\./i, "רשומת סיכון שיורי חסרה הפניה ל־origRiskId של הסיכון המקורי.")
+    .replace(/VV row without req linkage was found\./i, "נמצאה רשומת V&V ללא קישור לדרישה.")
+    .replace(/Document analysis includes architecture\/interface hints but DB\.arch and DB\.icd are still empty\./i, "בניתוח המסמך זוהו רמזים לארכיטקטורה או לממשקים, אך מאגרי DB.arch ו־DB.icd עדיין ריקים.")
+    .replace(/Document analysis includes verification hints but DB\.vv is empty\./i, "בניתוח המסמך זוהו רמזי אימות, אך מאגר DB.vv עדיין ריק.")
+    .replace(/not present in DB\.arch/gi, "לא קיים ברשימת רכיבי הארכיטקטורה")
+    .replace(/lacks flowDesc context/gi, "חסר תיאור זרימה (Flow)")
+    .replace(/\bDB\.vv\b/g, "מאגר V&V מקומי")
+    .replace(/\bDB\.arch\b/g, "רשימת רכיבי הארכיטקטורה")
+    .replace(/\bDB\.icd\b/g, "רשומות ה־ICD");
+
+  if(bucket === "heuristicFindings" || bucket === "requirementArchitectureGaps" || bucket === "riskArchitectureGaps"){
+    if(!/^ייתכן/.test(out) && !/^קיימת אפשרות/.test(out)){
+      out = "ייתכן פער: " + out;
+    }
+  }
+  return out;
+}
+
 function formatConsistencyReviewResult(result){
   var info = result && result.consistencyReview ? result.consistencyReview : {};
   var explainability = result && result.explainability ? result.explainability : null;
   var confidenceBreakdown = result && result.confidenceBreakdown ? result.confidenceBreakdown : null;
   var decision = result && result.decision ? result.decision : null;
+  var sectionBucketMap = {
+    consistencySectionHighConfidence: "highConfidenceFindings",
+    consistencySectionHeuristic: "heuristicFindings",
+    consistencySectionReqArch: "requirementArchitectureGaps",
+    consistencySectionArchIcd: "architectureInterfaceGaps",
+    consistencySectionReqVv: "requirementVVGaps",
+    consistencySectionRiskArch: "riskArchitectureGaps",
+    consistencySectionOrphans: "orphanElements",
+    consistencySectionTraceabilityWarnings: "traceabilityWarnings"
+  };
+
+  function renderHumanizedList(items, bucket){
+    if(!items || !items.length) return "<div style='color:var(--g500);'>—</div>";
+    return renderAIActionList(items.map(function(item){ return humanizeConsistencyFinding(item, bucket); }));
+  }
 
   function renderSection(id, title, items){
     if(!items || !items.length) return "";
     return "<section id='"+id+"' style='display:grid;gap:6px;'>" +
       "<div style='font-weight:700;'>"+esc(title)+"</div>" +
-      renderAIActionList(items) +
+      renderHumanizedList(items, sectionBucketMap[id] || id) +
     "</section>";
   }
 
@@ -7582,14 +7669,14 @@ function formatConsistencyReviewResult(result){
   }
 
   var summaryCards = [
-    renderSummaryCard("highConfidenceFindings", "High-confidence", (info.highConfidenceFindings || []).length),
-    renderSummaryCard("heuristicFindings", "Heuristic", (info.heuristicFindings || []).length),
-    renderSummaryCard("requirementArchitectureGaps", "Req ↔ Arch", (info.requirementArchitectureGaps || []).length),
-    renderSummaryCard("architectureInterfaceGaps", "Arch ↔ ICD", (info.architectureInterfaceGaps || []).length),
-    renderSummaryCard("requirementVVGaps", "Req ↔ V&V", (info.requirementVVGaps || []).length),
-    renderSummaryCard("riskArchitectureGaps", "Risk ↔ Arch", (info.riskArchitectureGaps || []).length),
-    renderSummaryCard("orphanElements", "Orphans", (info.orphanElements || []).length),
-    renderSummaryCard("traceabilityWarnings", "Traceability", (info.traceabilityWarnings || []).length)
+    renderSummaryCard("highConfidenceFindings", humanizeConsistencyBucketLabel("highConfidenceFindings"), (info.highConfidenceFindings || []).length),
+    renderSummaryCard("heuristicFindings", humanizeConsistencyBucketLabel("heuristicFindings"), (info.heuristicFindings || []).length),
+    renderSummaryCard("requirementArchitectureGaps", "דרישות ↔ ארכיטקטורה", (info.requirementArchitectureGaps || []).length),
+    renderSummaryCard("architectureInterfaceGaps", "ארכיטקטורה ↔ ICD", (info.architectureInterfaceGaps || []).length),
+    renderSummaryCard("requirementVVGaps", "דרישות ↔ V&V", (info.requirementVVGaps || []).length),
+    renderSummaryCard("riskArchitectureGaps", "סיכונים ↔ ארכיטקטורה", (info.riskArchitectureGaps || []).length),
+    renderSummaryCard("orphanElements", humanizeConsistencyBucketLabel("orphanElements"), (info.orphanElements || []).length),
+    renderSummaryCard("traceabilityWarnings", humanizeConsistencyBucketLabel("traceabilityWarnings"), (info.traceabilityWarnings || []).length)
   ].join("");
 
   var hasExplainability = !!(
@@ -7602,33 +7689,33 @@ function formatConsistencyReviewResult(result){
   if(hasExplainability){
     explanationHtml =
       "<details id='consistencyReviewExplainability' style='border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:#f8fafc;'>" +
-        "<summary style='cursor:pointer;font-weight:700;'>AI Explanation</summary>" +
+        "<summary style='cursor:pointer;font-weight:700;'>הסבר המערכת</summary>" +
         "<div style='display:grid;gap:10px;margin-top:10px;line-height:1.7;'>" +
-          (explainability && explainability.why ? "<div><b>Why</b><div style='margin-top:4px;'>"+esc(explainability.why)+"</div></div>" : "") +
-          (explainability && explainability.evidence && explainability.evidence.length ? "<div><b>Evidence</b>"+renderAIActionList(explainability.evidence)+"</div>" : "") +
-          (explainability && explainability.sources && explainability.sources.length ? "<div><b>Sources</b>"+renderAIActionList(explainability.sources)+"</div>" : "") +
-          (explainability && explainability.ambiguity && explainability.ambiguity.length ? "<div><b>Ambiguity</b>"+renderAIActionList(explainability.ambiguity)+"</div>" : "") +
-          (explainability && explainability.safetyNotes && explainability.safetyNotes.length ? "<div><b>Safety Notes</b>"+renderAIActionList(explainability.safetyNotes)+"</div>" : "") +
-          (decision ? "<div><b>Decision</b><div style='margin-top:4px;'>"+esc((decision.type || "").toUpperCase() + (decision.reason ? " — " + decision.reason : ""))+"</div></div>" : "") +
-          (confidenceBreakdown ? "<div><b>Confidence Breakdown</b><div style='margin-top:4px;'>base="+esc(String(confidenceBreakdown.base || 0))+" | signal="+esc(String(confidenceBreakdown.signalStrength || 0))+" | ambiguityPenalty="+esc(String(confidenceBreakdown.ambiguityPenalty || 0))+" | conflictPenalty="+esc(String(confidenceBreakdown.conflictPenalty || 0))+" | final="+esc(String(confidenceBreakdown.final || 0))+"</div></div>" : "") +
+          (explainability && explainability.why ? "<div><b>למה זה עלה</b><div style='margin-top:4px;'>"+esc(_humanizeConsistencySummary(explainability.why))+"</div></div>" : "") +
+          (explainability && explainability.evidence && explainability.evidence.length ? "<div><b>"+esc(humanizeConsistencyBucketLabel("evidence"))+"</b>"+renderHumanizedList(explainability.evidence, "evidence")+"</div>" : "") +
+          (explainability && explainability.sources && explainability.sources.length ? "<div><b>מקורות</b>"+renderAIActionList(explainability.sources.map(function(source){ return source === "consistency_rules" ? "כללי עקיבות מקומיים" : source; }))+"</div>" : "") +
+          (explainability && explainability.ambiguity && explainability.ambiguity.length ? "<div><b>"+esc(humanizeConsistencyBucketLabel("ambiguity"))+"</b>"+renderHumanizedList(explainability.ambiguity, "heuristicFindings")+"</div>" : "") +
+          (explainability && explainability.safetyNotes && explainability.safetyNotes.length ? "<div><b>"+esc(humanizeConsistencyBucketLabel("safetyNotes"))+"</b>"+renderHumanizedList(explainability.safetyNotes, "riskArchitectureGaps")+"</div>" : "") +
+          (decision ? "<div><b>סיווג הסקירה</b><div style='margin-top:4px;'>"+esc(_humanizeConsistencyDecisionType(decision.type) + (decision.reason ? " — " + decision.reason : ""))+"</div></div>" : "") +
+          (confidenceBreakdown ? "<div><b>פירוט רמת הביטחון</b><div style='margin-top:4px;'>בסיס="+esc(String(confidenceBreakdown.base || 0))+" | אותות="+esc(String(confidenceBreakdown.signalStrength || 0))+" | קנס עמימות="+esc(String(confidenceBreakdown.ambiguityPenalty || 0))+" | קנס סתירה="+esc(String(confidenceBreakdown.conflictPenalty || 0))+" | סופי="+esc(String(confidenceBreakdown.final || 0))+"</div></div>" : "") +
         "</div>" +
       "</details>";
   }
 
   return "<div id='consistencyReviewRoot' style='display:grid;gap:14px;line-height:1.7;'>" +
-    (info.summary ? "<section id='consistencySectionSummary'><div style='font-weight:700;'>Summary</div><div style='margin-top:4px;'>"+esc(info.summary)+"</div></section>" : "") +
-    "<section id='consistencyTraceabilitySummary'><div style='font-weight:700;margin-bottom:8px;'>Traceability Visibility Summary</div><div id='consistencyTraceSummary' style='display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;'>"+summaryCards+"</div></section>" +
-    renderSection("consistencySectionHighConfidence", "High-Confidence Findings", info.highConfidenceFindings || []) +
-    renderSection("consistencySectionHeuristic", "Heuristic Findings", info.heuristicFindings || []) +
-    renderSection("consistencySectionReqArch", "Requirement ↔ Architecture Gaps", info.requirementArchitectureGaps || []) +
-    renderSection("consistencySectionArchIcd", "Architecture ↔ ICD Gaps", info.architectureInterfaceGaps || []) +
-    renderSection("consistencySectionReqVv", "Requirement ↔ V&V Gaps", info.requirementVVGaps || []) +
-    renderSection("consistencySectionRiskArch", "Risk ↔ Architecture Gaps", info.riskArchitectureGaps || []) +
-    renderSection("consistencySectionOrphans", "Orphan Elements", info.orphanElements || []) +
-    renderSection("consistencySectionTraceabilityWarnings", "Traceability Warnings", info.traceabilityWarnings || []) +
-    "<section id='consistencySectionConfidence'><div style='font-weight:700;'>Confidence</div><div style='margin-top:4px;'>"+esc(String(result && result.confidence != null ? result.confidence : ""))+"</div></section>" +
+    (info.summary ? "<section id='consistencySectionSummary'><div style='font-weight:700;'>סיכום הסקירה</div><div style='margin-top:4px;'>"+esc(_humanizeConsistencySummary(info.summary))+"</div></section>" : "") +
+    "<section id='consistencyTraceabilitySummary'><div style='font-weight:700;margin-bottom:8px;'>תמונת עקיבות מהירה</div><div id='consistencyTraceSummary' style='display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;'>"+summaryCards+"</div></section>" +
+    renderSection("consistencySectionHighConfidence", "ממצאים חזקים", info.highConfidenceFindings || []) +
+    renderSection("consistencySectionHeuristic", "ממצאים משוערים", info.heuristicFindings || []) +
+    renderSection("consistencySectionReqArch", "פערי דרישות ↔ ארכיטקטורה", info.requirementArchitectureGaps || []) +
+    renderSection("consistencySectionArchIcd", "פערי ארכיטקטורה ↔ ICD", info.architectureInterfaceGaps || []) +
+    renderSection("consistencySectionReqVv", "פערי דרישות ↔ V&V", info.requirementVVGaps || []) +
+    renderSection("consistencySectionRiskArch", "פערי סיכונים ↔ ארכיטקטורה", info.riskArchitectureGaps || []) +
+    renderSection("consistencySectionOrphans", "פריטים יתומים", info.orphanElements || []) +
+    renderSection("consistencySectionTraceabilityWarnings", "אזהרות עקיבות", info.traceabilityWarnings || []) +
+    "<section id='consistencySectionConfidence'><div style='font-weight:700;'>רמת ביטחון</div><div style='margin-top:4px;'>"+esc(String(result && result.confidence != null ? result.confidence : ""))+"</div></section>" +
     explanationHtml +
-    "<div style='font-size:12px;color:var(--g600);'>Review only. No data is written automatically.</div>" +
+    "<div style='font-size:12px;color:var(--g600);'>סקירה בלבד. לא מתבצע עדכון אוטומטי של הנתונים.</div>" +
   "</div>";
 }
 
@@ -7804,7 +7891,7 @@ function openAIConsistencyReview(){
     return result;
   }
   openModal(
-    "Consistency Review (Review Only)",
+    "סקירת עקביות (לקריאה בלבד)",
     formatConsistencyReviewResult(result),
     function(){ closeModal(); },
     "סגור"

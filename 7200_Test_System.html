@@ -999,7 +999,9 @@ var AI_CONSISTENCY_REVIEW_TCS = [
   {id:"TC-315",title:"Consistency review traceability summary renders counts",cat:"System Engineering",type:"Regression",pri:"High",reqs:"REQ-125",steps:"Validate the traceability visibility summary count cards render expected values",expected:"The summary block shows stable counts for each review bucket",auto:"yes",fn:"checkConsistencyReviewTraceabilitySummaryRuntime"},
   {id:"TC-316",title:"Opening consistency review does not mutate data",cat:"System Engineering",type:"Regression",pri:"Critical",reqs:"REQ-125",steps:"Open the consistency review modal and confirm no DB arrays change",expected:"Running the UI review flow leaves all tracked arrays unchanged",auto:"yes",fn:"checkConsistencyReviewOpenFlowNoMutationRuntime"},
   {id:"TC-317",title:"Consistency review UI leaves existing rendering intact",cat:"System Engineering",type:"Regression",pri:"Critical",reqs:"REQ-125",steps:"Open consistency review and verify syseng rendering still works afterward",expected:"Existing system engineering renderers remain intact after the modal flow",auto:"yes",fn:"checkConsistencyReviewUIRenderingUnaffectedRuntime"},
-  {id:"TC-318",title:"Consistency review UI is disabled-safe when flag is off",cat:"System Engineering",type:"Regression",pri:"Critical",reqs:"REQ-125",steps:"Turn off aiConsistencyReview and trigger the UI entry path",expected:"A disabled response is returned and the modal does not open",auto:"yes",fn:"checkConsistencyReviewUIDisabledSafeRuntime"}
+  {id:"TC-318",title:"Consistency review UI is disabled-safe when flag is off",cat:"System Engineering",type:"Regression",pri:"Critical",reqs:"REQ-125",steps:"Turn off aiConsistencyReview and trigger the UI entry path",expected:"A disabled response is returned and the modal does not open",auto:"yes",fn:"checkConsistencyReviewUIDisabledSafeRuntime"},
+  {id:"TC-319",title:"Consistency review uses Hebrew-first labels",cat:"System Engineering",type:"Regression",pri:"High",reqs:"REQ-125",steps:"Validate the consistency review renderer shows the intended Hebrew section labels",expected:"The rendered UI is Hebrew-first and avoids English-heavy headings",auto:"yes",fn:"checkConsistencyReviewHebrewLabelsRuntime"},
+  {id:"TC-320",title:"Consistency review humanizes raw finding wording",cat:"System Engineering",type:"Regression",pri:"High",reqs:"REQ-125",steps:"Validate representative raw findings are rendered as readable engineering Hebrew",expected:"Raw log-style phrases are replaced by clearer Hebrew review phrasing",auto:"yes",fn:"checkConsistencyReviewHumanizedWordingRuntime"}
 ];
 
 var AI_REQUIREMENT_APPLY_TCS = [
@@ -2880,7 +2882,7 @@ var AUTOMATION = {
     return withAppWindow(function(w){
       if(typeof w.navigateTo === 'function') w.navigateTo('syseng');
       var btn = w.document.getElementById('consistencyReviewBtn');
-      var ok = !!(btn && typeof w.openAIConsistencyReview === 'function' && /Consistency Review/.test(btn.textContent || ''));
+      var ok = !!(btn && typeof w.openAIConsistencyReview === 'function' && /סקירת עקביות|Consistency Review/.test(btn.textContent || ''));
       return ok ? _runtimePass('Consistency review UI entry exists in the system engineering area') : _runtimeFail('Consistency review UI entry is missing');
     });
   },
@@ -3136,6 +3138,74 @@ var AUTOMATION = {
         w.FEATURES.aiConsistencyReview = prevFlag;
         if(typeof w.closeModal === 'function') w.closeModal();
       }
+    });
+  },
+  checkConsistencyReviewHebrewLabelsRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.formatConsistencyReviewResult !== 'function') return _runtimeFail('formatConsistencyReviewResult missing');
+      var html = w.formatConsistencyReviewResult({
+        confidence: 0.78,
+        consistencyReview: {
+          summary: 'Requirements: 4. Architecture items: 2. ICD rows: 1. VV rows: 0. Risks: 1.',
+          highConfidenceFindings: ['Requirement SYS-1 has no explicit VV linkage in DB.vv.'],
+          heuristicFindings: ['Architecture item "Router" exposes interfaces/connections but no explicit ICD endpoint references it.'],
+          requirementArchitectureGaps: [],
+          architectureInterfaceGaps: [],
+          requirementVVGaps: [],
+          riskArchitectureGaps: [],
+          orphanElements: [],
+          traceabilityWarnings: []
+        },
+        explainability: {
+          why: 'The review is based on local linkage signals.',
+          evidence: ['Requirement SYS-1 has no explicit VV linkage in DB.vv.'],
+          sources: ['consistency_rules'],
+          ambiguity: ['Architecture item "Router" exposes interfaces/connections but no explicit ICD endpoint references it.'],
+          safetyNotes: []
+        },
+        confidenceBreakdown: { base:0.6, signalStrength:0.18, ambiguityPenalty:0, conflictPenalty:0, final:0.78 },
+        decision: { type:'caution', reason:'הסקירה נשענת בחלקה על קישורים חלשים או שדות חסרים ולכן מחייבת review אנושי.' }
+      });
+      var required = ['סיכום הסקירה','תמונת עקיבות מהירה','ממצאים חזקים','ממצאים משוערים','רמת ביטחון','הסבר המערכת','פירוט רמת הביטחון','סיווג הסקירה'];
+      var missing = required.filter(function(label){ return html.indexOf(label) < 0; });
+      return missing.length === 0 ? _runtimePass('Consistency review renderer uses Hebrew-first labels') : _runtimeFail('Missing Hebrew labels: ' + missing.join(', '));
+    });
+  },
+  checkConsistencyReviewHumanizedWordingRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.formatConsistencyReviewResult !== 'function') return _runtimeFail('formatConsistencyReviewResult missing');
+      var html = w.formatConsistencyReviewResult({
+        confidence: 0.72,
+        consistencyReview: {
+          summary: 'High-confidence findings: 1. Heuristic findings: 1. Traceability warnings: 1.',
+          highConfidenceFindings: ['Architecture item "Router" lacks subsystem, connections, and interfaces.'],
+          heuristicFindings: ['Architecture item "Router" exposes interfaces/connections but no explicit ICD endpoint references it.'],
+          requirementArchitectureGaps: [],
+          architectureInterfaceGaps: ['ICD row "Bus-1" references endpoint A "Gateway" that is not present in DB.arch.'],
+          requirementVVGaps: ['Requirement SYS-7 has no explicit VV linkage in DB.vv.'],
+          riskArchitectureGaps: [],
+          orphanElements: [],
+          traceabilityWarnings: ['Architecture item "Router" lacks flowDesc context.']
+        }
+      });
+      var expected = [
+        'פריט הארכיטקטורה "Router" אינו מוגדר במלואו',
+        'חסרים תת־מערכת, חיבורים וממשקים',
+        'ייתכן פער: פריט הארכיטקטורה "Router" מציג ממשקים או חיבורים',
+        'רשומת ICD "Bus-1" מפנה לנקודת קצה A בשם "Gateway"',
+        'נמצא פער עקיבות לדרישה "SYS-7"',
+        'חסר תיאור זרימה (Flow)'
+      ];
+      var missing = expected.filter(function(label){ return html.indexOf(label) < 0; });
+      var unwanted = [
+        'lacks subsystem, connections, and interfaces',
+        'High-Confidence Findings',
+        'Traceability Visibility Summary',
+        'not present in DB.arch'
+      ].filter(function(label){ return html.indexOf(label) >= 0; });
+      return !missing.length && !unwanted.length
+        ? _runtimePass('Consistency review wording is humanized and no longer log-like for representative findings')
+        : _runtimeFail('Humanized wording mismatch. Missing: ' + missing.join(', ') + ' | Unwanted: ' + unwanted.join(', '));
     });
   },
   checkAIFoundationOfflineStubSource: async function(){
