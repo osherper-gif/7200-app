@@ -2431,6 +2431,9 @@ tbody tr:hover { background: #f0f6ff; }
 <div class="page" id="page-syseng">
   <div class="pg-header"><div class="pg-title">⚙️ הנדסת מערכת</div>
     <div class="pg-subtitle">T601-ESG | SyRS · SEMP · OCD · ICD · V&V</div>
+    <div class="pg-actions" style="margin-top:10px;">
+      <button class="btn btn-outline" id="consistencyReviewBtn" onclick="openAIConsistencyReview()">🧭 Consistency Review</button>
+    </div>
   </div>
   <div class="tabs">
     <div class="tab active" onclick="switchTab(this,'se-reqs')">📋 דרישות (SyRS)</div>
@@ -7557,6 +7560,78 @@ function showAIActionResult(title, html){
   openModal(title, html, function(){ closeModal(); }, "סגור");
 }
 
+function formatConsistencyReviewResult(result){
+  var info = result && result.consistencyReview ? result.consistencyReview : {};
+  var explainability = result && result.explainability ? result.explainability : null;
+  var confidenceBreakdown = result && result.confidenceBreakdown ? result.confidenceBreakdown : null;
+  var decision = result && result.decision ? result.decision : null;
+
+  function renderSection(id, title, items){
+    if(!items || !items.length) return "";
+    return "<section id='"+id+"' style='display:grid;gap:6px;'>" +
+      "<div style='font-weight:700;'>"+esc(title)+"</div>" +
+      renderAIActionList(items) +
+    "</section>";
+  }
+
+  function renderSummaryCard(key, label, count){
+    return "<div class='card' data-consistency-key='"+esc(key)+"' data-count='"+esc(String(count))+"' style='padding:10px 12px;border-radius:10px;background:#f8fafc;border:1px solid var(--border);'>" +
+      "<div style='font-size:20px;font-weight:800;line-height:1;'>"+esc(String(count))+"</div>" +
+      "<div style='margin-top:6px;font-size:12px;color:var(--g600);'>"+esc(label)+"</div>" +
+    "</div>";
+  }
+
+  var summaryCards = [
+    renderSummaryCard("highConfidenceFindings", "High-confidence", (info.highConfidenceFindings || []).length),
+    renderSummaryCard("heuristicFindings", "Heuristic", (info.heuristicFindings || []).length),
+    renderSummaryCard("requirementArchitectureGaps", "Req ↔ Arch", (info.requirementArchitectureGaps || []).length),
+    renderSummaryCard("architectureInterfaceGaps", "Arch ↔ ICD", (info.architectureInterfaceGaps || []).length),
+    renderSummaryCard("requirementVVGaps", "Req ↔ V&V", (info.requirementVVGaps || []).length),
+    renderSummaryCard("riskArchitectureGaps", "Risk ↔ Arch", (info.riskArchitectureGaps || []).length),
+    renderSummaryCard("orphanElements", "Orphans", (info.orphanElements || []).length),
+    renderSummaryCard("traceabilityWarnings", "Traceability", (info.traceabilityWarnings || []).length)
+  ].join("");
+
+  var hasExplainability = !!(
+    (explainability && (explainability.why || (explainability.evidence || []).length || (explainability.sources || []).length || (explainability.ambiguity || []).length || (explainability.safetyNotes || []).length)) ||
+    confidenceBreakdown ||
+    decision
+  );
+
+  var explanationHtml = "";
+  if(hasExplainability){
+    explanationHtml =
+      "<details id='consistencyReviewExplainability' style='border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:#f8fafc;'>" +
+        "<summary style='cursor:pointer;font-weight:700;'>AI Explanation</summary>" +
+        "<div style='display:grid;gap:10px;margin-top:10px;line-height:1.7;'>" +
+          (explainability && explainability.why ? "<div><b>Why</b><div style='margin-top:4px;'>"+esc(explainability.why)+"</div></div>" : "") +
+          (explainability && explainability.evidence && explainability.evidence.length ? "<div><b>Evidence</b>"+renderAIActionList(explainability.evidence)+"</div>" : "") +
+          (explainability && explainability.sources && explainability.sources.length ? "<div><b>Sources</b>"+renderAIActionList(explainability.sources)+"</div>" : "") +
+          (explainability && explainability.ambiguity && explainability.ambiguity.length ? "<div><b>Ambiguity</b>"+renderAIActionList(explainability.ambiguity)+"</div>" : "") +
+          (explainability && explainability.safetyNotes && explainability.safetyNotes.length ? "<div><b>Safety Notes</b>"+renderAIActionList(explainability.safetyNotes)+"</div>" : "") +
+          (decision ? "<div><b>Decision</b><div style='margin-top:4px;'>"+esc((decision.type || "").toUpperCase() + (decision.reason ? " — " + decision.reason : ""))+"</div></div>" : "") +
+          (confidenceBreakdown ? "<div><b>Confidence Breakdown</b><div style='margin-top:4px;'>base="+esc(String(confidenceBreakdown.base || 0))+" | signal="+esc(String(confidenceBreakdown.signalStrength || 0))+" | ambiguityPenalty="+esc(String(confidenceBreakdown.ambiguityPenalty || 0))+" | conflictPenalty="+esc(String(confidenceBreakdown.conflictPenalty || 0))+" | final="+esc(String(confidenceBreakdown.final || 0))+"</div></div>" : "") +
+        "</div>" +
+      "</details>";
+  }
+
+  return "<div id='consistencyReviewRoot' style='display:grid;gap:14px;line-height:1.7;'>" +
+    (info.summary ? "<section id='consistencySectionSummary'><div style='font-weight:700;'>Summary</div><div style='margin-top:4px;'>"+esc(info.summary)+"</div></section>" : "") +
+    "<section id='consistencyTraceabilitySummary'><div style='font-weight:700;margin-bottom:8px;'>Traceability Visibility Summary</div><div id='consistencyTraceSummary' style='display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;'>"+summaryCards+"</div></section>" +
+    renderSection("consistencySectionHighConfidence", "High-Confidence Findings", info.highConfidenceFindings || []) +
+    renderSection("consistencySectionHeuristic", "Heuristic Findings", info.heuristicFindings || []) +
+    renderSection("consistencySectionReqArch", "Requirement ↔ Architecture Gaps", info.requirementArchitectureGaps || []) +
+    renderSection("consistencySectionArchIcd", "Architecture ↔ ICD Gaps", info.architectureInterfaceGaps || []) +
+    renderSection("consistencySectionReqVv", "Requirement ↔ V&V Gaps", info.requirementVVGaps || []) +
+    renderSection("consistencySectionRiskArch", "Risk ↔ Architecture Gaps", info.riskArchitectureGaps || []) +
+    renderSection("consistencySectionOrphans", "Orphan Elements", info.orphanElements || []) +
+    renderSection("consistencySectionTraceabilityWarnings", "Traceability Warnings", info.traceabilityWarnings || []) +
+    "<section id='consistencySectionConfidence'><div style='font-weight:700;'>Confidence</div><div style='margin-top:4px;'>"+esc(String(result && result.confidence != null ? result.confidence : ""))+"</div></section>" +
+    explanationHtml +
+    "<div style='font-size:12px;color:var(--g600);'>Review only. No data is written automatically.</div>" +
+  "</div>";
+}
+
 function formatRequirementActionResult(data){
   return "<div style='display:grid;gap:12px;line-height:1.7;'>" +
     "<div><b>Requirement</b><div style='margin-top:4px;'>"+esc(data.requirement||"")+"</div></div>" +
@@ -7724,7 +7799,17 @@ function buildConsistencyReviewPayload(){
 }
 
 function openAIConsistencyReview(){
-  return runAIAction("consistency_review", buildConsistencyReviewPayload());
+  var result = runAIAction("consistency_review", buildConsistencyReviewPayload());
+  if(!result || result.ok !== true){
+    return result;
+  }
+  openModal(
+    "Consistency Review (Review Only)",
+    formatConsistencyReviewResult(result),
+    function(){ closeModal(); },
+    "סגור"
+  );
+  return result;
 }
 
 function openAIDocumentReview(){

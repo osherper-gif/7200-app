@@ -991,7 +991,15 @@ var AI_CONSISTENCY_REVIEW_TCS = [
   {id:"TC-307",title:"Consistency review does not mutate hazards",cat:"AI Specialist",type:"Regression",pri:"Critical",reqs:"REQ-125",steps:"Run consistency review and confirm DB.hazards remains unchanged",expected:"No automatic mutation of DB.hazards",auto:"yes",fn:"checkConsistencyReviewNoHazardsMutationRuntime"},
   {id:"TC-308",title:"Consistency review stays offline-only",cat:"AI Specialist",type:"Regression",pri:"Critical",reqs:"REQ-125",steps:"Inspect source of localConsistencyReview and confirm there is no legacy AI or network usage",expected:"Consistency review remains local-only and isolated",auto:"yes",fn:"checkConsistencyReviewOfflineOnlySource"},
   {id:"TC-309",title:"Consistency review disabled-safe when flag is off",cat:"AI Specialist",type:"Regression",pri:"Critical",reqs:"REQ-125",steps:"Disable aiConsistencyReview and call runAIAction('consistency_review')",expected:"A safe disabled response is returned without crash",auto:"yes",fn:"checkConsistencyReviewDisabledSafeRuntime"},
-  {id:"TC-310",title:"Existing rendering remains unaffected after consistency review",cat:"System Engineering",type:"Regression",pri:"Critical",reqs:"REQ-125",steps:"Verify renderArch/renderICD/renderReqs/renderRisks/renderVV/renderHazards still work before and after consistency review",expected:"Existing rendering remains intact",auto:"yes",fn:"checkConsistencyRenderingUnaffectedRuntime"}
+  {id:"TC-310",title:"Existing rendering remains unaffected after consistency review",cat:"System Engineering",type:"Regression",pri:"Critical",reqs:"REQ-125",steps:"Verify renderArch/renderICD/renderReqs/renderRisks/renderVV/renderHazards still work before and after consistency review",expected:"Existing rendering remains intact",auto:"yes",fn:"checkConsistencyRenderingUnaffectedRuntime"},
+  {id:"TC-311",title:"Consistency review UI entry exists",cat:"System Engineering",type:"Regression",pri:"High",reqs:"REQ-125",steps:"Verify the syseng page exposes a compact consistency review trigger",expected:"consistencyReviewBtn exists without disturbing the rest of the page",auto:"yes",fn:"checkConsistencyReviewUIEntryExistsRuntime"},
+  {id:"TC-312",title:"Consistency review modal opens safely",cat:"System Engineering",type:"Regression",pri:"Critical",reqs:"REQ-125",steps:"Open consistency review from the UI trigger and validate modal state",expected:"The modal opens with consistencyReviewRoot and closes safely",auto:"yes",fn:"checkConsistencyReviewModalOpensRuntime"},
+  {id:"TC-313",title:"Consistency review structured sections render",cat:"System Engineering",type:"Regression",pri:"High",reqs:"REQ-125",steps:"Validate the dedicated renderer outputs the expected section markers",expected:"Summary and review sections render when data exists",auto:"yes",fn:"checkConsistencyReviewSectionsRenderRuntime"},
+  {id:"TC-314",title:"Consistency review AI Explanation is conditional",cat:"System Engineering",type:"Regression",pri:"High",reqs:"REQ-125",steps:"Validate AI Explanation is rendered only when explainability fields are present",expected:"The details block is omitted when no explainability data exists and shown when it does",auto:"yes",fn:"checkConsistencyReviewExplanationConditionalRuntime"},
+  {id:"TC-315",title:"Consistency review traceability summary renders counts",cat:"System Engineering",type:"Regression",pri:"High",reqs:"REQ-125",steps:"Validate the traceability visibility summary count cards render expected values",expected:"The summary block shows stable counts for each review bucket",auto:"yes",fn:"checkConsistencyReviewTraceabilitySummaryRuntime"},
+  {id:"TC-316",title:"Opening consistency review does not mutate data",cat:"System Engineering",type:"Regression",pri:"Critical",reqs:"REQ-125",steps:"Open the consistency review modal and confirm no DB arrays change",expected:"Running the UI review flow leaves all tracked arrays unchanged",auto:"yes",fn:"checkConsistencyReviewOpenFlowNoMutationRuntime"},
+  {id:"TC-317",title:"Consistency review UI leaves existing rendering intact",cat:"System Engineering",type:"Regression",pri:"Critical",reqs:"REQ-125",steps:"Open consistency review and verify syseng rendering still works afterward",expected:"Existing system engineering renderers remain intact after the modal flow",auto:"yes",fn:"checkConsistencyReviewUIRenderingUnaffectedRuntime"},
+  {id:"TC-318",title:"Consistency review UI is disabled-safe when flag is off",cat:"System Engineering",type:"Regression",pri:"Critical",reqs:"REQ-125",steps:"Turn off aiConsistencyReview and trigger the UI entry path",expected:"A disabled response is returned and the modal does not open",auto:"yes",fn:"checkConsistencyReviewUIDisabledSafeRuntime"}
 ];
 
 var AI_REQUIREMENT_APPLY_TCS = [
@@ -2865,6 +2873,268 @@ var AUTOMATION = {
         w.renderRisks();
         w.renderVV();
         w.renderHazards();
+      }
+    });
+  },
+  checkConsistencyReviewUIEntryExistsRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.navigateTo === 'function') w.navigateTo('syseng');
+      var btn = w.document.getElementById('consistencyReviewBtn');
+      var ok = !!(btn && typeof w.openAIConsistencyReview === 'function' && /Consistency Review/.test(btn.textContent || ''));
+      return ok ? _runtimePass('Consistency review UI entry exists in the system engineering area') : _runtimeFail('Consistency review UI entry is missing');
+    });
+  },
+  checkConsistencyReviewModalOpensRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.openAIConsistencyReview !== 'function' || !w.FEATURES || !w.DB) return _runtimeFail('openAIConsistencyReview, FEATURES, or DB missing');
+      var prevFlag = w.FEATURES.aiConsistencyReview;
+      var snapshot = JSON.stringify({
+        arch: w.DB.arch || [],
+        icd: w.DB.icd || [],
+        sysReqs: w.DB.sysReqs || [],
+        swReqs: w.DB.swReqs || [],
+        meReqs: w.DB.meReqs || [],
+        risks: w.DB.risks || [],
+        residualRisks: w.DB.residualRisks || [],
+        vv: w.DB.vv || [],
+        hazards: w.DB.hazards || []
+      });
+      try{
+        var payload = _buildConsistencyRuntimePayload();
+        w.FEATURES.aiConsistencyReview = true;
+        Object.keys(payload).forEach(function(key){
+          if(key !== 'documentHints') w.DB[key] = JSON.parse(JSON.stringify(payload[key]));
+        });
+        var result = w.openAIConsistencyReview();
+        var modal = w.document.getElementById('modal');
+        var root = w.document.getElementById('consistencyReviewRoot');
+        var openOk = !!(result && result.ok === true && modal && modal.classList.contains('open') && root);
+        if(typeof w.closeModal === 'function') w.closeModal();
+        var closeOk = modal ? !modal.classList.contains('open') : false;
+        return openOk && closeOk ? _runtimePass('Consistency review modal opens and closes safely') : _runtimeFail('Consistency review modal did not open/close as expected');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        Object.keys(restored).forEach(function(key){ w.DB[key] = restored[key]; });
+        w.FEATURES.aiConsistencyReview = prevFlag;
+        if(typeof w.closeModal === 'function') w.closeModal();
+      }
+    });
+  },
+  checkConsistencyReviewSectionsRenderRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.formatConsistencyReviewResult !== 'function') return _runtimeFail('formatConsistencyReviewResult missing');
+      var html = w.formatConsistencyReviewResult({
+        confidence: 0.82,
+        consistencyReview: {
+          summary: 'Summary present',
+          highConfidenceFindings: ['HC finding'],
+          heuristicFindings: ['Heuristic finding'],
+          requirementArchitectureGaps: ['Req-Arch gap'],
+          architectureInterfaceGaps: ['Arch-ICD gap'],
+          requirementVVGaps: ['Req-VV gap'],
+          riskArchitectureGaps: ['Risk-Arch gap'],
+          orphanElements: ['Orphan element'],
+          traceabilityWarnings: ['Traceability warning']
+        },
+        explainability: {
+          why: 'Why present',
+          evidence: ['Evidence 1'],
+          sources: ['consistency_rules'],
+          ambiguity: ['Ambiguity 1'],
+          safetyNotes: ['Safety note 1']
+        },
+        confidenceBreakdown: { base:0.6, signalStrength:0.16, ambiguityPenalty:0.04, conflictPenalty:0, final:0.72 },
+        decision: { type:'suggestion', reason:'Grounded review available' }
+      });
+      var markers = [
+        'consistencySectionSummary',
+        'consistencySectionHighConfidence',
+        'consistencySectionHeuristic',
+        'consistencySectionReqArch',
+        'consistencySectionArchIcd',
+        'consistencySectionReqVv',
+        'consistencySectionRiskArch',
+        'consistencySectionOrphans',
+        'consistencySectionTraceabilityWarnings',
+        'consistencySectionConfidence'
+      ];
+      var missing = markers.filter(function(marker){ return html.indexOf(marker) < 0; });
+      return missing.length === 0 ? _runtimePass('Consistency review renderer outputs all structured sections') : _runtimeFail('Missing consistency sections: ' + missing.join(', '));
+    });
+  },
+  checkConsistencyReviewExplanationConditionalRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.formatConsistencyReviewResult !== 'function') return _runtimeFail('formatConsistencyReviewResult missing');
+      var withoutExplain = w.formatConsistencyReviewResult({
+        confidence: 0.5,
+        consistencyReview: { summary:'Only summary' }
+      });
+      var withExplain = w.formatConsistencyReviewResult({
+        confidence: 0.7,
+        consistencyReview: { summary:'Summary' },
+        explainability: { why:'Why', evidence:['Evidence'], sources:['consistency_rules'], ambiguity:[], safetyNotes:[] },
+        confidenceBreakdown: { base:0.6, signalStrength:0.12, ambiguityPenalty:0.02, conflictPenalty:0, final:0.7 },
+        decision: { type:'caution', reason:'Some ambiguity remains' }
+      });
+      var ok = withoutExplain.indexOf('consistencyReviewExplainability') < 0 && withExplain.indexOf('consistencyReviewExplainability') >= 0;
+      return ok ? _runtimePass('Consistency review AI Explanation is rendered only when explainability data exists') : _runtimeFail('Consistency review AI Explanation conditional rendering is incorrect');
+    });
+  },
+  checkConsistencyReviewTraceabilitySummaryRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.formatConsistencyReviewResult !== 'function') return _runtimeFail('formatConsistencyReviewResult missing');
+      var html = w.formatConsistencyReviewResult({
+        confidence: 0.81,
+        consistencyReview: {
+          summary: 'Traceability summary',
+          highConfidenceFindings: ['A','B'],
+          heuristicFindings: ['C'],
+          requirementArchitectureGaps: ['D','E','F'],
+          architectureInterfaceGaps: ['G'],
+          requirementVVGaps: [],
+          riskArchitectureGaps: ['H','I'],
+          orphanElements: ['J'],
+          traceabilityWarnings: ['K','L']
+        }
+      });
+      var host = w.document.createElement('div');
+      host.innerHTML = html;
+      var summary = host.querySelector('#consistencyTraceSummary');
+      if(!summary) return _runtimeFail('Traceability summary block missing');
+      var checks = [
+        ['highConfidenceFindings', '2'],
+        ['heuristicFindings', '1'],
+        ['requirementArchitectureGaps', '3'],
+        ['architectureInterfaceGaps', '1'],
+        ['requirementVVGaps', '0'],
+        ['riskArchitectureGaps', '2'],
+        ['orphanElements', '1'],
+        ['traceabilityWarnings', '2']
+      ];
+      var bad = checks.filter(function(pair){
+        var node = summary.querySelector("[data-consistency-key='"+pair[0]+"']");
+        return !node || node.getAttribute('data-count') !== pair[1];
+      });
+      return bad.length === 0 ? _runtimePass('Consistency review traceability summary renders expected counts') : _runtimeFail('Traceability counts mismatch for: ' + bad.map(function(pair){ return pair[0]; }).join(', '));
+    });
+  },
+  checkConsistencyReviewOpenFlowNoMutationRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.openAIConsistencyReview !== 'function' || !w.FEATURES || !w.DB) return _runtimeFail('openAIConsistencyReview, FEATURES, or DB missing');
+      var prevFlag = w.FEATURES.aiConsistencyReview;
+      var snapshot = JSON.stringify({
+        arch: w.DB.arch || [],
+        icd: w.DB.icd || [],
+        sysReqs: w.DB.sysReqs || [],
+        swReqs: w.DB.swReqs || [],
+        meReqs: w.DB.meReqs || [],
+        risks: w.DB.risks || [],
+        residualRisks: w.DB.residualRisks || [],
+        vv: w.DB.vv || [],
+        hazards: w.DB.hazards || []
+      });
+      try{
+        var payload = _buildConsistencyRuntimePayload();
+        Object.keys(payload).forEach(function(key){
+          if(key !== 'documentHints') w.DB[key] = JSON.parse(JSON.stringify(payload[key]));
+        });
+        var before = JSON.stringify({
+          arch: w.DB.arch || [],
+          icd: w.DB.icd || [],
+          sysReqs: w.DB.sysReqs || [],
+          swReqs: w.DB.swReqs || [],
+          meReqs: w.DB.meReqs || [],
+          risks: w.DB.risks || [],
+          residualRisks: w.DB.residualRisks || [],
+          vv: w.DB.vv || [],
+          hazards: w.DB.hazards || []
+        });
+        w.FEATURES.aiConsistencyReview = true;
+        w.openAIConsistencyReview();
+        if(typeof w.closeModal === 'function') w.closeModal();
+        var after = JSON.stringify({
+          arch: w.DB.arch || [],
+          icd: w.DB.icd || [],
+          sysReqs: w.DB.sysReqs || [],
+          swReqs: w.DB.swReqs || [],
+          meReqs: w.DB.meReqs || [],
+          risks: w.DB.risks || [],
+          residualRisks: w.DB.residualRisks || [],
+          vv: w.DB.vv || [],
+          hazards: w.DB.hazards || []
+        });
+        return before === after ? _runtimePass('Opening consistency review does not mutate tracked DB arrays') : _runtimeFail('Opening consistency review mutated tracked DB arrays');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        Object.keys(restored).forEach(function(key){ w.DB[key] = restored[key]; });
+        w.FEATURES.aiConsistencyReview = prevFlag;
+        if(typeof w.closeModal === 'function') w.closeModal();
+      }
+    });
+  },
+  checkConsistencyReviewUIRenderingUnaffectedRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.openAIConsistencyReview !== 'function' || !w.FEATURES) return _runtimeFail('openAIConsistencyReview or FEATURES missing');
+      var renderFns = ['renderReqs','renderArch','renderICD','renderRisks','renderVV','renderHazards'];
+      var missing = renderFns.filter(function(name){ return typeof w[name] !== 'function'; });
+      if(missing.length) return _runtimeFail('Render functions missing: ' + missing.join(', '));
+      var prevFlag = w.FEATURES.aiConsistencyReview;
+      var snapshot = JSON.stringify({
+        arch: w.DB.arch || [],
+        icd: w.DB.icd || [],
+        sysReqs: w.DB.sysReqs || [],
+        swReqs: w.DB.swReqs || [],
+        meReqs: w.DB.meReqs || [],
+        risks: w.DB.risks || [],
+        residualRisks: w.DB.residualRisks || [],
+        vv: w.DB.vv || [],
+        hazards: w.DB.hazards || []
+      });
+      try{
+        var payload = _buildConsistencyRuntimePayload();
+        Object.keys(payload).forEach(function(key){
+          if(key !== 'documentHints') w.DB[key] = JSON.parse(JSON.stringify(payload[key]));
+        });
+        w.renderReqs('sys');
+        w.renderArch();
+        w.renderICD();
+        w.renderRisks();
+        w.renderVV();
+        w.renderHazards();
+        var before = !!((w.document.getElementById('archBody') || {}).innerHTML && (w.document.getElementById('icdBody') || {}).innerHTML);
+        w.FEATURES.aiConsistencyReview = true;
+        w.openAIConsistencyReview();
+        if(typeof w.closeModal === 'function') w.closeModal();
+        w.renderReqs('sys');
+        w.renderArch();
+        w.renderICD();
+        w.renderRisks();
+        w.renderVV();
+        w.renderHazards();
+        var after = !!((w.document.getElementById('archBody') || {}).innerHTML && (w.document.getElementById('icdBody') || {}).innerHTML);
+        return before && after ? _runtimePass('Consistency review UI flow leaves existing rendering intact') : _runtimeFail('Consistency review UI flow disrupted rendering');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        Object.keys(restored).forEach(function(key){ w.DB[key] = restored[key]; });
+        w.FEATURES.aiConsistencyReview = prevFlag;
+        if(typeof w.closeModal === 'function') w.closeModal();
+      }
+    });
+  },
+  checkConsistencyReviewUIDisabledSafeRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.openAIConsistencyReview !== 'function' || !w.FEATURES) return _runtimeFail('openAIConsistencyReview or FEATURES missing');
+      var prevFlag = w.FEATURES.aiConsistencyReview;
+      try{
+        w.FEATURES.aiConsistencyReview = false;
+        if(typeof w.closeModal === 'function') w.closeModal();
+        var resp = w.openAIConsistencyReview();
+        var modal = w.document.getElementById('modal');
+        var ok = resp && resp.ok === false && resp.mode === 'disabled' && (!modal || !modal.classList.contains('open'));
+        return ok ? _runtimePass('Consistency review UI is disabled-safe when the feature flag is off') : _runtimeFail('Consistency review UI did not stay disabled-safe');
+      } finally {
+        w.FEATURES.aiConsistencyReview = prevFlag;
+        if(typeof w.closeModal === 'function') w.closeModal();
       }
     });
   },
