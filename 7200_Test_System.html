@@ -1041,6 +1041,22 @@ var AI_CONSISTENCY_REVIEW_TCS = [
   {id:"TC-357",title:"Impact engine save/load compatibility and existing flows remain intact",cat:"Change Impact",type:"Regression",pri:"High",reqs:"REQ-130",steps:"Verify new collections coexist with save/load and key renderers",expected:"Impact collections are backward-compatible and existing flows remain intact",auto:"yes",fn:"checkImpactEngineCompatibilityRuntime"}
 ];
 
+var SOFTWARE_REQUIREMENTS_EXPANSION_TCS = [
+  {id:"TC-358",title:"Software requirements support explicit category field",cat:"Software",type:"Regression",pri:"Critical",reqs:"REQ-131",steps:"Verify seeded software requirements expose swCategory values",expected:"Software requirement rows include explicit category metadata",auto:"yes",fn:"checkSoftwareRequirementCategoryModelRuntime"},
+  {id:"TC-359",title:"Software requirement collection expands across multiple engineering categories",cat:"Software",type:"Regression",pri:"Critical",reqs:"REQ-131",steps:"Reset software requirements and invoke engineering seeding",expected:"Seeded software requirements span a broad multi-category set",auto:"yes",fn:"checkSoftwareRequirementCategoryCoverageRuntime"},
+  {id:"TC-360",title:"Interface software requirements exist",cat:"Software",type:"Regression",pri:"High",reqs:"REQ-131",steps:"Inspect seeded software requirements for interface coverage",expected:"At least one Interface software requirement exists",auto:"yes",fn:"checkSoftwareRequirementInterfaceCategoryRuntime"},
+  {id:"TC-361",title:"BIT BITE software requirements exist",cat:"Software",type:"Regression",pri:"High",reqs:"REQ-131",steps:"Inspect seeded software requirements for BIT/BITE coverage",expected:"At least one BIT/BITE software requirement exists",auto:"yes",fn:"checkSoftwareRequirementBitCategoryRuntime"},
+  {id:"TC-362",title:"UI HMI software requirements exist",cat:"Software",type:"Regression",pri:"High",reqs:"REQ-131",steps:"Inspect seeded software requirements for UI/HMI coverage",expected:"At least one UI/HMI software requirement exists",auto:"yes",fn:"checkSoftwareRequirementUiCategoryRuntime"},
+  {id:"TC-363",title:"Message protocol software requirements exist",cat:"Software",type:"Regression",pri:"High",reqs:"REQ-131",steps:"Inspect seeded software requirements for message/protocol coverage",expected:"At least one Message/Protocol software requirement exists",auto:"yes",fn:"checkSoftwareRequirementProtocolCategoryRuntime"},
+  {id:"TC-364",title:"Fault handling software requirements exist",cat:"Software",type:"Regression",pri:"High",reqs:"REQ-131",steps:"Inspect seeded software requirements for fault-handling coverage",expected:"At least one Fault Handling software requirement exists",auto:"yes",fn:"checkSoftwareRequirementFaultCategoryRuntime"},
+  {id:"TC-365",title:"Monitoring and logging software requirements exist",cat:"Software",type:"Regression",pri:"High",reqs:"REQ-131",steps:"Inspect seeded software requirements for monitoring and logging coverage",expected:"Monitoring and Logging categories are both present",auto:"yes",fn:"checkSoftwareRequirementMonitoringLoggingRuntime"},
+  {id:"TC-366",title:"Safety cyber and performance software requirements exist",cat:"Software",type:"Regression",pri:"High",reqs:"REQ-131",steps:"Inspect seeded software requirements for safety, cybersecurity, and performance coverage",expected:"Safety, Cybersecurity, and Performance categories are present",auto:"yes",fn:"checkSoftwareRequirementSafetyCyberPerformanceRuntime"},
+  {id:"TC-367",title:"Startup shutdown and degraded mode software requirements exist",cat:"Software",type:"Regression",pri:"High",reqs:"REQ-131",steps:"Inspect seeded software requirements for startup/shutdown and degraded-mode coverage",expected:"Startup/Shutdown and Degraded Mode categories are present",auto:"yes",fn:"checkSoftwareRequirementStartupDegradedRuntime"},
+  {id:"TC-368",title:"Derived software requirements preserve parent linkage",cat:"Software",type:"Regression",pri:"High",reqs:"REQ-131",steps:"Inspect derived software requirements for parent linkage and derived markers",expected:"Derived software requirements retain parentRid and derived metadata",auto:"yes",fn:"checkSoftwareRequirementDerivedLinkageRuntime"},
+  {id:"TC-369",title:"Software requirement rendering stays active with category-rich rows",cat:"Software",type:"Regression",pri:"Critical",reqs:"REQ-131",steps:"Render software requirements after seeding category-rich rows",expected:"Software requirement table remains non-empty and shows category/parent/allocation/source information",auto:"yes",fn:"checkSoftwareRequirementRenderingRuntime"},
+  {id:"TC-370",title:"Expanded software requirement model stays compatible with save load and downstream flows",cat:"Software",type:"Regression",pri:"Critical",reqs:"REQ-131",steps:"Verify expanded software requirement content coexists with save/load and key downstream helpers",expected:"Save/load plus VCRM, impact, consistency, and AI foundation paths remain intact",auto:"yes",fn:"checkSoftwareRequirementCompatibilityRuntime"}
+];
+
 var AI_REQUIREMENT_APPLY_TCS = [
   {id:"TC-241",title:"Requirement Assist apply action exists",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-123",steps:"בדוק שכפתור Apply Suggestion קיים ב-Requirement Assist",expected:"קיים apply control בטוח בתוך modal ההצעה",auto:"yes",fn:"checkRequirementAssistApplyActionExistsRuntime"},
   {id:"TC-242",title:"Suggestion generation does not auto-apply",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-123",steps:"בדוק שפתיחת Requirement Assist לא משנה את הדרישה אוטומטית",expected:"אין auto-apply ואין audit על פתיחת suggestion בלבד",auto:"yes",fn:"checkRequirementAssistNoAutoApplyRuntime"},
@@ -1079,6 +1095,7 @@ ensureTestCasesPresent(AI_RISK_ASSIST_TCS);
 ensureTestCasesPresent(AI_DOCUMENT_REVIEW_TCS);
 ensureTestCasesPresent(AI_ARCHITECTURE_ASSIST_TCS);
 ensureTestCasesPresent(AI_CONSISTENCY_REVIEW_TCS);
+ensureTestCasesPresent(SOFTWARE_REQUIREMENTS_EXPANSION_TCS);
 ensureTestCasesPresent(AI_REQUIREMENT_APPLY_TCS);
 saveTMS();
 
@@ -1228,7 +1245,11 @@ function _buildConsistencyRuntimePayload(){
       {id:'REQ-X1',rid:'SYS-901',level:'L1',domain:'Interface',desc:'The system shall provide Ethernet mission data exchange.',l0:'L0-1',vv:'Test',status:'Draft'},
       {id:'REQ-X2',rid:'SYS-902',level:'L1',domain:'Architecture',desc:'The system shall support modular subsystem allocation for mission processing.',l0:'L0-1',vv:'Analysis',status:'Draft'}
     ],
-    swReqs:[{id:'SW-X1',rid:'SW-901',level:'L2',domain:'Software',desc:'The software shall log Ethernet link status changes.',l0:'SYS-901',vv:'Test',status:'Draft'}],
+    swReqs:[
+      {id:'SW-X1',rid:'SW-901',level:'L4',domain:'Logging',swCategory:'Logging',desc:'The software shall log Ethernet link status changes.',parentRid:'SYS-901',allocation:'Maintenance Logger',subsystem:'Mission Computer',source:'Derived',vv:'Test',status:'Draft'},
+      {id:'SW-X2',rid:'SW-902',level:'L4',domain:'Interface',swCategory:'Interface',desc:'The software shall exchange control acknowledgements over the Ethernet interface.',parentRid:'SYS-901',allocation:'Operator Interface Service',subsystem:'Mission Computer',source:'Derived',vv:'Test',status:'Draft'},
+      {id:'SW-X3',rid:'SW-903',level:'L4',domain:'Derived',swCategory:'Derived',isDerived:true,desc:'The software shall derive degraded link status from periodic heartbeat failures.',parentRid:'SYS-902',allocation:'Health Monitor',subsystem:'Mission Computer',source:'Derived',origin:'Derived',vv:'Analysis',status:'Draft'}
+    ],
     meReqs:[{id:'ME-X1',rid:'ME-901',level:'L2',domain:'Mechanical',desc:'The enclosure shall protect the mission computer during vibration.',l0:'SYS-902',vv:'Inspection',status:'Draft'}],
     risks:[{id:'RISK-X1',desc:'Integration risk on the Ethernet backbone',cat:'Integration',impact:'Schedule',sev:4,prob:3,mitigation:'Interface design review',detection:'Test',owner:'SE',status:'open'}],
     residualRisks:[{id:'RR-X1',origRiskId:'RISK-X1',desc:'Residual integration risk after mitigation',sevOrig:4,probOrig:3,mitigationApplied:'Design review',sevRes:2,probRes:2,accepted:'כן',approver:'QA',approvalDate:'2026-04-12'}],
@@ -1352,6 +1373,44 @@ function _buildImpactRuntimeChange(sourceType){
 }
 
 // ── Automation test functions ─────────────────────────────────
+function _withSeededSoftwareRequirementsRuntime(w, verifier){
+  if(typeof verifier !== 'function') return _runtimeFail('software verifier missing');
+  if(typeof w._ensureEngineeringStructures !== 'function' || !w.DB) return _runtimeFail('_ensureEngineeringStructures or DB missing');
+  var snapshot = JSON.stringify({
+    sysReqs:w.DB.sysReqs||[],
+    subsysReqs:w.DB.subsysReqs||[],
+    swReqs:w.DB.swReqs||[],
+    meReqs:w.DB.meReqs||[],
+    arch:w.DB.arch||[],
+    archLinks:w.DB.archLinks||[],
+    swArch:w.DB.swArch||[],
+    meArch:w.DB.meArch||[],
+    meArchLinks:w.DB.meArchLinks||[]
+  });
+  try{
+    w.DB.sysReqs = [];
+    w.DB.subsysReqs = [];
+    w.DB.swReqs = [];
+    w.DB.meReqs = [];
+    w.DB.arch = [];
+    w.DB.archLinks = [];
+    w.DB.swArch = [];
+    w.DB.meArch = [];
+    w.DB.meArchLinks = [];
+    w._ensureEngineeringStructures();
+    return verifier(w.DB.swReqs || [], w);
+  } finally {
+    var restored = JSON.parse(snapshot);
+    Object.keys(restored).forEach(function(key){ w.DB[key] = restored[key]; });
+  }
+}
+
+function _softwareCategorySet(rows){
+  return Array.from(new Set((rows || []).map(function(r){
+    return String((r && (r.swCategory || r.domain)) || "").trim();
+  }).filter(Boolean)));
+}
+
 var AUTOMATION = {
   checkAppLoadRuntime: async function(){
     return withAppWindow(function(w){
@@ -4145,6 +4204,134 @@ var AUTOMATION = {
         Array.isArray(w.DB.impactRecommendations) &&
         Array.isArray(w.DB.updateProposals);
       return ok ? _runtimePass('Impact engine collections coexist with save/load and existing render flows') : _runtimeFail('Impact engine compatibility with existing flows is broken');
+    });
+  },
+  checkSoftwareRequirementCategoryModelRuntime: async function(){
+    return withAppWindow(function(w){
+      return _withSeededSoftwareRequirementsRuntime(w, function(rows){
+        var ok = rows.length >= 12 && rows.every(function(r){ return typeof r.swCategory === 'string' && r.swCategory.trim().length; });
+        return ok ? _runtimePass('Seeded software requirements expose explicit swCategory metadata') : _runtimeFail('Software requirement category metadata is missing or incomplete');
+      });
+    });
+  },
+  checkSoftwareRequirementCategoryCoverageRuntime: async function(){
+    return withAppWindow(function(w){
+      return _withSeededSoftwareRequirementsRuntime(w, function(rows){
+        var categories = _softwareCategorySet(rows);
+        var expected = ['Interface','BIT/BITE','UI/HMI','Message/Protocol','Fault Handling','Monitoring','Logging','Safety','Cybersecurity','Performance','Startup/Shutdown','Degraded Mode','Derived'];
+        var missing = expected.filter(function(cat){ return categories.indexOf(cat) < 0; });
+        return !missing.length && rows.length >= expected.length
+          ? _runtimePass('Software requirements expand across all targeted engineering categories')
+          : _runtimeFail('Missing software requirement categories: ' + missing.join(', '));
+      });
+    });
+  },
+  checkSoftwareRequirementInterfaceCategoryRuntime: async function(){
+    return withAppWindow(function(w){
+      return _withSeededSoftwareRequirementsRuntime(w, function(rows){
+        var match = rows.some(function(r){ return (r.swCategory || '') === 'Interface'; });
+        return match ? _runtimePass('Interface software requirements exist') : _runtimeFail('Interface software requirements are missing');
+      });
+    });
+  },
+  checkSoftwareRequirementBitCategoryRuntime: async function(){
+    return withAppWindow(function(w){
+      return _withSeededSoftwareRequirementsRuntime(w, function(rows){
+        var match = rows.some(function(r){ return (r.swCategory || '') === 'BIT/BITE'; });
+        return match ? _runtimePass('BIT/BITE software requirements exist') : _runtimeFail('BIT/BITE software requirements are missing');
+      });
+    });
+  },
+  checkSoftwareRequirementUiCategoryRuntime: async function(){
+    return withAppWindow(function(w){
+      return _withSeededSoftwareRequirementsRuntime(w, function(rows){
+        var match = rows.some(function(r){ return (r.swCategory || '') === 'UI/HMI'; });
+        return match ? _runtimePass('UI/HMI software requirements exist') : _runtimeFail('UI/HMI software requirements are missing');
+      });
+    });
+  },
+  checkSoftwareRequirementProtocolCategoryRuntime: async function(){
+    return withAppWindow(function(w){
+      return _withSeededSoftwareRequirementsRuntime(w, function(rows){
+        var match = rows.some(function(r){ return (r.swCategory || '') === 'Message/Protocol'; });
+        return match ? _runtimePass('Message/Protocol software requirements exist') : _runtimeFail('Message/Protocol software requirements are missing');
+      });
+    });
+  },
+  checkSoftwareRequirementFaultCategoryRuntime: async function(){
+    return withAppWindow(function(w){
+      return _withSeededSoftwareRequirementsRuntime(w, function(rows){
+        var match = rows.some(function(r){ return (r.swCategory || '') === 'Fault Handling'; });
+        return match ? _runtimePass('Fault Handling software requirements exist') : _runtimeFail('Fault Handling software requirements are missing');
+      });
+    });
+  },
+  checkSoftwareRequirementMonitoringLoggingRuntime: async function(){
+    return withAppWindow(function(w){
+      return _withSeededSoftwareRequirementsRuntime(w, function(rows){
+        var categories = _softwareCategorySet(rows);
+        var ok = categories.indexOf('Monitoring') >= 0 && categories.indexOf('Logging') >= 0;
+        return ok ? _runtimePass('Monitoring and Logging software requirements exist') : _runtimeFail('Monitoring/Logging software requirements are incomplete');
+      });
+    });
+  },
+  checkSoftwareRequirementSafetyCyberPerformanceRuntime: async function(){
+    return withAppWindow(function(w){
+      return _withSeededSoftwareRequirementsRuntime(w, function(rows){
+        var categories = _softwareCategorySet(rows);
+        var ok = categories.indexOf('Safety') >= 0 && categories.indexOf('Cybersecurity') >= 0 && categories.indexOf('Performance') >= 0;
+        return ok ? _runtimePass('Safety, Cybersecurity, and Performance software requirements exist') : _runtimeFail('Safety/Cybersecurity/Performance coverage is incomplete');
+      });
+    });
+  },
+  checkSoftwareRequirementStartupDegradedRuntime: async function(){
+    return withAppWindow(function(w){
+      return _withSeededSoftwareRequirementsRuntime(w, function(rows){
+        var categories = _softwareCategorySet(rows);
+        var ok = categories.indexOf('Startup/Shutdown') >= 0 && categories.indexOf('Degraded Mode') >= 0;
+        return ok ? _runtimePass('Startup/Shutdown and Degraded Mode software requirements exist') : _runtimeFail('Startup/Shutdown or Degraded Mode coverage is missing');
+      });
+    });
+  },
+  checkSoftwareRequirementDerivedLinkageRuntime: async function(){
+    return withAppWindow(function(w){
+      return _withSeededSoftwareRequirementsRuntime(w, function(rows){
+        var derived = rows.filter(function(r){ return r.isDerived || (r.swCategory || '') === 'Derived'; });
+        var ok = derived.length > 0 && derived.every(function(r){ return !!r.parentRid && ((r.swCategory || '') === 'Derived'); });
+        return ok ? _runtimePass('Derived software requirements preserve parent linkage and derived metadata') : _runtimeFail('Derived software requirements are missing parent linkage or derived markers');
+      });
+    });
+  },
+  checkSoftwareRequirementRenderingRuntime: async function(){
+    return withAppWindow(function(w){
+      return _withSeededSoftwareRequirementsRuntime(w, function(rows){
+        if(typeof w.renderReqs !== 'function') return _runtimeFail('renderReqs missing');
+        w.renderReqs('sw');
+        var body = w.document.getElementById('swReqsBody');
+        var first = body && body.querySelector('tr');
+        if(!body || !first) return _runtimeFail('Software requirement table did not render populated rows');
+        var cells = first.querySelectorAll('td');
+        var ok = body.querySelectorAll('tr').length >= 12 &&
+          cells.length >= 7 &&
+          (cells[2].textContent || '').trim().length > 0 &&
+          (cells[4].textContent || '').trim().length > 0 &&
+          (cells[5].textContent || '').trim().length > 0 &&
+          (cells[6].textContent || '').trim().length > 0;
+        return ok ? _runtimePass('Software requirement rendering remains active with category-rich rows') : _runtimeFail('Software requirement table output is unexpectedly sparse');
+      });
+    });
+  },
+  checkSoftwareRequirementCompatibilityRuntime: async function(){
+    return withAppWindow(function(w){
+      return _withSeededSoftwareRequirementsRuntime(w, function(rows){
+        var ok = rows.length >= 12 &&
+          typeof w.manualSave === 'function' &&
+          typeof w.loadFromFile === 'function' &&
+          typeof w.renderVCRM === 'function' &&
+          typeof w.analyzeProjectImpact === 'function' &&
+          typeof w.runAIAction === 'function';
+        return ok ? _runtimePass('Expanded software requirement model stays compatible with save/load and downstream flows') : _runtimeFail('Expanded software requirement model broke save/load or downstream helpers');
+      });
     });
   },
   checkAIFoundationOfflineStubSource: async function(){

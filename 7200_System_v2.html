@@ -992,52 +992,176 @@ tbody tr:last-child td{border-bottom:none;}
 .arch-link-label { font-family: inherit; font-size: 10px; font-weight: 600; }
 .arch-col-header { font-family: inherit; font-size: 11px; font-weight: 700; letter-spacing: .5px; }
 
-/* ── Impact Recommendation Modal ─────────────────────────── */
+/* ═══════════════════════════════════════════════════════════
+   IMPACT RECOMMENDATION MODAL — PROFESSIONAL ENGINEERING UX
+   ═══════════════════════════════════════════════════════════ */
 #impactModal {
   position: fixed; inset: 0; z-index: 9800;
-  background: rgba(0,0,0,.55);
+  background: rgba(0,0,0,.6); backdrop-filter: blur(2px);
   display: none; align-items: center; justify-content: center;
 }
 #impactModal.open { display: flex; }
+
+/* Box */
 .impact-modal-box {
-  background: var(--surface0); border-radius: var(--r2);
-  box-shadow: 0 12px 48px rgba(0,0,0,.35);
-  width: min(680px,96vw); max-height: 85vh;
+  background: var(--surface0); border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.4);
+  width: min(760px,97vw); max-height: 90vh;
   display: flex; flex-direction: column; overflow: hidden;
+  direction: rtl;
 }
+
+/* Header */
 .impact-modal-hdr {
-  padding: 16px 20px 12px; border-bottom: 1px solid var(--line);
-  display: flex; align-items: flex-start; gap: 10px;
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(135deg,var(--surface1) 0%,var(--surface0) 100%);
+  display: flex; align-items: flex-start; gap: 12px;
 }
-.impact-modal-badge {
-  background: #fef3c7; color: #92400e;
-  border-radius: 6px; padding: 2px 9px;
-  font-size: 11px; font-weight: 700; white-space: nowrap; margin-top: 2px;
+.impact-modal-hdr-main { flex: 1; }
+.impact-modal-title {
+  font-size: 17px; font-weight: 800; color: var(--g900);
+  margin-bottom: 3px;
 }
-.impact-modal-body { overflow-y: auto; padding: 16px 20px; flex: 1; }
-.impact-change-summary {
-  background: var(--surface1); border-radius: 8px;
-  padding: 10px 14px; margin-bottom: 14px; font-size: 13px;
-  border-right: 3px solid var(--primary);
+.impact-modal-subtitle {
+  font-size: 12px; color: var(--g500); line-height: 1.5;
 }
-.impact-suggestion {
-  display: flex; gap: 10px; align-items: flex-start;
-  padding: 10px 12px; border-radius: 8px;
-  background: var(--surface1); margin-bottom: 8px;
+.impact-local-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: #fffbeb; color: #92400e; border: 1px solid #fcd34d;
+  border-radius: 20px; padding: 3px 10px;
+  font-size: 11px; font-weight: 700; white-space: nowrap;
+  margin-bottom: 6px;
+}
+.impact-modal-close {
+  background: none; border: none; cursor: pointer;
+  font-size: 22px; color: var(--g500); line-height: 1;
+  padding: 0 4px; margin-top: -2px;
+  transition: color .15s;
+}
+.impact-modal-close:hover { color: var(--g900); }
+
+/* Scrollable body */
+.impact-modal-body {
+  overflow-y: auto; padding: 18px 22px; flex: 1;
+  display: flex; flex-direction: column; gap: 14px;
+}
+
+/* Changed item card */
+.impact-changed-item-card {
+  background: var(--surface1);
   border: 1px solid var(--line);
+  border-right: 4px solid var(--primary);
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 13px;
 }
-.impact-suggestion input[type=checkbox] { margin-top: 3px; flex-shrink: 0; cursor: pointer; }
-.impact-suggestion-content { flex: 1; }
-.impact-suggestion-title { font-weight: 700; font-size: 13px; margin-bottom: 3px; }
-.impact-suggestion-reason { font-size: 12px; color: var(--g600); }
+.impact-changed-item-header {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+.impact-type-chip-sm {
+  display: inline-block; padding: 2px 8px;
+  border-radius: 10px; border: 1px solid;
+  font-size: 11px; font-weight: 700; white-space: nowrap;
+}
+.impact-trigger-chip {
+  font-size: 11px; color: var(--g500); padding: 2px 8px;
+  background: var(--surface0); border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+/* Stats row */
+.impact-stats-row {
+  display: grid; grid-template-columns: repeat(4,1fr); gap: 10px;
+}
+.impact-stat-card {
+  background: var(--surface1); border: 1px solid var(--line);
+  border-radius: 8px; padding: 10px 14px; text-align: center;
+}
+.impact-stat-val {
+  font-size: 22px; font-weight: 800; line-height: 1.1;
+}
+.impact-stat-lbl {
+  font-size: 11px; color: var(--g500); margin-top: 2px;
+  font-weight: 600;
+}
+
+/* Select controls bar */
+.impact-select-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 0; border-bottom: 1px solid var(--line);
+  margin-bottom: 2px;
+}
+
+/* Recommendation card */
+.impact-rec-card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface0);
+  padding: 12px 14px;
+  transition: border-color .15s, background .15s;
+}
+.impact-rec-card.checked {
+  border-color: var(--primary);
+  background: rgba(37,99,235,.03);
+}
+.impact-rec-card-top {
+  display: flex; gap: 10px; align-items: flex-start;
+}
+.impact-rec-check {
+  margin-top: 4px; flex-shrink: 0;
+  width: 16px; height: 16px; cursor: pointer;
+  accent-color: var(--primary);
+}
+.impact-rec-card-body { flex: 1; }
+.impact-rec-card-title {
+  display: flex; align-items: center; gap: 6px;
+  flex-wrap: wrap; margin-bottom: 6px;
+}
+.impact-rec-meta {
+  display: flex; align-items: center; gap: 8px;
+  flex-wrap: wrap; margin-bottom: 6px;
+}
+.impact-sev-chip {
+  padding: 2px 9px; border-radius: 10px; border: 1px solid;
+  font-size: 11px; font-weight: 700;
+}
+.impact-action-chip {
+  font-size: 11px; color: var(--g600);
+  background: var(--surface1); border: 1px solid var(--line);
+  border-radius: 8px; padding: 2px 8px;
+}
+
+/* Empty state */
+.impact-empty-state {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 10px;
+  padding: 48px 24px; color: var(--g500); text-align: center;
+}
+.impact-empty-icon { font-size: 40px; }
+
+/* Footer */
 .impact-modal-footer {
-  padding: 12px 20px; border-top: 1px solid var(--line);
-  display: flex; gap: 8px; justify-content: flex-end; align-items: center;
+  padding: 14px 22px; border-top: 1px solid var(--line);
+  background: var(--surface1);
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
 }
-.impact-local-note {
-  font-size: 11px; color: var(--g500); flex: 1;
-  display: flex; align-items: center; gap: 4px;
+.impact-footer-trust {
+  flex: 1; font-size: 11px; color: var(--g500); line-height: 1.4;
 }
+.impact-footer-btns {
+  display: flex; gap: 8px; align-items: center;
+}
+
+/* Status chips */
+.impact-status-pending { background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0; border-radius:8px; padding:1px 7px; font-size:10px; }
+.impact-status-approved { background:#dcfce7;color:#166534;border:1px solid #86efac; border-radius:8px; padding:1px 7px; font-size:10px; }
+.impact-status-rejected { background:#fee2e2;color:#991b1b;border:1px solid #fca5a5; border-radius:8px; padding:1px 7px; font-size:10px; }
+
+[data-theme=dark] .impact-local-badge { background:#451a03;color:#fbbf24;border-color:#78350f; }
+[data-theme=dark] .impact-rec-card { background:var(--surface1); }
+[data-theme=dark] .impact-rec-card.checked { background:rgba(96,165,250,.06); }
 
 /* ── Global Tooltip Engine ──────────────────────────────────── */
 #appTooltip {
@@ -2690,9 +2814,9 @@ tbody tr:hover { background: #f0f6ff; }
     <div class="pg-actions" style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap;">
       <button class="btn btn-primary" onclick="openAddReq('sw')">➕ דרישת תוכנה</button>
       <button class="btn btn-outline" onclick="filterSWReqs('all')">הכל</button>
-      <button class="btn btn-outline" onclick="filterSWReqs('L1')">L1 — ממשק מערכת</button>
-      <button class="btn btn-outline" onclick="filterSWReqs('L2')">L2 — תוכנה</button>
-      <button class="btn btn-outline" onclick="filterSWReqs('L3')">L3 — מודול</button>
+      <button class="btn btn-outline" onclick="filterSWReqs('Interface')">Interface</button>
+      <button class="btn btn-outline" onclick="filterSWReqs('BIT/BITE')">BIT/BITE</button>
+      <button class="btn btn-outline" onclick="filterSWReqs('Derived')">Derived</button>
     </div>
     <div class="card"><div class="card-body tbl-wrap">
       <table><thead><tr><th>#</th><th>מזהה</th><th>קטגוריה</th><th>תיאור</th><th>Parent (SyRS)</th><th>תת-מערכת / הקצאה</th><th>מקור</th><th>סטטוס</th><th>בדיקה</th><th>פעולות</th></tr></thead>
@@ -3735,22 +3859,35 @@ tbody tr:hover { background: #f0f6ff; }
   </div>
 </div>
 
-<!-- CHANGE IMPACT RECOMMENDATION MODAL -->
+<!-- ═══════════ CHANGE IMPACT RECOMMENDATION MODAL ═══════════ -->
 <div id="impactModal">
   <div class="impact-modal-box">
+
+    <!-- Header -->
     <div class="impact-modal-hdr">
-      <div style="flex:1;">
-        <div style="font-weight:800;font-size:16px;margin-bottom:4px;">💡 המלצות לעדכון — נדרש אישור משתמש</div>
-        <div style="font-size:12px;color:var(--g600);">זוהו אלמנטים שעשויים להיות מושפעים מהשינוי. בחר מה לסמן לבדיקה ואשר.</div>
+      <div class="impact-modal-hdr-main">
+        <div class="impact-local-badge">🔒 ניתוח מקומי בלבד — סביבת עבודה מנותקת</div>
+        <div class="impact-modal-title">💡 המלצות לעדכון הפרויקט</div>
+        <div class="impact-modal-subtitle">זוהו השפעות אפשריות על פריטים קשורים. לא מתבצע עדכון אוטומטי ללא אישור משתמש. ההמלצות מבוססות על מידע פנימי בלבד.</div>
       </div>
-      <span class="impact-modal-badge">סקירה מקומית בלבד</span>
+      <button class="impact-modal-close" onclick="closeImpactModal()" title="סגור">×</button>
     </div>
+
+    <!-- Body — rendered by _showImpactModal() -->
     <div class="impact-modal-body" id="impactModalBody"></div>
+
+    <!-- Footer -->
     <div class="impact-modal-footer">
-      <div class="impact-local-note">🔒 לא מתבצע עדכון אוטומטי — כל שינוי מחייב אישור מפורש</div>
-      <button class="btn btn-outline" onclick="closeImpactModal()">בטל</button>
-      <button class="btn btn-primary" onclick="approveSelectedImpacts()">✅ אשר סימון לבדיקה</button>
+      <div class="impact-footer-trust">
+        העדכונים המוצגים הם הצעות בלבד.<br>שום פריט לא יעודכן ללא אישור מפורש.
+      </div>
+      <div class="impact-footer-btns">
+        <button class="btn btn-outline" onclick="closeImpactModal()">סגור</button>
+        <button class="btn btn-outline" style="color:#dc2626;border-color:#dc2626;" onclick="rejectSelectedImpacts()">✗ דחה נבחרים</button>
+        <button class="btn btn-primary" onclick="approveSelectedImpacts()">✓ אשר נבחרים</button>
+      </div>
     </div>
+
   </div>
 </div>
 
@@ -3870,6 +4007,22 @@ function _appendSeedItemsIfEmpty(targetArr, items){
   Array.prototype.push.apply(targetArr, _cloneSeedItems(items));
 }
 
+function _appendSeedItemsIfSparse(targetArr, items, minCount){
+  if(!Array.isArray(targetArr) || !Array.isArray(items) || !items.length) return;
+  if(targetArr.length >= (minCount || items.length)) return;
+  var seen = {};
+  targetArr.forEach(function(item){
+    var key = String((item && (item.rid || item.id || item.desc)) || "").trim().toLowerCase();
+    if(key) seen[key] = true;
+  });
+  items.forEach(function(item){
+    var key = String((item && (item.rid || item.id || item.desc)) || "").trim().toLowerCase();
+    if(!key || seen[key]) return;
+    targetArr.push(JSON.parse(JSON.stringify(item)));
+    seen[key] = true;
+  });
+}
+
 function _pickSeedParentRid(pattern, fallbackRid){
   var reqs = Array.isArray(DB.sysReqs) ? DB.sysReqs : [];
   var matcher = pattern instanceof RegExp ? pattern : null;
@@ -3879,6 +4032,14 @@ function _pickSeedParentRid(pattern, fallbackRid){
   });
   if(match && match.rid) return match.rid;
   return (reqs[0] && reqs[0].rid) || fallbackRid || "";
+}
+
+function _softwareRequirementCategoryOptions(){
+  return "<option>Interface</option><option>BIT/BITE</option><option>UI/HMI</option><option>Message/Protocol</option><option>Fault Handling</option><option>Monitoring</option><option>Logging</option><option>Safety</option><option>Cybersecurity</option><option>Performance</option><option>Startup/Shutdown</option><option>Degraded Mode</option><option>Derived</option>";
+}
+
+function _getSoftwareRequirementCategory(req){
+  return req && (req.swCategory || req.domain || req.level || "");
 }
 
 function _buildEngineeringSeedData(){
@@ -3901,9 +4062,26 @@ function _buildEngineeringSeedData(){
       {id:"seed_subsys_004",rid:"SUBSYS-440",parentRid:mechanicalParent,subsystem:"Mechanical Assembly",domain:"סביבתי",desc:"The Mechanical Assembly subsystem shall secure the Mission Computer, Recorder, and RF modules while preserving thermal paths, connector strain relief, and maintenance access.",source:"Mechanical concept",origin:"Mechanical concept",allocation:"Mechanical Assembly",vv:"Inspection",vvPhase:"Qualification",status:"Draft"}
     ],
     swReqs: [
-      {id:"seed_sw_001",rid:"SW-410",level:"L4",domain:"פונקציונלי",desc:"The software shall serialize mission detections and health information into recorder-ready mission packets with explicit time tags and source identifiers.",parentRid:"SUBSYS-420",allocation:"Mission Data Service",source:"System decomposition",origin:"System decomposition",subsystem:"Mission Computer",vv:"Test",vvPhase:"CDR",status:"Draft"},
-      {id:"seed_sw_002",rid:"SW-420",level:"L4",domain:"ממשק",desc:"The software shall expose command, status, and built-in-test summaries over the Ethernet control interface using a stable application protocol contract.",parentRid:"SUBSYS-420",allocation:"Operator Interface Service",source:"System decomposition",origin:"System decomposition",subsystem:"Mission Computer",vv:"Inspection",vvPhase:"PDR",status:"Draft"},
-      {id:"seed_sw_003",rid:"SW-430",level:"L4",domain:"אמינות",desc:"The software shall monitor recorder, RF front-end, and power-feed health inputs and raise degraded-mode status within one mission update cycle.",parentRid:"SUBSYS-420",allocation:"Health Monitor",source:"System decomposition",origin:"System decomposition",subsystem:"Mission Computer",vv:"Test",vvPhase:"FAT",status:"Draft"}
+      {id:"seed_sw_001",rid:"SW-410",level:"L4",domain:"Interface",swCategory:"Interface",desc:"The software shall provide the operator console control interface with deterministic command acknowledgement and status refresh for each accepted command transaction.",parentRid:"SUBSYS-420",allocation:"Operator Interface Service",source:"System decomposition",origin:"System decomposition",subsystem:"Mission Computer",vv:"Test",vvPhase:"CDR",status:"Draft"},
+      {id:"seed_sw_002",rid:"SW-420",level:"L4",domain:"Interface",swCategory:"Interface",desc:"The software shall deliver recorder-ready mission data to the Recorder through the defined Ethernet service interface without requiring manual packet translation.",parentRid:"SUBSYS-420",allocation:"Mission Data Service",source:"System decomposition",origin:"System decomposition",subsystem:"Mission Computer",vv:"Test",vvPhase:"CDR",status:"Draft"},
+      {id:"seed_sw_003",rid:"SW-430",level:"L4",domain:"BIT/BITE",swCategory:"BIT/BITE",desc:"The software shall execute startup BIT for the operator interface, recorder interface, RF front-end link, and health-monitor functions before enabling mission mode.",parentRid:"SUBSYS-420",allocation:"BIT Manager",source:"System decomposition",origin:"System decomposition",subsystem:"Mission Computer",vv:"Test",vvPhase:"PDR",status:"Draft"},
+      {id:"seed_sw_004",rid:"SW-440",level:"L4",domain:"BIT/BITE",swCategory:"BIT/BITE",desc:"The software shall perform periodic communication-health BIT at least once per mission update cycle and publish a fault annunciation when two consecutive checks fail.",parentRid:"SUBSYS-420",allocation:"Health Monitor",source:"System decomposition",origin:"System decomposition",subsystem:"Mission Computer",vv:"Test",vvPhase:"FAT",status:"Draft"},
+      {id:"seed_sw_005",rid:"SW-450",level:"L4",domain:"UI/HMI",swCategory:"UI/HMI",desc:"The software shall present operator alerts with severity, affected function, and recommended action on the status display within one update cycle of fault detection.",parentRid:"SUBSYS-420",allocation:"Operator Interface Service",source:"System decomposition",origin:"System decomposition",subsystem:"Mission Computer",vv:"Inspection",vvPhase:"FAT",status:"Draft"},
+      {id:"seed_sw_006",rid:"SW-460",level:"L4",domain:"UI/HMI",swCategory:"UI/HMI",desc:"The software shall display command acceptance, rejection reason, and current system mode for each operator command transaction.",parentRid:"SUBSYS-420",allocation:"Operator Interface Service",source:"System decomposition",origin:"System decomposition",subsystem:"Mission Computer",vv:"Test",vvPhase:"FAT",status:"Draft"},
+      {id:"seed_sw_007",rid:"SW-470",level:"L4",domain:"Message/Protocol",swCategory:"Message/Protocol",desc:"The software shall encode each mission packet with message type, source identifier, validity flag, and synchronized timestamp before transmission to the Recorder.",parentRid:"SUBSYS-420",allocation:"Mission Data Service",source:"System decomposition",origin:"System decomposition",subsystem:"Mission Computer",vv:"Test",vvPhase:"CDR",status:"Draft"},
+      {id:"seed_sw_008",rid:"SW-480",level:"L4",domain:"Message/Protocol",swCategory:"Message/Protocol",desc:"The software shall validate incoming control messages for field completeness, legal enumerations, and protocol version before applying the requested action.",parentRid:"SUBSYS-420",allocation:"Protocol Handler",source:"System decomposition",origin:"System decomposition",subsystem:"Mission Computer",vv:"Test",vvPhase:"CDR",status:"Draft"},
+      {id:"seed_sw_009",rid:"SW-490",level:"L4",domain:"Fault Handling",swCategory:"Fault Handling",desc:"The software shall enter a bounded timeout-recovery sequence when the recorder data interface does not acknowledge two consecutive mission packet transfers.",parentRid:"SUBSYS-420",allocation:"Mission Data Service",source:"System decomposition",origin:"System decomposition",subsystem:"Mission Computer",vv:"Test",vvPhase:"FAT",status:"Draft"},
+      {id:"seed_sw_010",rid:"SW-500",level:"L4",domain:"Fault Handling",swCategory:"Fault Handling",desc:"The software shall reject invalid or out-of-range control messages, preserve the current safe operating state, and record the rejection reason in the event log.",parentRid:"SUBSYS-420",allocation:"Protocol Handler",source:"System decomposition",origin:"System decomposition",subsystem:"Mission Computer",vv:"Test",vvPhase:"FAT",status:"Draft"},
+      {id:"seed_sw_011",rid:"SW-510",level:"L4",domain:"Monitoring",swCategory:"Monitoring",desc:"The software shall monitor recorder availability, RF front-end link status, and primary power-health indications during mission mode and publish a consolidated health state each update cycle.",parentRid:"SUBSYS-420",allocation:"Health Monitor",source:"System decomposition",origin:"System decomposition",subsystem:"Mission Computer",vv:"Test",vvPhase:"CDR",status:"Draft"},
+      {id:"seed_sw_012",rid:"SW-520",level:"L4",domain:"Logging",swCategory:"Logging",desc:"The software shall record operator commands, mission-mode transitions, BIT results, and critical interface faults in a retrievable maintenance log with timestamps.",parentRid:"SUBSYS-420",allocation:"Maintenance Logger",source:"System decomposition",origin:"System decomposition",subsystem:"Mission Computer",vv:"Inspection",vvPhase:"FAT",status:"Draft"},
+      {id:"seed_sw_013",rid:"SW-530",level:"L4",domain:"Safety",swCategory:"Safety",desc:"The software shall inhibit unsafe command execution when BIT indicates an unavailable recorder path or an invalid RF front-end control state.",parentRid:"SUBSYS-420",allocation:"Safety Interlock Logic",source:"System decomposition",origin:"System decomposition",subsystem:"Mission Computer",vv:"Test",vvPhase:"Qualification",status:"Draft"},
+      {id:"seed_sw_014",rid:"SW-540",level:"L4",domain:"Cybersecurity",swCategory:"Cybersecurity",desc:"The software shall accept control commands only from trusted interface sources and shall reject messages that fail integrity or authorization checks.",parentRid:"SUBSYS-420",allocation:"Command Validation Service",source:"System decomposition",origin:"System decomposition",subsystem:"Mission Computer",vv:"Test",vvPhase:"Qualification",status:"Draft"},
+      {id:"seed_sw_015",rid:"SW-550",level:"L4",domain:"Performance",swCategory:"Performance",desc:"The software shall complete mission-status distribution, health aggregation, and recorder packet dispatch within the 10 Hz mission update cycle under nominal operating load.",parentRid:"SUBSYS-420",allocation:"Mission Scheduler",source:"System decomposition",origin:"System decomposition",subsystem:"Mission Computer",vv:"Test",vvPhase:"FAT",status:"Draft"},
+      {id:"seed_sw_016",rid:"SW-560",level:"L4",domain:"Startup/Shutdown",swCategory:"Startup/Shutdown",desc:"The software shall complete controlled initialization, execute startup BIT, and enter mission standby only after all required services report ready.",parentRid:"SUBSYS-420",allocation:"Boot Manager",source:"System decomposition",origin:"System decomposition",subsystem:"Mission Computer",vv:"Test",vvPhase:"PDR",status:"Draft"},
+      {id:"seed_sw_017",rid:"SW-570",level:"L4",domain:"Startup/Shutdown",swCategory:"Startup/Shutdown",desc:"The software shall perform orderly recorder shutdown and flush pending mission logs before removing mission-ready status.",parentRid:"SUBSYS-420",allocation:"Shutdown Controller",source:"System decomposition",origin:"System decomposition",subsystem:"Mission Computer",vv:"Test",vvPhase:"FAT",status:"Draft"},
+      {id:"seed_sw_018",rid:"SW-580",level:"L4",domain:"Degraded Mode",swCategory:"Degraded Mode",desc:"The software shall publish degraded-mode status and continue partial operator awareness when the recorder interface is unavailable but the control interface remains healthy.",parentRid:"SUBSYS-420",allocation:"Degraded Mode Manager",source:"System decomposition",origin:"System decomposition",subsystem:"Mission Computer",vv:"Test",vvPhase:"FAT",status:"Draft"},
+      {id:"seed_sw_019",rid:"SW-590",level:"L4",domain:"Derived",swCategory:"Derived",isDerived:true,desc:"The software shall derive a watchdog heartbeat from the mission scheduler and declare degraded operation if three consecutive heartbeats are missed.",parentRid:"SYS-430",allocation:"Health Monitor",source:"Derived from system timing requirement",origin:"Derived from system timing requirement",subsystem:"Mission Computer",vv:"Test",vvPhase:"CDR",status:"Draft"},
+      {id:"seed_sw_020",rid:"SW-600",level:"L4",domain:"Derived",swCategory:"Derived",isDerived:true,desc:"The software shall preserve a local copy of the last valid operator mode command and reapply it only after link restoration and command-source validation.",parentRid:"SYS-420",allocation:"Command Validation Service",source:"Derived from interface control concept",origin:"Derived from interface control concept",subsystem:"Mission Computer",vv:"Test",vvPhase:"FAT",status:"Draft"}
     ],
     meReqs: [
       {id:"seed_me_001",rid:"ME-410",level:"L4",domain:"מבני",desc:"The mechanical design shall support the installed recorder and mission-computer mass under platform vibration without loss of connector retention or mounting integrity.",parentRid:"SUBSYS-440",allocation:"Recorder Tray",source:"System decomposition",origin:"System decomposition",subsystem:"Mechanical Assembly",vv:"Inspection",vvPhase:"Qualification",status:"Draft"},
@@ -3953,7 +4131,7 @@ function _populateEngineeringBaselineContent(){
   var seed = _buildEngineeringSeedData();
   _appendSeedItemsIfEmpty(DB.sysReqs, seed.sysReqs);
   _appendSeedItemsIfEmpty(DB.subsysReqs, seed.subsysReqs);
-  _appendSeedItemsIfEmpty(DB.swReqs, seed.swReqs);
+  _appendSeedItemsIfSparse(DB.swReqs, seed.swReqs, 12);
   _appendSeedItemsIfEmpty(DB.meReqs, seed.meReqs);
   _appendSeedItemsIfEmpty(DB.arch, seed.arch);
   _appendSeedItemsIfEmpty(DB.archLinks, seed.archLinks);
@@ -4712,7 +4890,7 @@ function _requirementConfig(type){
       title:"דרישת תוכנה חדשה",
       idPlaceholder:"SW-001",
       levelOptions:"<option>L3</option><option selected>L4</option><option>L5</option>",
-      domainOptions:"<option>פונקציונלי</option><option>ביצועים</option><option>אבטחה</option><option>ממשק</option><option>אלגוריתמי</option>",
+      domainOptions:_softwareRequirementCategoryOptions(),
       parentLabel:"Parent דרישה",
       parentPlaceholder:"SYS-001 / SUBSYS-001",
       allocationLabel:"הקצאה / רכיב",
@@ -4769,6 +4947,7 @@ function openAddReq(type){
         rid:gV("rId"),
         level:gV("rLevel") || (type==="sys"?"L1":"L4"),
         domain:gV("rDomain"),
+        swCategory:type==="sw" ? gV("rDomain") : "",
         desc:gV("rDesc"),
         l0:gV("rParent"),
         parentRid:gV("rParent"),
@@ -4776,6 +4955,7 @@ function openAddReq(type){
         source:gV("rSource"),
         origin:gV("rSource"),
         subsystem:gV("rSubsystem"),
+        isDerived:type==="sw" && gV("rDomain")==="Derived",
         vv:gV("rVV"),
         vvPhase:gV("rVVPhase"),
         status:gV("rStatus")
@@ -4806,6 +4986,11 @@ function renderReqs(type){
     var parentRef = r.parentRid || r.l0 || r.source || "-";
     var allocation = r.allocation || r.subsystem || "-";
     var source = r.source || r.origin || "-";
+    var swCategory = _getSoftwareRequirementCategory(r);
+    var descCell = esc(r.desc);
+    if(type === "sw" && r.isDerived){
+      descCell = "<span class='badge badge-info' style='margin-inline-end:6px;'>Derived</span>" + descCell;
+    }
     if(type === "sys"){
       return "<td>"+(i+1)+"</td><td>"+esc(r.rid||"")+"</td><td>"+ragBadge(r.level||"L1")+"</td>"+
         "<td>"+esc(r.domain||"-")+"</td><td style='max-width:300px;'>"+esc(r.desc)+"</td>"+
@@ -4813,8 +4998,8 @@ function renderReqs(type){
         "<td>"+ragBadge(r.status||"Draft")+"</td><td>"+esc(r.vv||"-")+"</td>"+
         "<td>"+actionBtns(i,cfg.arrName,false,assistBtn)+"</td>";
     }
-    return "<td>"+(i+1)+"</td><td>"+esc(r.rid||"")+"</td><td>"+ragBadge(r.domain||r.level||"")+"</td>"+
-      "<td style='max-width:300px;'>"+esc(r.desc)+"</td><td>"+esc(parentRef)+"</td><td>"+esc(allocation)+"</td>"+
+    return "<td>"+(i+1)+"</td><td>"+esc(r.rid||"")+"</td><td>"+ragBadge(type === 'sw' ? swCategory : (r.domain||r.level||''))+"</td>"+
+      "<td style='max-width:300px;'>"+descCell+"</td><td>"+esc(parentRef)+"</td><td>"+esc(allocation)+"</td>"+
       "<td>"+esc(source)+"</td><td>"+ragBadge(r.status||"Draft")+"</td><td>"+esc(r.vv||"-")+"</td>"+
       "<td>"+actionBtns(i,cfg.arrName,false,assistBtn)+"</td>";
   });
@@ -4834,9 +5019,11 @@ function filterSWReqs(f){
   rows.forEach(function(r){
     if(f==="all"){r.style.display="";return;}
     var cells=r.querySelectorAll("td");
-    // match against level field (col 2) or category field (col 2) — whichever contains f
-    var levelCell = cells[2] ? cells[2].textContent : "";
-    r.style.display = levelCell.includes(f) ? "" : "none";
+    var categoryCell = cells[2] ? cells[2].textContent : "";
+    var descCell = cells[3] ? cells[3].textContent : "";
+    var parentCell = cells[4] ? cells[4].textContent : "";
+    var hay = [categoryCell, descCell, parentCell].join(" ");
+    r.style.display = hay.indexOf(f) >= 0 ? "" : "none";
   });
 }
 
@@ -5776,40 +5963,302 @@ function applyApprovedProposals(proposalIds){
   return { applied: applied, skipped: skipped };
 }
 
-function _impactChangeSummary(ctx){
-  var after = ctx.after || {};
+// ─── IMPACT MODAL — LABEL MAPS ────────────────────────────
+var _impactTypeLabelMap = {
+  "derived_update":      "דרישה נגזרת לבדיקה",
+  "verification_gap":    "צורך ברענון V&V",
+  "traceability_gap":    "צורך בבדיקת VCRM",
+  "interface_mismatch":  "ממשק דורש בדיקה",
+  "allocation_mismatch": "אי-התאמת הקצאה",
+  "architecture_gap":    "השפעה על ארכיטקטורה",
+  "content_stale":       "תוכן עשוי להיות מיושן"
+};
+var _impactTypeColorMap = {
+  "derived_update":      {bg:"#fee2e2",color:"#991b1b"},
+  "verification_gap":    {bg:"#fef3c7",color:"#92400e"},
+  "traceability_gap":    {bg:"#fef3c7",color:"#78350f"},
+  "interface_mismatch":  {bg:"#fee2e2",color:"#991b1b"},
+  "allocation_mismatch": {bg:"#fef3c7",color:"#92400e"},
+  "architecture_gap":    {bg:"#ede9fe",color:"#4c1d95"},
+  "content_stale":       {bg:"#f1f5f9",color:"#475569"},
+  "_":                   {bg:"#f1f5f9",color:"#475569"}
+};
+var _impactTargetLabelMap = {
+  "requirement":            "דרישת מערכת",
+  "subsystem_requirement":  "דרישת תת-מערכת",
+  "sw_requirement":         "דרישת תוכנה",
+  "me_requirement":         "דרישה מכאנית",
+  "architecture_component": "רכיב ארכיטקטורה",
+  "archLink":               "קישור ארכיטקטורה",
+  "architecture_link":      "קישור ארכיטקטורה",
+  "vv":                     "מבדק V&V",
+  "vcrm":                   "VCRM",
+  "consistency":            "סקירת עקביות",
+  "document":               "מסמך",
+  "icd":                    "ICD"
+};
+var _impactSeverityLabelMap = {
+  "high":   "גבוהה",
+  "medium": "בינונית",
+  "low":    "נמוכה"
+};
+var _impactSeverityColorMap = {
+  "high":   {bg:"#fee2e2",color:"#dc2626",border:"#fca5a5"},
+  "medium": {bg:"#fef3c7",color:"#d97706",border:"#fcd34d"},
+  "low":    {bg:"#dcfce7",color:"#16a34a",border:"#86efac"},
+  "_":      {bg:"#f1f5f9",color:"#475569",border:"#cbd5e1"}
+};
+var _impactActionLabelMap = {
+  "mark_stale": "סימון כמיושן",
+  "relink":     "קישור מחדש",
+  "review":     "בדיקה",
+  "update":     "עדכון"
+};
+var _impactSourceTypeLabelMap = {
+  "requirement":            "דרישת מערכת",
+  "subsystem_requirement":  "דרישת תת-מערכת",
+  "sw_requirement":         "דרישת תוכנה",
+  "me_requirement":         "דרישה מכאנית",
+  "architecture_component": "רכיב ארכיטקטורה",
+  "architecture_link":      "קישור ארכיטקטורה",
+  "document":               "מסמך מקומי",
+  "vv":                     "מבדק V&V"
+};
+var _impactTriggerLabelMap = {
+  "manual_edit":    "עריכה ידנית",
+  "document_parse": "ניתוח מסמך",
+  "ai_assist":      "AI Assist",
+  "requirement_edit":"עריכת דרישה"
+};
+function _impactL(map, key, fb){ return map[key] || fb || key || ""; }
+
+// ─── SECTION RENDERERS ────────────────────────────────────
+function _renderImpactChangedItem(ctx){
+  var after  = ctx.after  || {};
+  var before = ctx.before || {};
+  var srcHeb   = _impactL(_impactSourceTypeLabelMap, ctx.sourceType, ctx.sourceType);
+  var trigHeb  = _impactL(_impactTriggerLabelMap,    ctx.triggerType, ctx.triggerType || "שינוי");
+  var changedFields = ctx.changedFields || [];
+  // Build primary label
+  var primaryLabel = "";
   if(ctx.sourceType === "architecture_link"){
-    return "קישור ארכיטקטורה: <b>"+esc(after.sourceComponent||ctx.sourceId||"")+"</b> → <b>"+esc(after.targetComponent||"")+"</b><br><span style='font-size:12px;color:var(--g500);'>"+esc(after.flowName||after.flowType||"")+"</span>";
+    primaryLabel = "<b>"+esc(after.sourceComponent||before.sourceComponent||"")+"</b>"+
+      "<span style='color:var(--g400);margin:0 4px;'>→</span>"+
+      "<b>"+esc(after.targetComponent||before.targetComponent||"")+"</b>";
+    if(after.flowName||before.flowName){
+      primaryLabel += "<span style='color:var(--g500);font-size:12px;margin-right:6px;'>("+esc(after.flowName||before.flowName)+")</span>";
+    }
+  } else {
+    var itemId   = after.rid || after.id  || before.rid || before.id  || ctx.sourceId || "";
+    var itemDesc = after.name|| after.desc|| before.name|| before.desc|| "";
+    primaryLabel = (itemId?"<b>"+esc(itemId)+"</b>":"")+(itemId&&itemDesc?" — ":"")+(itemDesc?"<span style='color:var(--g600);'>"+esc(itemDesc.substring(0,70)+(itemDesc.length>70?"…":""))+"</span>":"");
+    if(!primaryLabel) primaryLabel = "<b>"+esc(ctx.sourceId||"פריט שונה")+"</b>";
   }
-  if(ctx.sourceType === "architecture_component"){
-    return "רכיב ארכיטקטורה: <b>"+esc(after.name||ctx.sourceId||"")+"</b>";
-  }
-  if(ctx.sourceType === "document"){
-    return "מסמך/קלט: <b>"+esc(ctx.sourceId||"מסמך מקומי")+"</b>";
-  }
-  return "דרישה: <b>"+esc(after.rid||ctx.sourceId||"")+"</b><br><span style='font-size:12px;color:var(--g500);'>"+esc(after.desc||"")+"</span>";
+  // Changed fields pills
+  var fieldsPill = changedFields.length
+    ? "<div style='margin-top:7px;display:flex;flex-wrap:wrap;gap:4px;align-items:center;'>"+
+        "<span style='font-size:11px;color:var(--g500);'>שדות שהשתנו:</span>"+
+        changedFields.map(function(f){
+          return "<code style='font-size:11px;background:var(--surface0);border:1px solid var(--line);border-radius:4px;padding:1px 6px;'>"+esc(f)+"</code>";
+        }).join("")+
+      "</div>"
+    : "";
+  return "<div class='impact-changed-item-card'>"+
+    "<div class='impact-changed-item-header'>"+
+      "<span class='impact-type-chip-sm' style='background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe;'>"+esc(srcHeb)+"</span>"+
+      "<span class='impact-trigger-chip'>"+esc(trigHeb)+"</span>"+
+    "</div>"+
+    "<div style='font-size:14px;font-weight:600;margin-top:5px;line-height:1.5;'>"+primaryLabel+"</div>"+
+    fieldsPill+
+  "</div>";
 }
 
+function _renderImpactStats(recs, proposals){
+  var total   = recs.length;
+  var highCnt = recs.filter(function(r){ return r.severity === "high"; }).length;
+  var withPatch = recs.filter(function(r){
+    return (proposals||[]).some(function(p){
+      return p.recommendationId === r.id && p.after && (p.changedFields||[]).length;
+    });
+  }).length;
+  var reviewOnly = total - withPatch;
+  var card = function(val, lbl, col){
+    return "<div class='impact-stat-card'>"+
+      "<div class='impact-stat-val' style='color:"+col+";'>"+val+"</div>"+
+      "<div class='impact-stat-lbl'>"+lbl+"</div>"+
+    "</div>";
+  };
+  return "<div class='impact-stats-row'>"+
+    card(total,     "סה״כ המלצות",   "var(--primary)")+
+    card(total,     "פריטים מושפעים","var(--g700)")+
+    card(highCnt,   "עדיפות גבוהה",  highCnt?"#dc2626":"var(--g400)")+
+    card(reviewOnly,"לבדיקה בלבד",   "var(--g600)")+
+  "</div>";
+}
+
+function _renderImpactSelectBar(count){
+  return "<div class='impact-select-bar'>"+
+    "<span style='font-size:12px;color:var(--g600);font-weight:600;'>"+count+" המלצות</span>"+
+    "<div style='display:flex;gap:6px;'>"+
+      "<button class='btn btn-xs btn-outline' onclick='selectAllImpacts()'>בחר הכל</button>"+
+      "<button class='btn btn-xs btn-outline' onclick='clearAllImpacts()'>נקה בחירה</button>"+
+    "</div>"+
+  "</div>";
+}
+
+function _renderImpactRecCard(rec, proposal, i){
+  var sev     = rec.severity || "medium";
+  var sevCfg  = _impactSeverityColorMap[sev] || _impactSeverityColorMap["_"];
+  var sevLbl  = _impactL(_impactSeverityLabelMap, sev, sev);
+  var itCfg   = _impactTypeColorMap[rec.impactType] || _impactTypeColorMap["_"];
+  var itLbl   = _impactL(_impactTypeLabelMap,   rec.impactType,   rec.impactType);
+  var tgtLbl  = _impactL(_impactTargetLabelMap, rec.targetEntityType||rec.targetType, rec.targetType||"");
+  var actLbl  = _impactL(_impactActionLabelMap, rec.proposedAction, rec.proposedAction||"בדיקה");
+  var conf    = Math.round((rec.confidence || 0) * 100);
+  var confCol = conf >= 85 ? "#16a34a" : conf >= 65 ? "#d97706" : "#dc2626";
+  var tgtId   = rec.targetId || "";
+  var hasPatch= !!(proposal && proposal.after && (proposal.changedFields||[]).length);
+  var evidence= Array.isArray(rec.evidence) ? rec.evidence : [];
+
+  // Before/After preview
+  var bafHtml;
+  if(hasPatch){
+    var cfs = proposal.changedFields || [];
+    var bef = proposal.before || {};
+    var aft = proposal.after  || {};
+    var rows = cfs.map(function(f){
+      return "<tr>"+
+        "<td style='font-size:11px;color:var(--g600);padding:3px 8px;border-bottom:1px solid var(--line);white-space:nowrap;'>"+esc(f)+"</td>"+
+        "<td style='font-size:11px;color:#dc2626;padding:3px 8px;border-bottom:1px solid var(--line);max-width:180px;word-break:break-all;direction:ltr;'>"+esc(String(bef[f]!=null?bef[f]:"-"))+"</td>"+
+        "<td style='font-size:11px;color:#16a34a;padding:3px 8px;border-bottom:1px solid var(--line);max-width:180px;word-break:break-all;direction:ltr;'>"+esc(String(aft[f]!=null?aft[f]:"-"))+"</td>"+
+      "</tr>";
+    }).join("");
+    bafHtml = "<details style='margin-top:8px;'>"+
+      "<summary style='cursor:pointer;font-size:11px;color:var(--primary);font-weight:600;user-select:none;'>▶ הצג שינוי מוצע</summary>"+
+      "<div style='margin-top:6px;border-radius:6px;overflow:hidden;border:1px solid var(--line);'>"+
+        "<table style='width:100%;border-collapse:collapse;'>"+
+          "<thead><tr style='background:var(--surface1);'>"+
+            "<th style='font-size:10px;font-weight:700;padding:5px 8px;text-align:right;border-bottom:1px solid var(--line);'>שדה</th>"+
+            "<th style='font-size:10px;font-weight:700;padding:5px 8px;text-align:right;border-bottom:1px solid var(--line);color:#dc2626;'>לפני</th>"+
+            "<th style='font-size:10px;font-weight:700;padding:5px 8px;text-align:right;border-bottom:1px solid var(--line);color:#16a34a;'>אחרי</th>"+
+          "</tr></thead>"+
+          "<tbody>"+rows+"</tbody>"+
+        "</table>"+
+      "</div>"+
+    "</details>";
+  } else {
+    bafHtml = "<div style='margin-top:7px;font-size:11px;color:var(--g500);padding:5px 0;'>"+
+      "⚠ אין שינוי אוטומטי מוצע — נדרש review ידני"+
+    "</div>";
+  }
+
+  // Evidence pills
+  var evidHtml = evidence.length
+    ? "<div style='margin-top:5px;display:flex;flex-wrap:wrap;gap:4px;'>"+
+        evidence.map(function(e){
+          return "<code style='font-size:10px;background:var(--surface1);border:1px solid var(--line);border-radius:4px;padding:1px 6px;color:var(--g600);'>"+esc(String(e))+"</code>";
+        }).join("")+
+      "</div>"
+    : "";
+
+  // Confidence bar (inline SVG-less approach)
+  var confBar = "<span style='display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--g600);'>"+
+    "<span style='display:inline-block;width:40px;height:4px;background:#e2e8f0;border-radius:2px;overflow:hidden;'>"+
+      "<span style='display:block;width:"+conf+"%;height:100%;background:"+confCol+";border-radius:2px;'></span>"+
+    "</span>"+
+    "ביטחון "+conf+"%"+
+  "</span>";
+
+  return "<div class='impact-rec-card' id='impactCard_"+i+"'>"+
+    "<div class='impact-rec-card-top'>"+
+      "<input type='checkbox' class='impact-rec-check' id='imp_"+i+"' "+
+        "onchange=\"_impactCtx.recommendations["+i+"].checked=this.checked;_impactCardHighlight("+i+")\">"+
+      "<label for='imp_"+i+"' class='impact-rec-card-body' style='cursor:pointer;display:block;'>"+
+
+        // Title row: target-type chip + item ID + impact-type chip + status
+        "<div class='impact-rec-card-title'>"+
+          "<span class='impact-type-chip-sm' style='background:#f8fafc;color:var(--g700);border-color:var(--line);'>"+esc(tgtLbl)+"</span>"+
+          (tgtId && tgtId !== "system" ? "<b style='font-size:13px;'>"+esc(tgtId)+"</b>" : "")+
+          "<span class='impact-type-chip-sm' style='background:"+itCfg.bg+";color:"+itCfg.color+";border-color:"+itCfg.bg+";'>"+esc(itLbl)+"</span>"+
+          "<span class='impact-status-pending'>ממתין לאישור</span>"+
+        "</div>"+
+
+        // Meta row: severity + confidence bar + action
+        "<div class='impact-rec-meta'>"+
+          "<span class='impact-sev-chip' style='background:"+sevCfg.bg+";color:"+sevCfg.color+";border-color:"+sevCfg.border+";'>"+esc(sevLbl)+"</span>"+
+          confBar+
+          "<span class='impact-action-chip'>פעולה מומלצת: "+esc(actLbl)+"</span>"+
+        "</div>"+
+
+        // Rationale
+        "<div style='font-size:12px;color:var(--g700);line-height:1.55;margin-top:4px;'>"+esc(rec.rationale||"")+"</div>"+
+
+        // Evidence
+        evidHtml+
+
+        // Before/After or review note
+        bafHtml+
+
+      "</label>"+
+    "</div>"+
+  "</div>";
+}
+
+// ─── IMPACT MODAL SHOW / HIDE ─────────────────────────────
 function _showImpactModal(bundle){
   _impactCtx = {
     changeContext: bundle.changeContext,
-    recommendations: (bundle.recommendations || []).map(function(rec){ return Object.assign({checked:false}, rec); }),
+    recommendations: (bundle.recommendations || []).map(function(rec){
+      return Object.assign({}, rec, {checked: false});
+    }),
     proposals: bundle.proposals || []
   };
-  var html = "<div class='impact-change-summary'><div style='font-size:11px;color:var(--g500);font-weight:700;margin-bottom:4px;'>שינוי שזוהה:</div><div>"+_impactChangeSummary(bundle.changeContext)+"</div></div>";
-  html += "<div style='font-size:13px;font-weight:700;color:var(--g700);margin-bottom:10px;'>זוהו "+_impactCtx.recommendations.length+" המלצות השפעה מקומיות. בחר/י אילו proposals לאשר בלבד:</div>";
-  _impactCtx.recommendations.forEach(function(rec, i){
-    html += "<div class='impact-suggestion'>"+
-      "<input type='checkbox' id='imp_"+i+"' onchange=\"_impactCtx.recommendations["+i+"].checked=this.checked\">"+
-      "<label for='imp_"+i+"' class='impact-suggestion-content' style='cursor:pointer;'>"+
-        "<div class='impact-suggestion-title'><span style='font-size:10px;background:var(--surface0);border:1px solid var(--line);padding:1px 7px;border-radius:8px;margin-left:8px;'>"+esc(rec.targetType)+"</span>"+esc(rec.impactType)+"</div>"+
-        "<div class='impact-suggestion-reason'>"+esc(rec.rationale)+"</div>"+
-        "<div style='font-size:11px;color:var(--g500);margin-top:4px;'>חומרה: "+esc(rec.severity)+" | ביטחון: "+Number(rec.confidence||0).toFixed(2)+"</div>"+
-      "</label>"+
-    "</div>";
+
+  var recs = _impactCtx.recommendations;
+  var props= _impactCtx.proposals;
+  var ctx  = bundle.changeContext;
+
+  // Empty state
+  if(!recs.length){
+    document.getElementById("impactModalBody").innerHTML =
+      "<div class='impact-empty-state'>"+
+        "<span class='impact-empty-icon'>✅</span>"+
+        "<b style='font-size:14px;'>לא זוהו השפעות נוספות הדורשות אישור</b>"+
+        "<span style='font-size:12px;'>לא נמצאו פריטים קשורים שעשויים להיות מושפעים מהשינוי.</span>"+
+      "</div>";
+    document.getElementById("impactModal").classList.add("open");
+    return;
+  }
+
+  var html = "";
+
+  // ── 1. Changed Item Summary ──────────────────────────────
+  html += _renderImpactChangedItem(ctx);
+
+  // ── 2. Impact Stats ──────────────────────────────────────
+  html += _renderImpactStats(recs, props);
+
+  // ── 3. Select Controls ───────────────────────────────────
+  html += _renderImpactSelectBar(recs.length);
+
+  // ── 4. Recommendation Cards ──────────────────────────────
+  recs.forEach(function(rec, i){
+    var prop = props.filter(function(p){ return p.recommendationId === rec.id; })[0] || null;
+    html += _renderImpactRecCard(rec, prop, i);
   });
+
   document.getElementById("impactModalBody").innerHTML = html;
   document.getElementById("impactModal").classList.add("open");
+}
+
+function _impactCardHighlight(i){
+  var card = document.getElementById("impactCard_"+i);
+  if(!card || !_impactCtx) return;
+  if(_impactCtx.recommendations[i].checked){
+    card.classList.add("checked");
+  } else {
+    card.classList.remove("checked");
+  }
 }
 
 function closeImpactModal(){
@@ -5817,15 +6266,49 @@ function closeImpactModal(){
   _impactCtx = null;
 }
 
+function selectAllImpacts(){
+  if(!_impactCtx) return;
+  _impactCtx.recommendations.forEach(function(rec, i){
+    rec.checked = true;
+    var cb = document.getElementById("imp_"+i);
+    if(cb) cb.checked = true;
+    _impactCardHighlight(i);
+  });
+}
+
+function clearAllImpacts(){
+  if(!_impactCtx) return;
+  _impactCtx.recommendations.forEach(function(rec, i){
+    rec.checked = false;
+    var cb = document.getElementById("imp_"+i);
+    if(cb) cb.checked = false;
+    _impactCardHighlight(i);
+  });
+}
+
 function approveSelectedImpacts(){
   if(!_impactCtx || !_impactCtx.recommendations) return;
-  var selectedRecIds = _impactCtx.recommendations.filter(function(rec){ return rec.checked; }).map(function(rec){ return rec.id; });
-  if(!selectedRecIds.length){ notify("לא נבחרו המלצות", "w"); return; }
-  var proposalIds = (_impactCtx.proposals || []).filter(function(proposal){
-    return selectedRecIds.indexOf(proposal.recommendationId) >= 0;
-  }).map(function(proposal){ return proposal.proposalId; });
-  approveUpdateProposals(proposalIds);
-  notify(proposalIds.length+" proposals אושרו. לא בוצע apply אוטומטי.", "ok");
+  var selRecs = _impactCtx.recommendations.filter(function(r){ return r.checked; });
+  if(!selRecs.length){ notify("לא נבחרו המלצות לאישור","w"); return; }
+  var selRecIds = selRecs.map(function(r){ return r.id; });
+  var propIds = (_impactCtx.proposals||[]).filter(function(p){
+    return selRecIds.indexOf(p.recommendationId) >= 0;
+  }).map(function(p){ return p.proposalId; });
+  approveUpdateProposals(propIds);
+  notify(selRecs.length+" המלצות אושרו לבדיקה — לא בוצע שינוי אוטומטי","ok");
+  closeImpactModal();
+}
+
+function rejectSelectedImpacts(){
+  if(!_impactCtx || !_impactCtx.recommendations) return;
+  var selRecs = _impactCtx.recommendations.filter(function(r){ return r.checked; });
+  if(!selRecs.length){ notify("לא נבחרו המלצות לדחייה","w"); return; }
+  var selRecIds = selRecs.map(function(r){ return r.id; });
+  var propIds = (_impactCtx.proposals||[]).filter(function(p){
+    return selRecIds.indexOf(p.recommendationId) >= 0;
+  }).map(function(p){ return p.proposalId; });
+  rejectUpdateProposals(propIds);
+  notify(selRecs.length+" המלצות נדחו","ok");
   closeImpactModal();
 }
 
