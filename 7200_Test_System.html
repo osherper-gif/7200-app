@@ -3217,6 +3217,12 @@ var AUTOMATION = {
           traceabilityWarnings: ['Architecture item "Router" lacks flowDesc context.']
         }
       });
+      var normalizedHtml = String(html || '')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>');
       var expected = [
         'פריט הארכיטקטורה "Router" אינו מוגדר במלואו',
         'חסרים תת־מערכת, חיבורים וממשקים',
@@ -3225,13 +3231,13 @@ var AUTOMATION = {
         'נמצא פער עקיבות לדרישה "SYS-7"',
         'חסר תיאור זרימה (Flow)'
       ];
-      var missing = expected.filter(function(label){ return html.indexOf(label) < 0; });
+      var missing = expected.filter(function(label){ return normalizedHtml.indexOf(label) < 0; });
       var unwanted = [
         'lacks subsystem, connections, and interfaces',
         'High-Confidence Findings',
         'Traceability Visibility Summary',
         'not present in DB.arch'
-      ].filter(function(label){ return html.indexOf(label) >= 0; });
+      ].filter(function(label){ return normalizedHtml.indexOf(label) >= 0; });
       return !missing.length && !unwanted.length
         ? _runtimePass('Consistency review wording is humanized and no longer log-like for representative findings')
         : _runtimeFail('Humanized wording mismatch. Missing: ' + missing.join(', ') + ' | Unwanted: ' + unwanted.join(', '));
