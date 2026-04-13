@@ -674,7 +674,7 @@ var DEFAULT_TCS = [
   {id:"TC-001",title:"Auto-save ≤800ms לאחר שינוי",cat:"שמירת נתונים",type:"Functional",pri:"Critical",reqs:"REQ-001",steps:"1. טען האפליקציה\n2. בדוק window._autoSaveTimer\n3. בדוק markDirty signature",expected:"markDirty ו-_autoSaveTimer קיימים",auto:"yes",fn:"checkAutoSave"},
   {id:"TC-002",title:"localStorage נמחק ב-resetAll",cat:"שמירת נתונים",type:"Functional",pri:"Critical",reqs:"REQ-003",steps:"בדוק שresetAll מכיל localStorage.removeItem",expected:"removeItem קיים",auto:"yes",fn:"checkResetAll"},
   {id:"TC-003",title:"עמודי הניווט הפעילים קיימים ועמודי AI הוסרו",cat:"ניווט ו-UI",type:"UI",pri:"Critical",reqs:"REQ-013",steps:"בדוק שכל page IDs הפעילים קיימים וש-page-ai/page-multiproject לא קיימים",expected:"כל עמודי הניווט הפעילים קיימים ועמודי AI הוסרו",auto:"yes",fn:"checkAllPages"},
-  {id:"TC-004",title:"38 טאבים פעילים",cat:"ניווט ו-UI",type:"UI",pri:"High",reqs:"REQ-014",steps:"בדוק שכל 38 tab IDs קיימים",expected:"כל טאבים קיימים",auto:"yes",fn:"checkAllTabs"},
+  {id:"TC-004",title:"40 טאבים פעילים",cat:"ניווט ו-UI",type:"UI",pri:"High",reqs:"REQ-014",steps:"בדוק שכל tab IDs המרכזיים קיימים",expected:"כל הטאבים קיימים",auto:"yes",fn:"checkAllTabs"},
   {id:"TC-005",title:"39 modal functions מוגדרות",cat:"ניווט ו-UI",type:"Functional",pri:"High",reqs:"REQ-017",steps:"בדוק openAdd* functions",expected:"כל modals קיימים",auto:"yes",fn:"checkModalFunctions"},
   {id:"TC-006",title:"_validateRequirement דוחה סובייקטיביות",cat:"ניהול דרישות",type:"Functional",pri:"High",reqs:"REQ-034",steps:"קרא עם 'ברור', 'יפה', 'טוב'",expected:"{valid:false}",auto:"yes",fn:"checkVagueReject"},
   {id:"TC-007",title:"_validateRequirement מאשר מדדים",cat:"ניהול דרישות",type:"Functional",pri:"High",reqs:"REQ-035",steps:"קרא עם '≤2ms', '≥100W', 'X dB'",expected:"{valid:true}",auto:"yes",fn:"checkVaguePass"},
@@ -1011,7 +1011,18 @@ var AI_CONSISTENCY_REVIEW_TCS = [
   {id:"TC-327",title:"VCRM filters work",cat:"System Engineering",type:"Regression",pri:"High",reqs:"REQ-125",steps:"Verify discipline, coverage, and search filters change the visible row set",expected:"VCRM filters narrow the visible matrix rows correctly",auto:"yes",fn:"checkVCRMFiltersRuntime"},
   {id:"TC-328",title:"VCRM does not mutate DB arrays",cat:"System Engineering",type:"Regression",pri:"Critical",reqs:"REQ-125",steps:"Render and filter VCRM while tracking requirements and VV arrays",expected:"VCRM remains read-only",auto:"yes",fn:"checkVCRMNoMutationRuntime"},
   {id:"TC-329",title:"Existing V&V rendering remains intact after VCRM",cat:"System Engineering",type:"Regression",pri:"Critical",reqs:"REQ-125",steps:"Render V&V before and after VCRM",expected:"renderVV remains intact after VCRM rendering",auto:"yes",fn:"checkVCRMVvRenderingUnaffectedRuntime"},
-  {id:"TC-330",title:"Existing syseng rendering remains intact after VCRM",cat:"System Engineering",type:"Regression",pri:"Critical",reqs:"REQ-125",steps:"Render syseng artifacts before and after VCRM",expected:"renderReqs/renderArch/renderICD/renderVV/renderVCRM coexist without breakage",auto:"yes",fn:"checkVCRMSysengRenderingUnaffectedRuntime"}
+  {id:"TC-330",title:"Existing syseng rendering remains intact after VCRM",cat:"System Engineering",type:"Regression",pri:"Critical",reqs:"REQ-125",steps:"Render syseng artifacts before and after VCRM",expected:"renderReqs/renderArch/renderICD/renderVV/renderVCRM coexist without breakage",auto:"yes",fn:"checkVCRMSysengRenderingUnaffectedRuntime"},
+  {id:"TC-331",title:"Subsystem requirement collection exists",cat:"System Engineering",type:"Regression",pri:"Critical",reqs:"REQ-126",steps:"Verify DB.subsysReqs exists as a local collection",expected:"subsysReqs is an array in DB",auto:"yes",fn:"checkSubsysReqCollectionRuntime"},
+  {id:"TC-332",title:"Subsystem requirement renderer exists",cat:"System Engineering",type:"Regression",pri:"Critical",reqs:"REQ-126",steps:"Verify subsystem requirement render path and DOM body exist",expected:"renderSubsysReqs and subsysReqsBody are available",auto:"yes",fn:"checkSubsysReqRenderRuntime"},
+  {id:"TC-333",title:"Subsystem requirement parent linkage renders",cat:"System Engineering",type:"Regression",pri:"High",reqs:"REQ-126",steps:"Render subsystem requirements with parent system linkage",expected:"parentRid and subsystem fields are visible in subsystem requirement rows",auto:"yes",fn:"checkSubsysReqParentLinkageRuntime"},
+  {id:"TC-334",title:"Architecture links collection exists",cat:"System Engineering",type:"Regression",pri:"Critical",reqs:"REQ-127",steps:"Verify DB.archLinks exists as a local collection",expected:"archLinks is an array in DB",auto:"yes",fn:"checkArchLinksCollectionRuntime"},
+  {id:"TC-335",title:"Architecture links render path exists",cat:"System Engineering",type:"Regression",pri:"Critical",reqs:"REQ-127",steps:"Render architecture links table",expected:"archLinksBody renders structured architecture link rows",auto:"yes",fn:"checkArchLinksRenderRuntime"},
+  {id:"TC-336",title:"Architecture links preserve source target and flow fields",cat:"System Engineering",type:"Regression",pri:"High",reqs:"REQ-127",steps:"Render architecture links with detailed flow fields",expected:"source/target/flow metadata stays visible and intact",auto:"yes",fn:"checkArchLinksFieldPreservationRuntime"},
+  {id:"TC-337",title:"System requirements can exceed customer requirements safely",cat:"System Engineering",type:"Regression",pri:"High",reqs:"REQ-126",steps:"Render multiple system requirements with only partial customer-origin coverage",expected:"system requirement table renders all rows without forcing customer-count equality",auto:"yes",fn:"checkSystemRequirementsDecompositionRuntime"},
+  {id:"TC-338",title:"Software requirement area remains active and non-empty",cat:"Software",type:"Regression",pri:"High",reqs:"REQ-128",steps:"Render software requirement and software architecture areas with local data",expected:"software requirement and architecture bodies exist and render rows",auto:"yes",fn:"checkSoftwareParityRuntime"},
+  {id:"TC-339",title:"Mechanical requirement area remains active and non-empty",cat:"Mechanical",type:"Regression",pri:"High",reqs:"REQ-129",steps:"Render mechanical requirement and mechanical decomposition areas with local data",expected:"mechanical requirement and decomposition bodies exist and render rows",auto:"yes",fn:"checkMechanicalParityRuntime"},
+  {id:"TC-340",title:"Engineering decomposition render paths stay read-only",cat:"System Engineering",type:"Regression",pri:"Critical",reqs:"REQ-126,REQ-127",steps:"Render subsystem requirements and architecture links while tracking core arrays",expected:"no mutation regression to AI/VCRM/VV/requirements data occurs",auto:"yes",fn:"checkEngineeringDecompositionNoMutationRuntime"},
+  {id:"TC-341",title:"Existing syseng rendering remains intact with subsystem and links",cat:"System Engineering",type:"Regression",pri:"Critical",reqs:"REQ-126,REQ-127",steps:"Render syseng artifacts including subsystem requirements and architecture links",expected:"renderReqs/renderSubsysReqs/renderArch/renderArchLinks/renderICD/renderVV coexist without breakage",auto:"yes",fn:"checkEngineeringDecompositionSysengRuntime"}
 ];
 
 var AI_REQUIREMENT_APPLY_TCS = [
@@ -1227,6 +1238,43 @@ function _buildVCRMRuntimePayload(){
       {id:'VV-100',req:'SYS-100',method:'Test',artifact:'ATP-100',phase:'System',owner:'V&V',status:'Planned'},
       {id:'VV-101',req:'Coverage note for SW-200 in legacy text',method:'Analysis',artifact:'AN-200',phase:'Integration',owner:'SW',status:'Planned'}
     ]
+  };
+}
+
+function _buildEngineeringDecompositionRuntimePayload(){
+  return {
+    sysReqs: [
+      {id:'REQ-E1',rid:'SYS-410',level:'L1',domain:'פונקציונלי',desc:'The system shall distribute mission data to the recorder.',parentRid:'CUST-10',allocation:'Signal Processing',source:'Customer',vv:'Test',status:'Draft'},
+      {id:'REQ-E2',rid:'SYS-420',level:'L1',domain:'ממשק',desc:'The system shall provide Ethernet control access.',parentRid:'CUST-11',allocation:'Software',source:'CONOPS',vv:'Analysis',status:'Draft'},
+      {id:'REQ-E3',rid:'SYS-430',level:'L2',domain:'ביצועים',desc:'The system shall sustain 10 Hz update rate.',allocation:'Signal Processing',source:'Derived',vv:'Test',status:'Draft'}
+    ],
+    subsysReqs: [
+      {id:'REQ-S1',rid:'SUBSYS-410',parentRid:'SYS-410',subsystem:'Signal Processing',domain:'פונקציונלי',desc:'The signal processing subsystem shall packetize mission data.',source:'SyRS',vv:'Test',vvPhase:'CDR',status:'Draft'},
+      {id:'REQ-S2',rid:'SUBSYS-420',parentRid:'SYS-430',subsystem:'Power Distribution',domain:'ביצועים',desc:'The power subsystem shall hold voltage within limits during peak load.',source:'Derived',vv:'Analysis',vvPhase:'FAT',status:'Draft'}
+    ],
+    swReqs: [
+      {id:'REQ-W1',rid:'SW-410',level:'L4',domain:'פונקציונלי',desc:'The software shall serialize mission data frames.',parentRid:'SUBSYS-410',allocation:'Mission Computer',subsystem:'Software Stack',source:'SyRS',vv:'Test',status:'Draft'}
+    ],
+    meReqs: [
+      {id:'REQ-M1',rid:'ME-410',level:'L4',domain:'מבני',desc:'The enclosure shall support the recorder mass under vibration.',parentRid:'SYS-410',allocation:'Recorder Tray',subsystem:'Mechanical Assembly',source:'SyRS',vv:'Inspection',status:'Draft'}
+    ],
+    arch: [
+      {id:'ARCH-1',name:'Mission Computer',type:'SW',subsystem:'Signal Processing',desc:'Main mission compute node',interfaces:'Ethernet',connections:'Recorder',flowDesc:'Mission data path',status:'Draft'}
+    ],
+    archLinks: [
+      {id:'AL-1',sourceComponent:'Mission Computer',targetComponent:'Recorder',flowName:'Mission Data',flowType:'data',payloadOrMessage:'Mission packets',frequencyOrRate:'10 Hz',protocolOrMedium:'Ethernet',voltageOrPower:'-',notes:'Primary mission stream',status:'Draft'},
+      {id:'AL-2',sourceComponent:'Power Supply',targetComponent:'Mission Computer',flowName:'Primary Power',flowType:'power',payloadOrMessage:'28VDC',frequencyOrRate:'continuous',protocolOrMedium:'Power harness',voltageOrPower:'28VDC',notes:'Nominal feed',status:'Defined'}
+    ],
+    meArch: [
+      {id:'MEA-1',name:'Recorder Tray',type:'Assembly',subsystem:'Mechanical Assembly',desc:'Mechanical support tray for recorder',interfaces:'Mounting',connections:'Cabinet frame',configuration:'Al 6061',status:'Draft'}
+    ],
+    icd: [
+      {id:'ICD-1',name:'Mission Ethernet',a:'Mission Computer',b:'Recorder',type:'Ethernet',ver:'A',status:'Draft'}
+    ],
+    vv: [
+      {id:'VV-410',req:'SYS-410, SUBSYS-410, SW-410',method:'Test',artifact:'ATP-410',phase:'CDR',owner:'V&V',status:'Planned'}
+    ],
+    aiAudit: [{source:'requirement_assist_apply', targetRequirementRid:'SYS-001'}]
   };
 }
 
@@ -3485,6 +3533,218 @@ var AUTOMATION = {
       }
     });
   },
+  checkSubsysReqCollectionRuntime: async function(){
+    return withAppWindow(function(w){
+      var ok = !!w.DB && Array.isArray(w.DB.subsysReqs);
+      return ok ? _runtimePass('DB.subsysReqs exists as a subsystem requirement collection') : _runtimeFail('DB.subsysReqs is missing');
+    });
+  },
+  checkSubsysReqRenderRuntime: async function(){
+    return withAppWindow(function(w){
+      var ok = typeof w.renderSubsysReqs === 'function' && typeof w.setSubsysReqFilter === 'function' && !!w.document.getElementById('subsysReqsBody');
+      return ok ? _runtimePass('Subsystem requirement render path exists') : _runtimeFail('renderSubsysReqs/setSubsysReqFilter/subsysReqsBody missing');
+    });
+  },
+  checkSubsysReqParentLinkageRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.renderSubsysReqs !== 'function' || !w.DB) return _runtimeFail('renderSubsysReqs or DB missing');
+      var snapshot = JSON.stringify({ subsysReqs:w.DB.subsysReqs||[] });
+      try{
+        var payload = _buildEngineeringDecompositionRuntimePayload();
+        w.DB.subsysReqs = JSON.parse(JSON.stringify(payload.subsysReqs));
+        if(typeof w.setSubsysReqFilter === 'function') w.setSubsysReqFilter('all');
+        w.renderSubsysReqs();
+        var html = (w.document.getElementById('subsysReqsBody') || {}).innerHTML || '';
+        var ok = html.indexOf('SUBSYS-410') >= 0 && html.indexOf('SYS-410') >= 0 && html.indexOf('Signal Processing') >= 0;
+        return ok ? _runtimePass('Subsystem requirement rows preserve parent system linkage and subsystem context') : _runtimeFail('Subsystem requirement linkage did not render as expected');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        w.DB.subsysReqs = restored.subsysReqs;
+      }
+    });
+  },
+  checkArchLinksCollectionRuntime: async function(){
+    return withAppWindow(function(w){
+      var ok = !!w.DB && Array.isArray(w.DB.archLinks);
+      return ok ? _runtimePass('DB.archLinks exists as an architecture link collection') : _runtimeFail('DB.archLinks is missing');
+    });
+  },
+  checkArchLinksRenderRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.renderArchLinks !== 'function' || !w.DB) return _runtimeFail('renderArchLinks or DB missing');
+      var snapshot = JSON.stringify({ archLinks:w.DB.archLinks||[] });
+      try{
+        var payload = _buildEngineeringDecompositionRuntimePayload();
+        w.DB.archLinks = JSON.parse(JSON.stringify(payload.archLinks));
+        w.renderArchLinks();
+        var body = w.document.getElementById('archLinksBody');
+        var rows = body ? body.querySelectorAll('tr').length : 0;
+        return body && rows === payload.archLinks.length ? _runtimePass('Architecture links render in a dedicated table') : _runtimeFail('Unexpected architecture links row count: ' + rows);
+      } finally {
+        var restored = JSON.parse(snapshot);
+        w.DB.archLinks = restored.archLinks;
+      }
+    });
+  },
+  checkArchLinksFieldPreservationRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.renderArchLinks !== 'function' || !w.DB) return _runtimeFail('renderArchLinks or DB missing');
+      var snapshot = JSON.stringify({ archLinks:w.DB.archLinks||[] });
+      try{
+        var payload = _buildEngineeringDecompositionRuntimePayload();
+        w.DB.archLinks = JSON.parse(JSON.stringify(payload.archLinks));
+        w.renderArchLinks();
+        var html = (w.document.getElementById('archLinksBody') || {}).innerHTML || '';
+        var ok = html.indexOf('Mission Computer') >= 0 && html.indexOf('Recorder') >= 0 && html.indexOf('Mission Data') >= 0 && html.indexOf('Mission packets') >= 0;
+        return ok ? _runtimePass('Architecture link rows preserve source, target, and flow metadata') : _runtimeFail('Architecture link field rendering is incomplete');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        w.DB.archLinks = restored.archLinks;
+      }
+    });
+  },
+  checkSystemRequirementsDecompositionRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.renderReqs !== 'function' || !w.DB) return _runtimeFail('renderReqs or DB missing');
+      var snapshot = JSON.stringify({ sysReqs:w.DB.sysReqs||[] });
+      try{
+        var payload = _buildEngineeringDecompositionRuntimePayload();
+        w.DB.sysReqs = JSON.parse(JSON.stringify(payload.sysReqs));
+        w.renderReqs('sys');
+        var rows = (w.document.getElementById('sysReqsBody') || {}).querySelectorAll ? w.document.getElementById('sysReqsBody').querySelectorAll('tr').length : 0;
+        return rows === payload.sysReqs.length ? _runtimePass('System requirement decomposition renders all system rows independently from customer count') : _runtimeFail('System requirement decomposition row count mismatch: ' + rows);
+      } finally {
+        var restored = JSON.parse(snapshot);
+        w.DB.sysReqs = restored.sysReqs;
+      }
+    });
+  },
+  checkSoftwareParityRuntime: async function(){
+    return withAppWindow(function(w){
+      var fns = ['renderReqs','renderSWArchBody'];
+      var missing = fns.filter(function(name){ return typeof w[name] !== 'function'; });
+      if(missing.length || !w.DB) return _runtimeFail('Missing software render functions: ' + missing.join(', '));
+      var snapshot = JSON.stringify({ swReqs:w.DB.swReqs||[], swArch:w.DB.swArch||[] });
+      try{
+        var payload = _buildEngineeringDecompositionRuntimePayload();
+        w.DB.swReqs = JSON.parse(JSON.stringify(payload.swReqs));
+        w.DB.swArch = [{id:'SWA-1',name:'Mission Data Service',layer:'Service / API',lang:'C++',desc:'Serializes mission packets',apis:'Ethernet',connections:'Recorder Adapter',interfaceType:'Data Stream',flowDesc:'Mission payload → Ethernet',status:'Draft'}];
+        w.renderReqs('sw');
+        w.renderSWArchBody();
+        var reqHtml = (w.document.getElementById('swReqsBody') || {}).innerHTML || '';
+        var archHtml = (w.document.getElementById('swArchBody') || {}).innerHTML || '';
+        var ok = reqHtml.indexOf('SW-410') >= 0 && archHtml.indexOf('Mission Data Service') >= 0;
+        return ok ? _runtimePass('Software discipline keeps active requirements and decomposition views') : _runtimeFail('Software requirement or architecture rendering is effectively empty');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        w.DB.swReqs = restored.swReqs;
+        w.DB.swArch = restored.swArch;
+      }
+    });
+  },
+  checkMechanicalParityRuntime: async function(){
+    return withAppWindow(function(w){
+      var fns = ['renderReqs','renderMEArch'];
+      var missing = fns.filter(function(name){ return typeof w[name] !== 'function'; });
+      if(missing.length || !w.DB) return _runtimeFail('Missing mechanical render functions: ' + missing.join(', '));
+      var snapshot = JSON.stringify({ meReqs:w.DB.meReqs||[], meArch:w.DB.meArch||[] });
+      try{
+        var payload = _buildEngineeringDecompositionRuntimePayload();
+        w.DB.meReqs = JSON.parse(JSON.stringify(payload.meReqs));
+        w.DB.meArch = JSON.parse(JSON.stringify(payload.meArch));
+        w.renderReqs('me');
+        w.renderMEArch();
+        var reqHtml = (w.document.getElementById('meReqsBody') || {}).innerHTML || '';
+        var archHtml = (w.document.getElementById('meArchBody') || {}).innerHTML || '';
+        var ok = reqHtml.indexOf('ME-410') >= 0 && archHtml.indexOf('Recorder Tray') >= 0;
+        return ok ? _runtimePass('Mechanical discipline keeps active requirements and decomposition views') : _runtimeFail('Mechanical requirement or decomposition rendering is effectively empty');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        w.DB.meReqs = restored.meReqs;
+        w.DB.meArch = restored.meArch;
+      }
+    });
+  },
+  checkEngineeringDecompositionNoMutationRuntime: async function(){
+    return withAppWindow(function(w){
+      var fns = ['renderReqs','renderSubsysReqs','renderArchLinks','renderVV','renderVCRM'];
+      var missing = fns.filter(function(name){ return typeof w[name] !== 'function'; });
+      if(missing.length || !w.DB) return _runtimeFail('Missing decomposition render functions: ' + missing.join(', '));
+      var snapshot = JSON.stringify({
+        sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[],
+        vv:w.DB.vv||[], archLinks:w.DB.archLinks||[], aiAudit:w.DB.aiAudit||[]
+      });
+      try{
+        var payload = _buildEngineeringDecompositionRuntimePayload();
+        w.DB.sysReqs = JSON.parse(JSON.stringify(payload.sysReqs));
+        w.DB.subsysReqs = JSON.parse(JSON.stringify(payload.subsysReqs));
+        w.DB.swReqs = JSON.parse(JSON.stringify(payload.swReqs));
+        w.DB.meReqs = JSON.parse(JSON.stringify(payload.meReqs));
+        w.DB.vv = JSON.parse(JSON.stringify(payload.vv));
+        w.DB.archLinks = JSON.parse(JSON.stringify(payload.archLinks));
+        w.DB.aiAudit = JSON.parse(JSON.stringify(payload.aiAudit));
+        var before = JSON.stringify({
+          sysReqs:w.DB.sysReqs, subsysReqs:w.DB.subsysReqs, swReqs:w.DB.swReqs, meReqs:w.DB.meReqs,
+          vv:w.DB.vv, archLinks:w.DB.archLinks, aiAudit:w.DB.aiAudit
+        });
+        w.renderReqs('sys'); w.renderSubsysReqs(); w.renderReqs('sw'); w.renderReqs('me'); w.renderArchLinks(); w.renderVV(); w.renderVCRM();
+        var after = JSON.stringify({
+          sysReqs:w.DB.sysReqs, subsysReqs:w.DB.subsysReqs, swReqs:w.DB.swReqs, meReqs:w.DB.meReqs,
+          vv:w.DB.vv, archLinks:w.DB.archLinks, aiAudit:w.DB.aiAudit
+        });
+        return before === after ? _runtimePass('Engineering decomposition rendering stays read-only') : _runtimeFail('Engineering decomposition rendering mutated tracked arrays');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        w.DB.sysReqs = restored.sysReqs;
+        w.DB.subsysReqs = restored.subsysReqs;
+        w.DB.swReqs = restored.swReqs;
+        w.DB.meReqs = restored.meReqs;
+        w.DB.vv = restored.vv;
+        w.DB.archLinks = restored.archLinks;
+        w.DB.aiAudit = restored.aiAudit;
+      }
+    });
+  },
+  checkEngineeringDecompositionSysengRuntime: async function(){
+    return withAppWindow(function(w){
+      var fns = ['renderReqs','renderSubsysReqs','renderArch','renderArchLinks','renderICD','renderVV'];
+      var missing = fns.filter(function(name){ return typeof w[name] !== 'function'; });
+      if(missing.length || !w.DB) return _runtimeFail('Missing syseng decomposition render functions: ' + missing.join(', '));
+      var snapshot = JSON.stringify({
+        sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], arch:w.DB.arch||[], archLinks:w.DB.archLinks||[], icd:w.DB.icd||[], vv:w.DB.vv||[]
+      });
+      try{
+        var payload = _buildEngineeringDecompositionRuntimePayload();
+        w.DB.sysReqs = JSON.parse(JSON.stringify(payload.sysReqs));
+        w.DB.subsysReqs = JSON.parse(JSON.stringify(payload.subsysReqs));
+        w.DB.arch = JSON.parse(JSON.stringify(payload.arch));
+        w.DB.archLinks = JSON.parse(JSON.stringify(payload.archLinks));
+        w.DB.icd = JSON.parse(JSON.stringify(payload.icd));
+        w.DB.vv = JSON.parse(JSON.stringify(payload.vv));
+        w.renderReqs('sys');
+        w.renderSubsysReqs();
+        w.renderArch();
+        w.renderArchLinks();
+        w.renderICD();
+        w.renderVV();
+        var ok = !!((w.document.getElementById('sysReqsBody') || {}).innerHTML &&
+          (w.document.getElementById('subsysReqsBody') || {}).innerHTML &&
+          (w.document.getElementById('archBody') || {}).innerHTML &&
+          (w.document.getElementById('archLinksBody') || {}).innerHTML &&
+          (w.document.getElementById('icdBody') || {}).innerHTML &&
+          (w.document.getElementById('vvBody') || {}).innerHTML);
+        return ok ? _runtimePass('System engineering rendering remains intact with subsystem and interface-link layers') : _runtimeFail('One or more syseng decomposition renderers failed');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        w.DB.sysReqs = restored.sysReqs;
+        w.DB.subsysReqs = restored.subsysReqs;
+        w.DB.arch = restored.arch;
+        w.DB.archLinks = restored.archLinks;
+        w.DB.icd = restored.icd;
+        w.DB.vv = restored.vv;
+      }
+    });
+  },
   checkAIFoundationOfflineStubSource: async function(){
     var src = await loadAppSource();
     var start = src.indexOf('window.AIFacade');
@@ -3635,11 +3895,11 @@ var AUTOMATION = {
     var src = await loadAppSource();
     var tabs = ['cm-ecp','cm-ccb','cm-docs','cm-baseline','cm-bom','se-reqs','se-arch','se-icd','se-vv','se-vcrm',
                 'risk-register','risk-residual','sw-reqs','sw-modules','sw-defects','sw-tests','sw-versions',
-                'me-reqs','me-bom','me-drawings','me-tests','me-docs','sf-plan','sf-hazards','sf-analyses',
+                'me-reqs','me-arch','me-bom','me-drawings','me-tests','me-docs','sf-plan','sf-hazards','sf-analyses',
                 'sf-sar','sf-srb','qa-overview','qa-ncr','qa-fod','qa-audits','ils-plan','ils-lru','ils-spares',
                 'tests-repo','tests-methods','actions-open','actions-closed'];
     var missing = tabs.filter(function(t){ return !src.includes('id="'+t+'"'); });
-    return { pass: missing.length===0, actual: missing.length ? 'חסרים: '+missing.join(', ') : '38/38 טאבים קיימים' };
+    return { pass: missing.length===0, actual: missing.length ? 'חסרים: '+missing.join(', ') : tabs.length+'/'+tabs.length+' טאבים קיימים' };
   },
 
   checkModalFunctions: async function(){

@@ -2455,10 +2455,27 @@ tbody tr:hover { background: #f0f6ff; }
     <div class="card"><div class="card-body tbl-wrap">
       <table><thead><tr>
         <th>#</th><th>מזהה</th><th>רמה</th><th>תחום</th><th>תיאור</th>
-        <th>מקור L0</th><th>סטטוס</th><th>V&V Method</th><th>פעולות</th>
+        <th>מקור / Parent</th><th>הקצאה / יעד</th><th>סטטוס</th><th>V&V Method</th><th>פעולות</th>
       </tr></thead>
       <tbody id="sysReqsBody"></tbody></table>
     </div></div>
+    <div class="card" style="margin-top:18px;">
+      <div class="card-hdr">
+        <div class="card-title">🧩 דרישות תת-מערכת</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <select class="form-select" id="subsysReqFilter" style="width:180px" onchange="setSubsysReqFilter(this.value)">
+            <option value="all">כל תתי-המערכת</option>
+          </select>
+          <button class="btn btn-primary btn-sm" onclick="openAddSubsysReq()">➕ דרישת תת-מערכת</button>
+        </div>
+      </div>
+      <div class="card-body tbl-wrap">
+        <table><thead><tr>
+          <th>#</th><th>מזהה</th><th>Parent SyRS</th><th>תת-מערכת</th><th>תחום</th><th>תיאור</th><th>מקור</th><th>V&V</th><th>שלב</th><th>סטטוס</th><th>פעולות</th>
+        </tr></thead>
+        <tbody id="subsysReqsBody"></tbody></table>
+      </div>
+    </div>
   </div>
 
   <div class="tab-pane" id="se-arch">
@@ -2484,6 +2501,20 @@ tbody tr:hover { background: #f0f6ff; }
           <th>פעולות</th>
         </tr></thead>
         <tbody id="archBody"></tbody></table>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:18px;">
+      <div class="card-hdr">
+        <div class="card-title">🔁 Architecture Links / Interfaces</div>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-primary btn-sm" onclick="openAddArchLink()">➕ הוסף קישור</button>
+        </div>
+      </div>
+      <div class="card-body tbl-wrap">
+        <table><thead><tr>
+          <th>#</th><th>מקור</th><th>יעד</th><th>שם זרימה</th><th>סוג</th><th>Payload / Message</th><th>תדירות / קצב</th><th>Protocol / Medium</th><th>Voltage / Power</th><th>הערות</th><th>סטטוס</th><th>פעולות</th>
+        </tr></thead>
+        <tbody id="archLinksBody"></tbody></table>
       </div>
     </div>
 
@@ -2587,7 +2618,7 @@ tbody tr:hover { background: #f0f6ff; }
       <button class="btn btn-primary" onclick="openAddReq('sw')">➕ דרישת תוכנה</button>
     </div>
     <div class="card"><div class="card-body tbl-wrap">
-      <table><thead><tr><th>#</th><th>מזהה</th><th>קטגוריה</th><th>תיאור</th><th>עדיפות</th><th>קישור SyRS</th><th>סטטוס</th><th>בדיקה</th><th>פעולות</th></tr></thead>
+      <table><thead><tr><th>#</th><th>מזהה</th><th>קטגוריה</th><th>תיאור</th><th>Parent</th><th>תת-מערכת / הקצאה</th><th>מקור</th><th>סטטוס</th><th>בדיקה</th><th>פעולות</th></tr></thead>
       <tbody id="swReqsBody"></tbody></table>
     </div></div>
   </div>
@@ -2690,6 +2721,7 @@ tbody tr:hover { background: #f0f6ff; }
   </div>
   <div class="tabs">
     <div class="tab active" onclick="switchTab(this,'me-reqs')">📋 דרישות (MRS)</div>
+    <div class="tab" onclick="switchTab(this,'me-arch')">🏗️ דקומפוזיציה</div>
     <div class="tab" onclick="switchTab(this,'me-bom')">📦 BOM</div>
     <div class="tab" onclick="switchTab(this,'me-drawings')">📐 ציורים</div>
     <div class="tab" onclick="switchTab(this,'me-tests')">🔬 בדיקות</div>
@@ -2701,9 +2733,26 @@ tbody tr:hover { background: #f0f6ff; }
       <button class="btn btn-primary" onclick="openAddReq('me')">➕ דרישה מכאנית</button>
     </div>
     <div class="card"><div class="card-body tbl-wrap">
-      <table><thead><tr><th>#</th><th>מזהה</th><th>קטגוריה</th><th>תיאור</th><th>ערך נדרש</th><th>קישור SyRS</th><th>סטטוס</th><th>פעולות</th></tr></thead>
+      <table><thead><tr><th>#</th><th>מזהה</th><th>קטגוריה</th><th>תיאור</th><th>Parent</th><th>תת-מערכת / הקצאה</th><th>מקור</th><th>סטטוס</th><th>בדיקה</th><th>פעולות</th></tr></thead>
       <tbody id="meReqsBody"></tbody></table>
     </div></div>
+  </div>
+
+  <div class="tab-pane" id="me-arch">
+    <div class="card">
+      <div class="card-hdr">
+        <div class="card-title">🔩 Mechanical Decomposition — מכלולים וממשקים</div>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-primary btn-sm" onclick="openAddMEArchItem()">➕ הוסף מכלול</button>
+        </div>
+      </div>
+      <div class="card-body tbl-wrap">
+        <table><thead><tr>
+          <th>#</th><th>מכלול / רכיב</th><th>סוג</th><th>תת-מערכת</th><th>תיאור</th><th>ממשקים</th><th>חיבורים</th><th>תצורה / חומר</th><th>סטטוס</th><th>פעולות</th>
+        </tr></thead>
+        <tbody id="meArchBody"></tbody></table>
+      </div>
+    </div>
   </div>
 
   <div class="tab-pane" id="me-bom">
@@ -3646,11 +3695,11 @@ var DB = {
     {t:"תחקיר ניסויים",proc:"Op300-D002-SIG",d:false},{t:"תיעוד מסירה מלא",proc:"Q902",d:false},
     {t:"מוכנות למסירה",proc:"P400-ESG",d:false}
   ],
-  sysReqs: [], swReqs: [], meReqs: [],
-  arch: [], icd: [], vv: [], engDocs: [],
+  sysReqs: [], subsysReqs: [], swReqs: [], meReqs: [],
+  arch: [], archLinks: [], icd: [], vv: [], engDocs: [],
   swModules: [], defects: [], swTests: [], versions: [], swDocs: [],
   swArch: [],
-  bom: [], drawings: [], meTests: [], meDocs: [],
+  bom: [], drawings: [], meTests: [], meDocs: [], meArch: [],
   sspp: {ver:"",status:"טרם הוכן",engineer:"",srbChair:"",notes:"",stds:{mil882:false,defstan:false,faa:false,easa:false}},
   hazards: [], analyses: [], srb: [],
   sar: {ver:"",status:"טרם הוחל",conclusion:"",openItems:""},
@@ -3668,6 +3717,12 @@ var DB = {
   ai: {provider:"local",apiKey:""},
   docRegistry: {}
 };
+
+function _ensureEngineeringStructures(){
+  if(!Array.isArray(DB.subsysReqs)) DB.subsysReqs = [];
+  if(!Array.isArray(DB.archLinks)) DB.archLinks = [];
+  if(!Array.isArray(DB.meArch)) DB.meArch = [];
+}
 
 // ─── UTILS ────────────────────────────────────────────────
 var _id = 0;
@@ -3719,6 +3774,7 @@ function navigateTo(id, el){
 }
 
 function renderPage(id){
+  _ensureEngineeringStructures();
   var map={
     "portfolio":renderPortfolioPage,
     "dashboard":renderDashboard,"flow":renderFlow,"actions":renderActions,
@@ -3727,9 +3783,9 @@ function renderPage(id){
     "tasks":function(){renderWBSOnly();renderTasks();}, // WBS + tasks together
     "milestones":renderMilestones,
     "stakeholders":function(){navigateTo("project");}, // redirect to project page
-    "syseng":function(){renderReqs("sys");renderArch();renderICD();renderVV();renderVCRM();renderDocRegistry();},
+    "syseng":function(){renderReqs("sys");renderSubsysReqs();renderArch();renderArchLinks();renderICD();renderVV();renderVCRM();renderDocRegistry();},
     "software":function(){renderReqs("sw");renderSWModules();renderSWArchBody();renderDefects();renderSWTests();renderVersions();renderSWDocRegistry();},
-    "mechanical":function(){renderReqs("me");renderBOM();renderDrawings();renderMETests();renderMEDocRegistry();},
+    "mechanical":function(){renderReqs("me");renderMEArch();renderBOM();renderDrawings();renderMETests();renderMEDocRegistry();},
     "safety":function(){renderSSPP();renderHazards();renderAnalyses();renderSRB();renderSAR();},
     "quality":function(){renderQAStats();renderNCR();renderFOD();renderAudits();},
     "tests":function(){renderTests();renderDebriefs();renderTrainings();},
@@ -4392,42 +4448,124 @@ function openAddStakeholder(){
 </script>
 <script>
 // ─── REQUIREMENTS (shared) ────────────────────────────────
-function openAddReq(type){
-  // Handle DB.sysReqs.push and swReqs.push and meReqs.push
-  var arr=type==="sys"?"sysReqs":type==="sw"?"swReqs":"meReqs";
-  var extra=type==="sys"?
-    formGroup("רמה","<select class='form-select' id='rLevel'><option>L0</option><option>L1</option><option>L2</option></select>")+
-    formGroup("תחום","<select class='form-select' id='rDomain'><option>פונקציונלי</option><option>ביצועים</option><option>בטיחות</option><option>ממשק</option><option>סביבה</option><option>תחזוקה</option></select>"):
-    type==="sw"?formGroup("קטגוריה","<select class='form-select' id='rDomain'><option>פונקציונלי</option><option>ביצועים</option><option>אבטחה</option><option>ממשק</option></select>"):
-    formGroup("קטגוריה","<select class='form-select' id='rDomain'><option>מבני</option><option>תרמי</option><option>סביבה</option><option>ממשק</option><option>חומר</option></select>");
+function _requirementConfig(type){
+  if(type === "sys"){
+    return {
+      arrName:"sysReqs",
+      bodyId:"sysReqsBody",
+      title:"דרישת מערכת חדשה",
+      idPlaceholder:"SYS-001",
+      levelOptions:"<option>L0</option><option selected>L1</option><option>L2</option>",
+      domainOptions:"<option>פונקציונלי</option><option>ביצועים</option><option>בטיחות</option><option>ממשק</option><option>סביבה</option><option>תחזוקה</option>",
+      parentLabel:"מקור / Stakeholder",
+      parentPlaceholder:"REQ-CUST-001",
+      allocationLabel:"הקצאה / יעד",
+      allocationPlaceholder:"Subsystem / SW / ME / Interface",
+      sourceLabel:"מקור / Origin",
+      sourcePlaceholder:"Customer, CONOPS, ICD, Safety",
+      subsystemLabel:"תת-מערכת",
+      subsystemPlaceholder:"Signal Processing"
+    };
+  }
+  if(type === "sw"){
+    return {
+      arrName:"swReqs",
+      bodyId:"swReqsBody",
+      title:"דרישת תוכנה חדשה",
+      idPlaceholder:"SW-001",
+      levelOptions:"<option>L3</option><option selected>L4</option><option>L5</option>",
+      domainOptions:"<option>פונקציונלי</option><option>ביצועים</option><option>אבטחה</option><option>ממשק</option><option>אלגוריתמי</option>",
+      parentLabel:"Parent דרישה",
+      parentPlaceholder:"SYS-001 / SUBSYS-001",
+      allocationLabel:"הקצאה / רכיב",
+      allocationPlaceholder:"Mission Computer / DSP",
+      sourceLabel:"מקור / Origin",
+      sourcePlaceholder:"SyRS / Subsystem spec / ICD",
+      subsystemLabel:"תת-מערכת",
+      subsystemPlaceholder:"Software Stack"
+    };
+  }
+  return {
+    arrName:"meReqs",
+    bodyId:"meReqsBody",
+    title:"דרישה מכאנית חדשה",
+    idPlaceholder:"ME-001",
+    levelOptions:"<option>L3</option><option selected>L4</option><option>L5</option>",
+    domainOptions:"<option>מבני</option><option>תרמי</option><option>סביבה</option><option>ממשק</option><option>חומר</option>",
+    parentLabel:"Parent דרישה",
+    parentPlaceholder:"SYS-001 / SUBSYS-001",
+    allocationLabel:"הקצאה / מכלול",
+    allocationPlaceholder:"Enclosure / Antenna Mount",
+    sourceLabel:"מקור / Origin",
+    sourcePlaceholder:"SyRS / Subsystem spec / Drawing",
+    subsystemLabel:"תת-מערכת",
+    subsystemPlaceholder:"Mechanical Assembly"
+  };
+}
 
-  openModal("דרישה חדשה",
-    "<div class='form-row'>"+formGroup("מזהה (ID)","<input class='form-input' id='rId' placeholder='SYS-001'>")+extra+"</div>"+
+function openAddReq(type){
+  var cfg = _requirementConfig(type);
+  openModal(cfg.title,
+    "<div class='form-row'>"+
+      formGroup("מזהה (ID)","<input class='form-input' id='rId' placeholder='"+esc(cfg.idPlaceholder)+"'>")+
+      formGroup("רמה","<select class='form-select' id='rLevel'>"+cfg.levelOptions+"</select>")+
+      formGroup(type==="sys"?"תחום":"קטגוריה","<select class='form-select' id='rDomain'>"+cfg.domainOptions+"</select>")+
+    "</div>"+
     formRow2("תיאור הדרישה","rDesc","")+
     "<div class='form-row'>"+
-    formGroup("קישור L0","<input class='form-input' id='rL0' placeholder='REQ-001'>")+
-    formGroup("שיטת V&V","<select class='form-select' id='rVV'><option>Test</option><option>Inspection</option><option>Analysis</option><option>Demonstration</option></select>")+
+      formGroup(cfg.parentLabel,"<input class='form-input' id='rParent' placeholder='"+esc(cfg.parentPlaceholder)+"'>")+
+      formGroup(cfg.allocationLabel,"<input class='form-input' id='rAllocation' placeholder='"+esc(cfg.allocationPlaceholder)+"'>")+
+    "</div>"+
+    "<div class='form-row'>"+
+      formGroup(cfg.sourceLabel,"<input class='form-input' id='rSource' placeholder='"+esc(cfg.sourcePlaceholder)+"'>")+
+      formGroup(cfg.subsystemLabel,"<input class='form-input' id='rSubsystem' placeholder='"+esc(cfg.subsystemPlaceholder)+"'>")+
+    "</div>"+
+    "<div class='form-row'>"+
+      formGroup("שיטת V&V","<select class='form-select' id='rVV'><option>Test</option><option>Inspection</option><option>Analysis</option><option>Demonstration</option></select>")+
+      formGroup("שלב אימות","<input class='form-input' id='rVVPhase' placeholder='SRR / PDR / CDR / FAT'>")+
     "</div>"+
     formGroup("סטטוס","<select class='form-select' id='rStatus'><option>Draft</option><option>Baselined</option><option>Approved</option><option>TBD</option></select>"),
     function(){
-      DB[arr].push({id:uid(),rid:gV("rId"),level:gV("rLevel")||"L1",domain:gV("rDomain"),
-        desc:gV("rDesc"),l0:gV("rL0"),vv:gV("rVV"),status:gV("rStatus")});
+      DB[cfg.arrName].push({
+        id:uid(),
+        rid:gV("rId"),
+        level:gV("rLevel") || (type==="sys"?"L1":"L4"),
+        domain:gV("rDomain"),
+        desc:gV("rDesc"),
+        l0:gV("rParent"),
+        parentRid:gV("rParent"),
+        allocation:gV("rAllocation"),
+        source:gV("rSource"),
+        origin:gV("rSource"),
+        subsystem:gV("rSubsystem"),
+        vv:gV("rVV"),
+        vvPhase:gV("rVVPhase"),
+        status:gV("rStatus")
+      });
       markDirty();renderReqs(type);closeModal();notify("דרישה נוספה","ok");
     }
   );
 }
 
 function renderReqs(type){
-  var arr=type==="sys"?DB.sysReqs:type==="sw"?DB.swReqs:DB.meReqs;
-  var bodyId=type==="sys"?"sysReqsBody":type==="sw"?"swReqsBody":"meReqsBody";
-  renderTable(bodyId,arr,[],function(r,i){
-    var arrName=type==="sys"?"sysReqs":type==="sw"?"swReqs":"meReqs";
+  var cfg = _requirementConfig(type);
+  var arr = DB[cfg.arrName] || [];
+  renderTable(cfg.bodyId,arr,[],function(r,i){
     var assistBtn="<button class='btn btn-xs btn-outline' data-ai-requirement-assist='true' onclick='openAIRequirementAssistant(\""+type+"\","+i+")' title='הפק הצעת שיפור לדרישה'>💡</button> ";
-    return "<td>"+(i+1)+"</td><td>"+esc(r.rid||"")+"</td><td>"+ragBadge(r.level||r.domain||"")+"</td>"+
-      "<td>"+esc(r.domain||"")+"</td><td style='max-width:300px;'>"+esc(r.desc)+"</td>"+
-      "<td>"+esc(r.l0||"-")+"</td><td>"+ragBadge(r.status||"Draft")+"</td>"+
-      "<td>"+esc(r.vv||"-")+"</td>"+
-      "<td>"+actionBtns(i,arrName,false,assistBtn)+"</td>";
+    var parentRef = r.parentRid || r.l0 || r.source || "-";
+    var allocation = r.allocation || r.subsystem || "-";
+    var source = r.source || r.origin || "-";
+    if(type === "sys"){
+      return "<td>"+(i+1)+"</td><td>"+esc(r.rid||"")+"</td><td>"+ragBadge(r.level||"L1")+"</td>"+
+        "<td>"+esc(r.domain||"-")+"</td><td style='max-width:300px;'>"+esc(r.desc)+"</td>"+
+        "<td>"+esc(parentRef)+"</td><td>"+esc(allocation)+"</td>"+
+        "<td>"+ragBadge(r.status||"Draft")+"</td><td>"+esc(r.vv||"-")+"</td>"+
+        "<td>"+actionBtns(i,cfg.arrName,false,assistBtn)+"</td>";
+    }
+    return "<td>"+(i+1)+"</td><td>"+esc(r.rid||"")+"</td><td>"+ragBadge(r.domain||r.level||"")+"</td>"+
+      "<td style='max-width:300px;'>"+esc(r.desc)+"</td><td>"+esc(parentRef)+"</td><td>"+esc(allocation)+"</td>"+
+      "<td>"+esc(source)+"</td><td>"+ragBadge(r.status||"Draft")+"</td><td>"+esc(r.vv||"-")+"</td>"+
+      "<td>"+actionBtns(i,cfg.arrName,false,assistBtn)+"</td>";
   });
 }
 
@@ -4438,6 +4576,120 @@ function filterReqs(f){
     var cells=r.querySelectorAll("td");
     r.style.display=cells[2]&&cells[2].textContent.includes(f)?"":"none";
   });
+}
+
+var _subsysReqView = { subsystem:"all" };
+
+function setSubsysReqFilter(value){
+  _subsysReqView.subsystem = value || "all";
+  renderSubsysReqs();
+}
+
+function openAddSubsysReq(){
+  openModal("דרישת תת-מערכת חדשה",
+    "<div class='form-row'>"+
+      formGroup("RID","<input class='form-input' id='ssrRid' placeholder='SUBSYS-001'>")+
+      formGroup("Parent SyRS","<input class='form-input' id='ssrParent' placeholder='SYS-001'>")+
+      formGroup("תת-מערכת","<input class='form-input' id='ssrSubsystem' placeholder='Signal Processing'>")+
+    "</div>"+
+    "<div class='form-row'>"+
+      formGroup("תחום","<select class='form-select' id='ssrDomain'><option>פונקציונלי</option><option>ביצועים</option><option>ממשק</option><option>בטיחות</option><option>תחזוקה</option></select>")+
+      formGroup("מקור / Origin","<input class='form-input' id='ssrSource' placeholder='SyRS / ICD / Safety'>")+
+      formGroup("שלב אימות","<input class='form-input' id='ssrVVPhase' placeholder='PDR / CDR / FAT'>")+
+    "</div>"+
+    formRow2("תיאור הדרישה","ssrDesc","")+
+    "<div class='form-row'>"+
+      formGroup("שיטת V&V","<select class='form-select' id='ssrVV'><option>Test</option><option>Inspection</option><option>Analysis</option><option>Demonstration</option></select>")+
+      formGroup("סטטוס","<select class='form-select' id='ssrStatus'><option>Draft</option><option>Baselined</option><option>Approved</option><option>TBD</option></select>")+
+    "</div>",
+    function(){
+      DB.subsysReqs.push({
+        id:uid(),
+        rid:gV("ssrRid"),
+        parentRid:gV("ssrParent"),
+        subsystem:gV("ssrSubsystem"),
+        domain:gV("ssrDomain"),
+        desc:gV("ssrDesc"),
+        status:gV("ssrStatus"),
+        source:gV("ssrSource"),
+        origin:gV("ssrSource"),
+        vv:gV("ssrVV"),
+        vvPhase:gV("ssrVVPhase")
+      });
+      markDirty();renderSubsysReqs();closeModal();notify("דרישת תת-מערכת נוספה","ok");
+    }
+  );
+}
+
+function renderSubsysReqs(){
+  var body = document.getElementById("subsysReqsBody");
+  if(!body) return;
+  var rows = DB.subsysReqs || [];
+  var subsystems = rows.map(function(r){ return String(r.subsystem || "").trim(); }).filter(Boolean);
+  var uniq = Array.from(new Set(subsystems)).sort();
+  var filterEl = document.getElementById("subsysReqFilter");
+  if(filterEl){
+    filterEl.innerHTML = "<option value='all'>כל תתי-המערכת</option>" + uniq.map(function(name){
+      return "<option value='"+esc(name)+"'>"+esc(name)+"</option>";
+    }).join("");
+    filterEl.value = _subsysReqView.subsystem || "all";
+  }
+  var filtered = rows.filter(function(r){
+    return !_subsysReqView.subsystem || _subsysReqView.subsystem === "all" || String(r.subsystem || "") === _subsysReqView.subsystem;
+  });
+  renderTable("subsysReqsBody",filtered,[],function(r,i){
+    return "<td>"+(i+1)+"</td><td>"+esc(r.rid||"")+"</td><td>"+esc(r.parentRid||"-")+"</td><td>"+esc(r.subsystem||"-")+"</td>"+
+      "<td>"+esc(r.domain||"-")+"</td><td style='max-width:280px;'>"+esc(r.desc||"")+"</td><td>"+esc(r.source||r.origin||"-")+"</td>"+
+      "<td>"+esc(r.vv||"-")+"</td><td>"+esc(r.vvPhase||"-")+"</td><td>"+ragBadge(r.status||"Draft")+"</td>"+
+      "<td>"+actionBtns(i,"subsysReqs")+"</td>";
+  });
+}
+
+function renderArchLinks(){
+  renderTable("archLinksBody",DB.archLinks||[],[],function(link,i){
+    return "<td>"+(i+1)+"</td><td>"+esc(link.sourceComponent||"")+"</td><td>"+esc(link.targetComponent||"")+"</td>"+
+      "<td>"+esc(link.flowName||"")+"</td><td>"+esc(link.flowType||"")+"</td><td style='max-width:180px;'>"+esc(link.payloadOrMessage||"")+"</td>"+
+      "<td>"+esc(link.frequencyOrRate||"-")+"</td><td>"+esc(link.protocolOrMedium||"-")+"</td><td>"+esc(link.voltageOrPower||"-")+"</td>"+
+      "<td style='max-width:160px;'>"+esc(link.notes||"-")+"</td><td>"+ragBadge(link.status||"Draft")+"</td>"+
+      "<td>"+actionBtns(i,"archLinks")+"</td>";
+  });
+}
+
+function openAddArchLink(){
+  openModal("Architecture Link / Interface",
+    "<div class='form-row'>"+
+      formGroup("Source Component","<input class='form-input' id='alSource' placeholder='Mission Computer'>")+
+      formGroup("Target Component","<input class='form-input' id='alTarget' placeholder='Recorder'>")+
+      formGroup("Flow Name","<input class='form-input' id='alFlowName' placeholder='Mission data stream'>")+
+    "</div>"+
+    "<div class='form-row'>"+
+      formGroup("Flow Type","<select class='form-select' id='alFlowType'><option>data</option><option>command</option><option>telemetry</option><option>power</option><option>mechanical</option><option>RF</option><option>bus</option><option>network</option></select>")+
+      formGroup("Payload / Message","<input class='form-input' id='alPayload' placeholder='IQ samples / status words'>")+
+      formGroup("Frequency / Rate","<input class='form-input' id='alRate' placeholder='10 Hz / 1 Gbps'>")+
+    "</div>"+
+    "<div class='form-row'>"+
+      formGroup("Protocol / Medium","<input class='form-input' id='alProtocol' placeholder='Ethernet / 1553 / RS-422'>")+
+      formGroup("Voltage / Power","<input class='form-input' id='alPower' placeholder='28VDC / 5W'>")+
+      formGroup("סטטוס","<select class='form-select' id='alStatus'><option>Draft</option><option>Defined</option><option>Released</option></select>")+
+    "</div>"+
+    formRow2("הערות","alNotes",""),
+    function(){
+      DB.archLinks.push({
+        id:uid(),
+        sourceComponent:gV("alSource"),
+        targetComponent:gV("alTarget"),
+        flowName:gV("alFlowName"),
+        flowType:gV("alFlowType"),
+        payloadOrMessage:gV("alPayload"),
+        frequencyOrRate:gV("alRate"),
+        protocolOrMedium:gV("alProtocol"),
+        voltageOrPower:gV("alPower"),
+        notes:gV("alNotes"),
+        status:gV("alStatus")
+      });
+      markDirty();renderArchLinks();closeModal();notify("קישור ארכיטקטורה נוסף","ok");
+    }
+  );
 }
 
 // ─── SYSENG ───────────────────────────────────────────────
@@ -4480,6 +4732,46 @@ function openAddArch(){
         connections:gV("arConnections"),flowDesc:gV("arFlowDesc")
       });
       markDirty();renderArch();closeModal();
+    }
+  );
+}
+
+function renderMEArch(){
+  renderTable("meArchBody",DB.meArch||[],[],function(item,i){
+    return "<td>"+(i+1)+"</td><td><b>"+esc(item.name||"")+"</b></td><td>"+esc(item.type||"")+"</td>"+
+      "<td>"+esc(item.subsystem||"")+"</td><td style='max-width:200px;'>"+esc(item.desc||"")+"</td>"+
+      "<td>"+esc(item.interfaces||"-")+"</td><td>"+esc(item.connections||"-")+"</td><td>"+esc(item.configuration||item.material||"-")+"</td>"+
+      "<td>"+ragBadge(item.status||"Draft")+"</td><td>"+actionBtns(i,"meArch")+"</td>";
+  });
+}
+
+function openAddMEArchItem(){
+  openModal("מכלול מכאני / דקומפוזיציה",
+    "<div class='form-row'>"+
+      formGroup("שם מכלול","<input class='form-input' id='meaName' placeholder='Antenna Mount'>")+
+      formGroup("סוג","<select class='form-select' id='meaType'><option>Assembly</option><option>Bracket</option><option>Harness</option><option>Thermal</option><option>Structure</option><option>Enclosure</option></select>")+
+      formGroup("תת-מערכת","<input class='form-input' id='meaSubsystem' placeholder='RF Front End'>")+
+    "</div>"+
+    formRow2("תיאור","meaDesc","")+
+    "<div class='form-row'>"+
+      formGroup("ממשקים","<input class='form-input' id='meaInterfaces' placeholder='Mounting, cooling, RF feed'>")+
+      formGroup("חיבורים","<input class='form-input' id='meaConnections' placeholder='Cabinet, antenna, frame'>")+
+      formGroup("תצורה / חומר","<input class='form-input' id='meaConfig' placeholder='Al 6061 / welded frame'>")+
+    "</div>"+
+    formGroup("סטטוס","<select class='form-select' id='meaStatus'><option>Draft</option><option>Concept</option><option>Design In Progress</option><option>Released</option></select>"),
+    function(){
+      DB.meArch.push({
+        id:uid(),
+        name:gV("meaName"),
+        type:gV("meaType"),
+        subsystem:gV("meaSubsystem"),
+        desc:gV("meaDesc"),
+        interfaces:gV("meaInterfaces"),
+        connections:gV("meaConnections"),
+        configuration:gV("meaConfig"),
+        status:gV("meaStatus")
+      });
+      markDirty();renderMEArch();closeModal();notify("מכלול מכאני נוסף","ok");
     }
   );
 }
@@ -20257,6 +20549,12 @@ document.addEventListener("DOMContentLoaded", function(){
 window.renderPortfolioPage = renderPortfolioPage;
 window.openAIRequirementAssistant = openAIRequirementAssistant;
 window.openAIConsistencyReview = openAIConsistencyReview;
+window.renderSubsysReqs = renderSubsysReqs;
+window.openAddSubsysReq = openAddSubsysReq;
+window.renderArchLinks = renderArchLinks;
+window.openAddArchLink = openAddArchLink;
+window.renderMEArch = renderMEArch;
+window.openAddMEArchItem = openAddMEArchItem;
 window.buildVCRMRows = buildVCRMRows;
 window.renderVCRM = renderVCRM;
 window.setVCRMFilter = setVCRMFilter;
