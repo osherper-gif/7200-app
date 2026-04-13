@@ -2527,27 +2527,36 @@ tbody tr:hover { background: #f0f6ff; }
   </div>
 
   <div class="tab-pane" id="se-vcrm">
-    <div class="pg-actions" style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap;">
+    <!-- VCRM header -->
+    <div style="margin-bottom:16px;">
+      <div style="font-size:18px;font-weight:800;letter-spacing:.01em;">🧩 VCRM — Verification Cross Reference Matrix</div>
+      <div style="margin-top:4px;font-size:13px;color:var(--g600);">מטריצת כיסוי אימות רוחבית — מקשרת בין כל דרישות הפרויקט (מערכת · תוכנה · מכניקה) לבין פריטי ה-V&amp;V המשויכים להן. מאפשרת לזהות דרישות מכוסות, בעלות כיסוי חלקי, ודרישות שטרם קושרו לאף פריט אימות.</div>
+    </div>
+    <!-- Summary cards — rendered by renderVCRM() -->
+    <div id="vcrmSummary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px;"></div>
+    <!-- Filters row -->
+    <div class="pg-actions" style="margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
       <select class="form-select" id="vcrmDisciplineFilter" style="width:170px" onchange="setVCRMFilter('discipline',this.value)">
-        <option value="all">כל הדיסציפלינות</option>
-        <option value="SYS">SYS</option>
-        <option value="SW">SW</option>
-        <option value="ME">ME</option>
+        <option value="all">הכל — כל הדיסציפלינות</option>
+        <option value="SYS">מערכת (SYS)</option>
+        <option value="SW">תוכנה (SW)</option>
+        <option value="ME">מכניקה (ME)</option>
       </select>
       <select class="form-select" id="vcrmCoverageFilter" style="width:170px" onchange="setVCRMFilter('coverage',this.value)">
-        <option value="all">כל מצבי הכיסוי</option>
-        <option value="Covered">Covered</option>
-        <option value="Partial">Partial</option>
-        <option value="Missing">Missing</option>
+        <option value="all">הכל — כל מצבי הכיסוי</option>
+        <option value="Covered">מכוסה</option>
+        <option value="Partial">כיסוי חלקי</option>
+        <option value="Missing">ללא כיסוי</option>
       </select>
-      <input class="form-input" id="vcrmSearch" style="min-width:240px;flex:1;" placeholder="חיפוש לפי מזהה דרישה או טקסט..." oninput="setVCRMFilter('search',this.value)">
+      <input class="form-input" id="vcrmSearch" style="min-width:220px;flex:1;" placeholder="🔍 חיפוש לפי מזהה דרישה או טקסט..." oninput="setVCRMFilter('search',this.value)">
     </div>
-    <div id="vcrmSummary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px;"></div>
+    <!-- Visible row count info -->
     <div id="vcrmVisibleInfo" style="padding:6px 12px;font-size:13px;background:var(--surface1);border-radius:6px;margin-bottom:8px;"></div>
+    <!-- Main matrix table -->
     <div class="card"><div class="card-body tbl-wrap">
       <table><thead><tr>
-        <th>#</th><th>מקור</th><th>מזהה דרישה</th><th>רמה</th><th>תחום</th><th>תיאור דרישה</th>
-        <th>פריטי V&V מקושרים</th><th>שיטת אימות</th><th>תוצר</th><th>שלב</th><th>אחראי</th><th>כיסוי</th><th>סטטוס דרישה</th><th>הערות / פערים</th>
+        <th>#</th><th>תחום</th><th>מזהה דרישה</th><th>רמה</th><th>דומיין</th><th>תיאור דרישה</th>
+        <th>פריטי V&amp;V מקושרים</th><th>שיטת אימות</th><th>ארטיפקט</th><th>שלב</th><th>אחראי</th><th>סטטוס כיסוי</th><th>סטטוס דרישה</th><th>הערות</th>
       </tr></thead>
       <tbody id="vcrmBody"></tbody></table>
     </div></div>
@@ -4524,11 +4533,17 @@ function renderVV(){
 
 var _vcrmView = { discipline:"all", coverage:"all", search:"" };
 
+var _vcrmCoverageLabel = { "Covered": "מכוסה", "Partial": "כיסוי חלקי", "Missing": "ללא כיסוי" };
+var _vcrmDisciplineLabel = { "SYS": "מערכת", "SW": "תוכנה", "ME": "מכניקה" };
+
 function _vcrmBadge(status){
-  var bg = status === "Covered" ? "#dcfce7;color:#166534" :
-           status === "Partial" ? "#fef3c7;color:#92400e" :
-           "#fee2e2;color:#991b1b";
-  return "<span data-vcrm-coverage='"+esc(status)+"' style='padding:3px 8px;border-radius:999px;font-size:11px;font-weight:700;background:"+bg+";'>"+esc(status)+"</span>";
+  var style = status === "Covered"
+    ? "background:#dcfce7;color:#166534;"
+    : status === "Partial"
+      ? "background:#fef3c7;color:#92400e;"
+      : "background:#fee2e2;color:#991b1b;";
+  var label = _vcrmCoverageLabel[status] || esc(status);
+  return "<span data-vcrm-coverage='"+esc(status)+"' style='padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap;"+style+"'>"+label+"</span>";
 }
 
 function _vcrmUniqueValues(values){
@@ -4549,7 +4564,7 @@ function _vcrmLinkedItemsForRequirement(reqId){
     var reqText = String(row && row.req || "");
     var refs = _splitConsistencyRefs(reqText);
     var rawNorm = _normalizeConsistencyText(reqText);
-    var explicit = refs.indexOf(reqNorm) >= 0;
+    var explicit = rawNorm === reqNorm || ((/[,;|/]/.test(reqText)) && refs.indexOf(reqNorm) >= 0);
     var legacy = !explicit && rawNorm && reqNorm && rawNorm.indexOf(reqNorm) >= 0;
     if(explicit || legacy){
       acc.push({
@@ -4642,10 +4657,10 @@ function renderVCRM(){
   var summaryEl = document.getElementById("vcrmSummary");
   if(summaryEl){
     summaryEl.innerHTML =
-      "<div class='stat-card teal' data-vcrm-summary='total' data-count='"+esc(String(summary.total))+"' style='cursor:default;padding:14px;'><div style='font-size:22px;'>🧩</div><div style='font-size:24px;font-weight:800;color:#0f766e;margin:4px 0;'>"+esc(String(summary.total))+"</div><div style='font-size:12px;color:var(--g600);'>סה\"כ דרישות במטריצה</div></div>" +
-      "<div class='stat-card green' data-vcrm-summary='covered' data-count='"+esc(String(summary.covered))+"' style='cursor:default;padding:14px;'><div style='font-size:22px;'>✅</div><div style='font-size:24px;font-weight:800;color:#15803d;margin:4px 0;'>"+esc(String(summary.covered))+"</div><div style='font-size:12px;color:var(--g600);'>Covered</div></div>" +
-      "<div class='stat-card orange' data-vcrm-summary='partial' data-count='"+esc(String(summary.partial))+"' style='cursor:default;padding:14px;'><div style='font-size:22px;'>🟠</div><div style='font-size:24px;font-weight:800;color:#c2410c;margin:4px 0;'>"+esc(String(summary.partial))+"</div><div style='font-size:12px;color:var(--g600);'>Partial</div></div>" +
-      "<div class='stat-card red' data-vcrm-summary='missing' data-count='"+esc(String(summary.missing))+"' style='cursor:default;padding:14px;'><div style='font-size:22px;'>⚠️</div><div style='font-size:24px;font-weight:800;color:#b91c1c;margin:4px 0;'>"+esc(String(summary.missing))+"</div><div style='font-size:12px;color:var(--g600);'>Missing</div></div>";
+      "<div class='stat-card teal' data-vcrm-summary='total' data-count='"+esc(String(summary.total))+"' style='cursor:default;padding:14px;'><div style='font-size:22px;'>🧩</div><div style='font-size:24px;font-weight:800;color:#0f766e;margin:4px 0;'>"+esc(String(summary.total))+"</div><div style='font-size:12px;color:var(--g600);'>סה\"כ דרישות</div></div>" +
+      "<div class='stat-card green' data-vcrm-summary='covered' data-count='"+esc(String(summary.covered))+"' style='cursor:default;padding:14px;'><div style='font-size:22px;'>✅</div><div style='font-size:24px;font-weight:800;color:#15803d;margin:4px 0;'>"+esc(String(summary.covered))+"</div><div style='font-size:12px;color:var(--g600);'>מכוסות</div></div>" +
+      "<div class='stat-card orange' data-vcrm-summary='partial' data-count='"+esc(String(summary.partial))+"' style='cursor:default;padding:14px;'><div style='font-size:22px;'>🟠</div><div style='font-size:24px;font-weight:800;color:#c2410c;margin:4px 0;'>"+esc(String(summary.partial))+"</div><div style='font-size:12px;color:var(--g600);'>כיסוי חלקי</div></div>" +
+      "<div class='stat-card red' data-vcrm-summary='missing' data-count='"+esc(String(summary.missing))+"' style='cursor:default;padding:14px;'><div style='font-size:22px;'>⚠️</div><div style='font-size:24px;font-weight:800;color:#b91c1c;margin:4px 0;'>"+esc(String(summary.missing))+"</div><div style='font-size:12px;color:var(--g600);'>ללא כיסוי</div></div>";
   }
 
   var visibleEl = document.getElementById("vcrmVisibleInfo");
@@ -4662,21 +4677,22 @@ function renderVCRM(){
 
   body.innerHTML = filteredRows.map(function(row, index){
     var linkedLabel = row.linkedCount ? row.linkedCount + " (" + row.linkedItems.join(", ") + ")" : "0";
+    var discLabel = _vcrmDisciplineLabel[row.discipline] || esc(row.discipline);
     return "<tr data-vcrm-row='true' data-discipline='"+esc(row.discipline)+"' data-coverage='"+esc(row.coverageStatus)+"'>" +
       "<td>"+(index+1)+"</td>" +
-      "<td>"+esc(row.discipline)+"</td>" +
-      "<td style='font-weight:700;'>"+esc(row.requirementId)+"</td>" +
+      "<td><span style='font-size:11px;font-weight:700;padding:2px 7px;border-radius:6px;background:var(--surface1);white-space:nowrap;'>"+discLabel+"</span></td>" +
+      "<td style='font-weight:700;white-space:nowrap;'>"+esc(row.requirementId)+"</td>" +
       "<td>"+esc(row.level || "—")+"</td>" +
       "<td>"+esc(row.domain || "—")+"</td>" +
       "<td style='max-width:280px;white-space:normal;'>"+esc(row.description || "—")+"</td>" +
-      "<td>"+esc(linkedLabel)+"</td>" +
+      "<td style='font-size:12px;'>"+esc(linkedLabel)+"</td>" +
       "<td>"+esc(row.verificationMethod.join(", ") || "—")+"</td>" +
       "<td>"+esc(row.verificationArtifact.join(", ") || "—")+"</td>" +
       "<td>"+esc(row.verificationPhase.join(", ") || "—")+"</td>" +
       "<td>"+esc(row.verificationOwner.join(", ") || "—")+"</td>" +
       "<td>"+_vcrmBadge(row.coverageStatus)+"</td>" +
       "<td>"+esc(row.requirementStatus || "—")+"</td>" +
-      "<td>"+esc(row.notes.join(" | ") || "—")+"</td>" +
+      "<td style='font-size:12px;color:var(--g600);'>"+esc(row.notes.join(" | ") || "—")+"</td>" +
     "</tr>";
   }).join("");
 }
@@ -7805,6 +7821,11 @@ function humanizeConsistencyFinding(text, bucket){
     .replace(/VV row without req linkage was found\./i, "נמצאה רשומת V&V ללא קישור לדרישה.")
     .replace(/Document analysis includes architecture\/interface hints but DB\.arch and DB\.icd are still empty\./i, "בניתוח המסמך זוהו רמזים לארכיטקטורה או לממשקים, אך מאגרי DB.arch ו־DB.icd עדיין ריקים.")
     .replace(/Document analysis includes verification hints but DB\.vv is empty\./i, "בניתוח המסמך זוהו רמזי אימות, אך מאגר DB.vv עדיין ריק.")
+    .replace(/Architecture item "(.+?)" lacks subsystem, connections, and interfaces/gi, "פריט הארכיטקטורה \"$1\" אינו מוגדר במלואו: חסרים תת־מערכת, חיבורים וממשקים")
+    .replace(/Architecture item "(.+?)" exposes interfaces\/connections/gi, "פריט הארכיטקטורה \"$1\" מציג ממשקים או חיבורים")
+    .replace(/Requirement\s+(.+?)\s+has no explicit VV linkage in .*?\./gi, "נמצא פער עקיבות לדרישה \"$1\": אין קישור מפורש ל־V&V ברשומות המקומיות.")
+    .replace(/ICD row "(.+?)" references endpoint A "(.+?)".*DB\.arch\./gi, "רשומת ICD \"$1\" מפנה לנקודת קצה A בשם \"$2\", אך היא לא קיימת ברשימת רכיבי הארכיטקטורה.")
+    .replace(/ICD row "(.+?)" references endpoint B "(.+?)".*DB\.arch\./gi, "רשומת ICD \"$1\" מפנה לנקודת קצה B בשם \"$2\", אך היא לא קיימת ברשימת רכיבי הארכיטקטורה.")
     .replace(/not present in DB\.arch/gi, "לא קיים ברשימת רכיבי הארכיטקטורה")
     .replace(/lacks flowDesc context/gi, "חסר תיאור זרימה (Flow)")
     .replace(/\bDB\.vv\b/g, "מאגר V&V מקומי")

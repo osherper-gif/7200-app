@@ -3365,6 +3365,8 @@ var AUTOMATION = {
         w.DB.swReqs = JSON.parse(JSON.stringify(payload.swReqs));
         w.DB.meReqs = JSON.parse(JSON.stringify(payload.meReqs));
         w.DB.vv = JSON.parse(JSON.stringify(payload.vv));
+        w._vcrmView = { discipline:'all', coverage:'all', search:'' };
+        w.renderVCRM();
         w.setVCRMFilter('discipline', 'SW');
         var swRows = (w.document.getElementById('vcrmBody') || {}).querySelectorAll ? w.document.getElementById('vcrmBody').querySelectorAll('[data-vcrm-row="true"]').length : 0;
         w.setVCRMFilter('coverage', 'Partial');
