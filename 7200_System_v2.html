@@ -2440,6 +2440,7 @@ tbody tr:hover { background: #f0f6ff; }
     <div class="tab" onclick="switchTab(this,'se-arch')">🏗️ ארכיטקטורה</div>
     <div class="tab" onclick="switchTab(this,'se-icd')">🔌 ICD</div>
     <div class="tab" onclick="switchTab(this,'se-vv')">✅ V&V</div>
+    <div class="tab" onclick="switchTab(this,'se-vcrm')">🧩 VCRM</div>
     <div class="tab" onclick="switchTab(this,'se-docs')">📄 מסמכים</div>
   </div>
 
@@ -2522,6 +2523,33 @@ tbody tr:hover { background: #f0f6ff; }
     <div class="card"><div class="card-body tbl-wrap">
       <table><thead><tr><th>#</th><th>דרישה</th><th>תיאור הבדיקה</th><th>שיטת אימות</th><th>תוצר</th><th>שלב</th><th>סטטוס</th><th>אחראי</th><th>פעולות</th></tr></thead>
       <tbody id="vvBody"></tbody></table>
+    </div></div>
+  </div>
+
+  <div class="tab-pane" id="se-vcrm">
+    <div class="pg-actions" style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap;">
+      <select class="form-select" id="vcrmDisciplineFilter" style="width:170px" onchange="setVCRMFilter('discipline',this.value)">
+        <option value="all">כל הדיסציפלינות</option>
+        <option value="SYS">SYS</option>
+        <option value="SW">SW</option>
+        <option value="ME">ME</option>
+      </select>
+      <select class="form-select" id="vcrmCoverageFilter" style="width:170px" onchange="setVCRMFilter('coverage',this.value)">
+        <option value="all">כל מצבי הכיסוי</option>
+        <option value="Covered">Covered</option>
+        <option value="Partial">Partial</option>
+        <option value="Missing">Missing</option>
+      </select>
+      <input class="form-input" id="vcrmSearch" style="min-width:240px;flex:1;" placeholder="חיפוש לפי מזהה דרישה או טקסט..." oninput="setVCRMFilter('search',this.value)">
+    </div>
+    <div id="vcrmSummary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px;"></div>
+    <div id="vcrmVisibleInfo" style="padding:6px 12px;font-size:13px;background:var(--surface1);border-radius:6px;margin-bottom:8px;"></div>
+    <div class="card"><div class="card-body tbl-wrap">
+      <table><thead><tr>
+        <th>#</th><th>מקור</th><th>מזהה דרישה</th><th>רמה</th><th>תחום</th><th>תיאור דרישה</th>
+        <th>פריטי V&V מקושרים</th><th>שיטת אימות</th><th>תוצר</th><th>שלב</th><th>אחראי</th><th>כיסוי</th><th>סטטוס דרישה</th><th>הערות / פערים</th>
+      </tr></thead>
+      <tbody id="vcrmBody"></tbody></table>
     </div></div>
   </div>
 
@@ -3690,7 +3718,7 @@ function renderPage(id){
     "tasks":function(){renderWBSOnly();renderTasks();}, // WBS + tasks together
     "milestones":renderMilestones,
     "stakeholders":function(){navigateTo("project");}, // redirect to project page
-    "syseng":function(){renderReqs("sys");renderArch();renderICD();renderVV();renderDocRegistry();},
+    "syseng":function(){renderReqs("sys");renderArch();renderICD();renderVV();renderVCRM();renderDocRegistry();},
     "software":function(){renderReqs("sw");renderSWModules();renderSWArchBody();renderDefects();renderSWTests();renderVersions();renderSWDocRegistry();},
     "mechanical":function(){renderReqs("me");renderBOM();renderDrawings();renderMETests();renderMEDocRegistry();},
     "safety":function(){renderSSPP();renderHazards();renderAnalyses();renderSRB();renderSAR();},
@@ -4492,6 +4520,165 @@ function renderVV(){
       "<td>"+ragBadge(r.status||"Planned")+"</td><td>"+esc(r.owner||"")+"</td>"+
       "<td>"+actionBtns(i,"vv")+"</td>";
   });
+}
+
+var _vcrmView = { discipline:"all", coverage:"all", search:"" };
+
+function _vcrmBadge(status){
+  var bg = status === "Covered" ? "#dcfce7;color:#166534" :
+           status === "Partial" ? "#fef3c7;color:#92400e" :
+           "#fee2e2;color:#991b1b";
+  return "<span data-vcrm-coverage='"+esc(status)+"' style='padding:3px 8px;border-radius:999px;font-size:11px;font-weight:700;background:"+bg+";'>"+esc(status)+"</span>";
+}
+
+function _vcrmUniqueValues(values){
+  var seen = {};
+  return (values || []).map(function(value){ return String(value || "").trim(); }).filter(function(value){
+    if(!value) return false;
+    var key = value.toLowerCase();
+    if(seen[key]) return false;
+    seen[key] = true;
+    return true;
+  });
+}
+
+function _vcrmLinkedItemsForRequirement(reqId){
+  var reqNorm = _normalizeConsistencyText(reqId);
+  if(!reqNorm) return [];
+  return (DB.vv || []).reduce(function(acc, row){
+    var reqText = String(row && row.req || "");
+    var refs = _splitConsistencyRefs(reqText);
+    var rawNorm = _normalizeConsistencyText(reqText);
+    var explicit = refs.indexOf(reqNorm) >= 0;
+    var legacy = !explicit && rawNorm && reqNorm && rawNorm.indexOf(reqNorm) >= 0;
+    if(explicit || legacy){
+      acc.push({
+        row: row,
+        linkage: explicit ? "explicit" : "legacy"
+      });
+    }
+    return acc;
+  }, []);
+}
+
+function buildVCRMRows(){
+  var requirementSets = [
+    { discipline:"SYS", rows: DB.sysReqs || [] },
+    { discipline:"SW", rows: DB.swReqs || [] },
+    { discipline:"ME", rows: DB.meReqs || [] }
+  ];
+  var matrixRows = [];
+
+  requirementSets.forEach(function(group){
+    (group.rows || []).forEach(function(req){
+      var reqId = String(req && (req.rid || req.id) || "").trim();
+      var linked = _vcrmLinkedItemsForRequirement(reqId);
+      var linkedRows = linked.map(function(entry){ return entry.row || {}; });
+      var explicitCount = linked.filter(function(entry){ return entry.linkage === "explicit"; }).length;
+      var legacyCount = linked.filter(function(entry){ return entry.linkage === "legacy"; }).length;
+      var coverageStatus = explicitCount > 0 ? "Covered" : linked.length > 0 ? "Partial" : "Missing";
+      var notes = [];
+      if(!linked.length) notes.push("No VV linkage");
+      if(legacyCount > 0 && explicitCount === 0) notes.push("Legacy VV text-only linkage");
+      if(linked.length > 1) notes.push("Multiple VV items");
+
+      matrixRows.push({
+        discipline: group.discipline,
+        requirementId: reqId || "—",
+        level: req && req.level || "",
+        domain: req && (req.domain || req.cat) || "",
+        description: req && req.desc || "",
+        linkedCount: linked.length,
+        linkedItems: linkedRows.map(function(row){ return row.id || row.req || "VV"; }),
+        verificationMethod: _vcrmUniqueValues(linkedRows.map(function(row){ return row.method; })),
+        verificationArtifact: _vcrmUniqueValues(linkedRows.map(function(row){ return row.artifact; })),
+        verificationPhase: _vcrmUniqueValues(linkedRows.map(function(row){ return row.phase; })),
+        verificationOwner: _vcrmUniqueValues(linkedRows.map(function(row){ return row.owner; })),
+        coverageStatus: coverageStatus,
+        requirementStatus: req && req.status || "",
+        notes: notes,
+        sourceRequirement: req
+      });
+    });
+  });
+
+  return matrixRows;
+}
+
+function setVCRMFilter(key, value){
+  _vcrmView[key] = key === "search" ? String(value || "") : value;
+  renderVCRM();
+}
+
+function renderVCRM(){
+  var allRows = buildVCRMRows();
+  var discipline = _vcrmView.discipline || "all";
+  var coverage = _vcrmView.coverage || "all";
+  var search = String(_vcrmView.search || "").trim().toLowerCase();
+  var disciplineEl = document.getElementById("vcrmDisciplineFilter");
+  var coverageEl = document.getElementById("vcrmCoverageFilter");
+  var searchEl = document.getElementById("vcrmSearch");
+  if(disciplineEl && disciplineEl.value !== discipline) disciplineEl.value = discipline;
+  if(coverageEl && coverageEl.value !== coverage) coverageEl.value = coverage;
+  if(searchEl && searchEl.value !== (_vcrmView.search || "")) searchEl.value = _vcrmView.search || "";
+
+  var filteredRows = allRows.filter(function(row){
+    if(discipline !== "all" && row.discipline !== discipline) return false;
+    if(coverage !== "all" && row.coverageStatus !== coverage) return false;
+    if(search){
+      var hay = [row.requirementId, row.description, row.domain, row.notes.join(" "), row.linkedItems.join(" ")].join(" ").toLowerCase();
+      if(hay.indexOf(search) < 0) return false;
+    }
+    return true;
+  });
+
+  var summary = {
+    total: allRows.length,
+    covered: allRows.filter(function(row){ return row.coverageStatus === "Covered"; }).length,
+    partial: allRows.filter(function(row){ return row.coverageStatus === "Partial"; }).length,
+    missing: allRows.filter(function(row){ return row.coverageStatus === "Missing"; }).length
+  };
+
+  var summaryEl = document.getElementById("vcrmSummary");
+  if(summaryEl){
+    summaryEl.innerHTML =
+      "<div class='stat-card teal' data-vcrm-summary='total' data-count='"+esc(String(summary.total))+"' style='cursor:default;padding:14px;'><div style='font-size:22px;'>🧩</div><div style='font-size:24px;font-weight:800;color:#0f766e;margin:4px 0;'>"+esc(String(summary.total))+"</div><div style='font-size:12px;color:var(--g600);'>סה\"כ דרישות במטריצה</div></div>" +
+      "<div class='stat-card green' data-vcrm-summary='covered' data-count='"+esc(String(summary.covered))+"' style='cursor:default;padding:14px;'><div style='font-size:22px;'>✅</div><div style='font-size:24px;font-weight:800;color:#15803d;margin:4px 0;'>"+esc(String(summary.covered))+"</div><div style='font-size:12px;color:var(--g600);'>Covered</div></div>" +
+      "<div class='stat-card orange' data-vcrm-summary='partial' data-count='"+esc(String(summary.partial))+"' style='cursor:default;padding:14px;'><div style='font-size:22px;'>🟠</div><div style='font-size:24px;font-weight:800;color:#c2410c;margin:4px 0;'>"+esc(String(summary.partial))+"</div><div style='font-size:12px;color:var(--g600);'>Partial</div></div>" +
+      "<div class='stat-card red' data-vcrm-summary='missing' data-count='"+esc(String(summary.missing))+"' style='cursor:default;padding:14px;'><div style='font-size:22px;'>⚠️</div><div style='font-size:24px;font-weight:800;color:#b91c1c;margin:4px 0;'>"+esc(String(summary.missing))+"</div><div style='font-size:12px;color:var(--g600);'>Missing</div></div>";
+  }
+
+  var visibleEl = document.getElementById("vcrmVisibleInfo");
+  if(visibleEl){
+    visibleEl.innerHTML = "מוצגות <strong>"+filteredRows.length+"</strong> שורות מתוך <strong>"+summary.total+"</strong> במטריצת ה־VCRM.";
+  }
+
+  var body = document.getElementById("vcrmBody");
+  if(!body) return;
+  if(!filteredRows.length){
+    body.innerHTML = "<tr><td colspan='14' style='text-align:center;padding:24px;color:var(--g500);'>לא נמצאו שורות VCRM התואמות למסננים.</td></tr>";
+    return;
+  }
+
+  body.innerHTML = filteredRows.map(function(row, index){
+    var linkedLabel = row.linkedCount ? row.linkedCount + " (" + row.linkedItems.join(", ") + ")" : "0";
+    return "<tr data-vcrm-row='true' data-discipline='"+esc(row.discipline)+"' data-coverage='"+esc(row.coverageStatus)+"'>" +
+      "<td>"+(index+1)+"</td>" +
+      "<td>"+esc(row.discipline)+"</td>" +
+      "<td style='font-weight:700;'>"+esc(row.requirementId)+"</td>" +
+      "<td>"+esc(row.level || "—")+"</td>" +
+      "<td>"+esc(row.domain || "—")+"</td>" +
+      "<td style='max-width:280px;white-space:normal;'>"+esc(row.description || "—")+"</td>" +
+      "<td>"+esc(linkedLabel)+"</td>" +
+      "<td>"+esc(row.verificationMethod.join(", ") || "—")+"</td>" +
+      "<td>"+esc(row.verificationArtifact.join(", ") || "—")+"</td>" +
+      "<td>"+esc(row.verificationPhase.join(", ") || "—")+"</td>" +
+      "<td>"+esc(row.verificationOwner.join(", ") || "—")+"</td>" +
+      "<td>"+_vcrmBadge(row.coverageStatus)+"</td>" +
+      "<td>"+esc(row.requirementStatus || "—")+"</td>" +
+      "<td>"+esc(row.notes.join(" | ") || "—")+"</td>" +
+    "</tr>";
+  }).join("");
 }
 
 function openAddVV(){
@@ -20049,6 +20236,9 @@ document.addEventListener("DOMContentLoaded", function(){
 window.renderPortfolioPage = renderPortfolioPage;
 window.openAIRequirementAssistant = openAIRequirementAssistant;
 window.openAIConsistencyReview = openAIConsistencyReview;
+window.buildVCRMRows = buildVCRMRows;
+window.renderVCRM = renderVCRM;
+window.setVCRMFilter = setVCRMFilter;
 window.openAddRisk = openAddRisk;
 window.renderProjectPage = renderProjectPage;
 </script>

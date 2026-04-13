@@ -1001,7 +1001,17 @@ var AI_CONSISTENCY_REVIEW_TCS = [
   {id:"TC-317",title:"Consistency review UI leaves existing rendering intact",cat:"System Engineering",type:"Regression",pri:"Critical",reqs:"REQ-125",steps:"Open consistency review and verify syseng rendering still works afterward",expected:"Existing system engineering renderers remain intact after the modal flow",auto:"yes",fn:"checkConsistencyReviewUIRenderingUnaffectedRuntime"},
   {id:"TC-318",title:"Consistency review UI is disabled-safe when flag is off",cat:"System Engineering",type:"Regression",pri:"Critical",reqs:"REQ-125",steps:"Turn off aiConsistencyReview and trigger the UI entry path",expected:"A disabled response is returned and the modal does not open",auto:"yes",fn:"checkConsistencyReviewUIDisabledSafeRuntime"},
   {id:"TC-319",title:"Consistency review uses Hebrew-first labels",cat:"System Engineering",type:"Regression",pri:"High",reqs:"REQ-125",steps:"Validate the consistency review renderer shows the intended Hebrew section labels",expected:"The rendered UI is Hebrew-first and avoids English-heavy headings",auto:"yes",fn:"checkConsistencyReviewHebrewLabelsRuntime"},
-  {id:"TC-320",title:"Consistency review humanizes raw finding wording",cat:"System Engineering",type:"Regression",pri:"High",reqs:"REQ-125",steps:"Validate representative raw findings are rendered as readable engineering Hebrew",expected:"Raw log-style phrases are replaced by clearer Hebrew review phrasing",auto:"yes",fn:"checkConsistencyReviewHumanizedWordingRuntime"}
+  {id:"TC-320",title:"Consistency review humanizes raw finding wording",cat:"System Engineering",type:"Regression",pri:"High",reqs:"REQ-125",steps:"Validate representative raw findings are rendered as readable engineering Hebrew",expected:"Raw log-style phrases are replaced by clearer Hebrew review phrasing",auto:"yes",fn:"checkConsistencyReviewHumanizedWordingRuntime"},
+  {id:"TC-321",title:"VCRM tab exists in system engineering",cat:"System Engineering",type:"Regression",pri:"Critical",reqs:"REQ-125",steps:"Verify the syseng page exposes a dedicated VCRM tab",expected:"se-vcrm exists as a first-class syseng tab",auto:"yes",fn:"checkVCRMTabExistsRuntime"},
+  {id:"TC-322",title:"renderVCRM function exists",cat:"System Engineering",type:"Regression",pri:"Critical",reqs:"REQ-125",steps:"Verify renderVCRM/buildVCRMRows helpers exist",expected:"VCRM rendering helpers are available globally",auto:"yes",fn:"checkRenderVCRMFunctionRuntime"},
+  {id:"TC-323",title:"VCRM table renders rows from requirements",cat:"System Engineering",type:"Regression",pri:"Critical",reqs:"REQ-125",steps:"Populate requirement arrays and render VCRM",expected:"One VCRM row is rendered for each SYS/SW/ME requirement",auto:"yes",fn:"checkVCRMRowsRenderRuntime"},
+  {id:"TC-324",title:"VCRM computes coverage from VV linkage",cat:"System Engineering",type:"Regression",pri:"High",reqs:"REQ-125",steps:"Verify explicit and legacy VV linkage are reflected in coverage status",expected:"Covered/Partial are computed from local VV linkage only",auto:"yes",fn:"checkVCRMCoverageComputationRuntime"},
+  {id:"TC-325",title:"VCRM marks missing VV linkage as Missing",cat:"System Engineering",type:"Regression",pri:"High",reqs:"REQ-125",steps:"Verify requirements without VV linkage are marked Missing",expected:"Rows with no VV linkage show Missing coverage",auto:"yes",fn:"checkVCRMMissingCoverageRuntime"},
+  {id:"TC-326",title:"VCRM summary counts render",cat:"System Engineering",type:"Regression",pri:"High",reqs:"REQ-125",steps:"Verify total/covered/partial/missing summary counters render",expected:"Summary cards expose stable counts and data attributes",auto:"yes",fn:"checkVCRMSummaryCountsRuntime"},
+  {id:"TC-327",title:"VCRM filters work",cat:"System Engineering",type:"Regression",pri:"High",reqs:"REQ-125",steps:"Verify discipline, coverage, and search filters change the visible row set",expected:"VCRM filters narrow the visible matrix rows correctly",auto:"yes",fn:"checkVCRMFiltersRuntime"},
+  {id:"TC-328",title:"VCRM does not mutate DB arrays",cat:"System Engineering",type:"Regression",pri:"Critical",reqs:"REQ-125",steps:"Render and filter VCRM while tracking requirements and VV arrays",expected:"VCRM remains read-only",auto:"yes",fn:"checkVCRMNoMutationRuntime"},
+  {id:"TC-329",title:"Existing V&V rendering remains intact after VCRM",cat:"System Engineering",type:"Regression",pri:"Critical",reqs:"REQ-125",steps:"Render V&V before and after VCRM",expected:"renderVV remains intact after VCRM rendering",auto:"yes",fn:"checkVCRMVvRenderingUnaffectedRuntime"},
+  {id:"TC-330",title:"Existing syseng rendering remains intact after VCRM",cat:"System Engineering",type:"Regression",pri:"Critical",reqs:"REQ-125",steps:"Render syseng artifacts before and after VCRM",expected:"renderReqs/renderArch/renderICD/renderVV/renderVCRM coexist without breakage",auto:"yes",fn:"checkVCRMSysengRenderingUnaffectedRuntime"}
 ];
 
 var AI_REQUIREMENT_APPLY_TCS = [
@@ -1198,6 +1208,25 @@ function _buildConsistencyRuntimePayload(){
     vv:[{id:'VV-X1',req:'SYS-901, SW-901',method:'Test',artifact:'ATP',phase:'Integration',owner:'V&V',status:'Planned'}],
     hazards:[{id:'HZ-X1',desc:'Overheat hazard near mission computer',cause:'Thermal load',effect:'Shutdown',sev:4,prob:2,mitigation:'Thermal review',status:'פתוח'}],
     documentHints:[{category:'arch',title:'Architecture hint from analysis'},{category:'vv',title:'Verification hint from analysis'}]
+  };
+}
+
+function _buildVCRMRuntimePayload(){
+  return {
+    sysReqs: [
+      {id:'REQ-V1',rid:'SYS-100',level:'L1',domain:'System',desc:'The system shall provide mission control.',status:'Draft'},
+      {id:'REQ-V2',rid:'SYS-101',level:'L1',domain:'Interface',desc:'The system shall support Ethernet messaging.',status:'Draft'}
+    ],
+    swReqs: [
+      {id:'REQ-V3',rid:'SW-200',level:'L2',domain:'Software',desc:'The software shall log health events.',status:'Draft'}
+    ],
+    meReqs: [
+      {id:'REQ-V4',rid:'ME-300',level:'L2',domain:'Mechanical',desc:'The enclosure shall withstand vibration.',status:'Draft'}
+    ],
+    vv: [
+      {id:'VV-100',req:'SYS-100',method:'Test',artifact:'ATP-100',phase:'System',owner:'V&V',status:'Planned'},
+      {id:'VV-101',req:'Coverage note for SW-200 in legacy text',method:'Analysis',artifact:'AN-200',phase:'Integration',owner:'SW',status:'Planned'}
+    ]
   };
 }
 
@@ -3208,6 +3237,246 @@ var AUTOMATION = {
         : _runtimeFail('Humanized wording mismatch. Missing: ' + missing.join(', ') + ' | Unwanted: ' + unwanted.join(', '));
     });
   },
+  checkVCRMTabExistsRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.navigateTo === 'function') w.navigateTo('syseng');
+      var tab = !!w.document.getElementById('se-vcrm');
+      var trigger = /switchTab\(this,'se-vcrm'\)/.test(w.document.documentElement.innerHTML || '');
+      return tab && trigger ? _runtimePass('VCRM tab exists in the syseng area') : _runtimeFail('VCRM tab or trigger missing');
+    });
+  },
+  checkRenderVCRMFunctionRuntime: async function(){
+    return withAppWindow(function(w){
+      var ok = typeof w.renderVCRM === 'function' && typeof w.buildVCRMRows === 'function' && typeof w.setVCRMFilter === 'function';
+      return ok ? _runtimePass('renderVCRM/buildVCRMRows/setVCRMFilter are available') : _runtimeFail('VCRM rendering helpers are missing');
+    });
+  },
+  checkVCRMRowsRenderRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.renderVCRM !== 'function' || !w.DB) return _runtimeFail('renderVCRM or DB missing');
+      var snapshot = JSON.stringify({ sysReqs:w.DB.sysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], vv:w.DB.vv||[] });
+      try{
+        var payload = _buildVCRMRuntimePayload();
+        w.DB.sysReqs = JSON.parse(JSON.stringify(payload.sysReqs));
+        w.DB.swReqs = JSON.parse(JSON.stringify(payload.swReqs));
+        w.DB.meReqs = JSON.parse(JSON.stringify(payload.meReqs));
+        w.DB.vv = JSON.parse(JSON.stringify(payload.vv));
+        w.renderVCRM();
+        var body = w.document.getElementById('vcrmBody');
+        var rows = body ? body.querySelectorAll('[data-vcrm-row="true"]').length : 0;
+        return rows === 4 ? _runtimePass('VCRM renders one row per requirement across SYS/SW/ME') : _runtimeFail('Unexpected VCRM row count: ' + rows);
+      } finally {
+        var restored = JSON.parse(snapshot);
+        w.DB.sysReqs = restored.sysReqs;
+        w.DB.swReqs = restored.swReqs;
+        w.DB.meReqs = restored.meReqs;
+        w.DB.vv = restored.vv;
+      }
+    });
+  },
+  checkVCRMCoverageComputationRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.buildVCRMRows !== 'function' || !w.DB) return _runtimeFail('buildVCRMRows or DB missing');
+      var snapshot = JSON.stringify({ sysReqs:w.DB.sysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], vv:w.DB.vv||[] });
+      try{
+        var payload = _buildVCRMRuntimePayload();
+        w.DB.sysReqs = JSON.parse(JSON.stringify(payload.sysReqs));
+        w.DB.swReqs = JSON.parse(JSON.stringify(payload.swReqs));
+        w.DB.meReqs = JSON.parse(JSON.stringify(payload.meReqs));
+        w.DB.vv = JSON.parse(JSON.stringify(payload.vv));
+        var rows = w.buildVCRMRows();
+        var sys = rows.find(function(row){ return row.requirementId === 'SYS-100'; });
+        var sw = rows.find(function(row){ return row.requirementId === 'SW-200'; });
+        var ok = sys && sys.coverageStatus === 'Covered' && sw && sw.coverageStatus === 'Partial';
+        return ok ? _runtimePass('VCRM computes Covered and Partial from local VV linkage') : _runtimeFail('Unexpected VCRM coverage statuses');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        w.DB.sysReqs = restored.sysReqs;
+        w.DB.swReqs = restored.swReqs;
+        w.DB.meReqs = restored.meReqs;
+        w.DB.vv = restored.vv;
+      }
+    });
+  },
+  checkVCRMMissingCoverageRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.buildVCRMRows !== 'function' || !w.DB) return _runtimeFail('buildVCRMRows or DB missing');
+      var snapshot = JSON.stringify({ sysReqs:w.DB.sysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], vv:w.DB.vv||[] });
+      try{
+        var payload = _buildVCRMRuntimePayload();
+        w.DB.sysReqs = JSON.parse(JSON.stringify(payload.sysReqs));
+        w.DB.swReqs = JSON.parse(JSON.stringify(payload.swReqs));
+        w.DB.meReqs = JSON.parse(JSON.stringify(payload.meReqs));
+        w.DB.vv = JSON.parse(JSON.stringify(payload.vv));
+        var rows = w.buildVCRMRows();
+        var missingRow = rows.find(function(row){ return row.requirementId === 'ME-300'; });
+        var ok = missingRow && missingRow.coverageStatus === 'Missing' && missingRow.notes.indexOf('No VV linkage') >= 0;
+        return ok ? _runtimePass('VCRM marks unlinked requirements as Missing') : _runtimeFail('Missing coverage was not computed correctly');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        w.DB.sysReqs = restored.sysReqs;
+        w.DB.swReqs = restored.swReqs;
+        w.DB.meReqs = restored.meReqs;
+        w.DB.vv = restored.vv;
+      }
+    });
+  },
+  checkVCRMSummaryCountsRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.renderVCRM !== 'function' || !w.DB) return _runtimeFail('renderVCRM or DB missing');
+      var snapshot = JSON.stringify({ sysReqs:w.DB.sysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], vv:w.DB.vv||[] });
+      try{
+        var payload = _buildVCRMRuntimePayload();
+        w.DB.sysReqs = JSON.parse(JSON.stringify(payload.sysReqs));
+        w.DB.swReqs = JSON.parse(JSON.stringify(payload.swReqs));
+        w.DB.meReqs = JSON.parse(JSON.stringify(payload.meReqs));
+        w.DB.vv = JSON.parse(JSON.stringify(payload.vv));
+        w.renderVCRM();
+        var summary = w.document.getElementById('vcrmSummary');
+        if(!summary) return _runtimeFail('VCRM summary container missing');
+        var checks = {
+          total: '4',
+          covered: '1',
+          partial: '1',
+          missing: '2'
+        };
+        var bad = Object.keys(checks).filter(function(key){
+          var node = summary.querySelector("[data-vcrm-summary='"+key+"']");
+          return !node || node.getAttribute('data-count') !== checks[key];
+        });
+        return !bad.length ? _runtimePass('VCRM summary counts render correctly') : _runtimeFail('Summary counts mismatch for: ' + bad.join(', '));
+      } finally {
+        var restored = JSON.parse(snapshot);
+        w.DB.sysReqs = restored.sysReqs;
+        w.DB.swReqs = restored.swReqs;
+        w.DB.meReqs = restored.meReqs;
+        w.DB.vv = restored.vv;
+      }
+    });
+  },
+  checkVCRMFiltersRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.renderVCRM !== 'function' || typeof w.setVCRMFilter !== 'function' || !w.DB) return _runtimeFail('VCRM helpers or DB missing');
+      var snapshot = JSON.stringify({ sysReqs:w.DB.sysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], vv:w.DB.vv||[] });
+      var prevView = JSON.stringify(w._vcrmView || {});
+      try{
+        var payload = _buildVCRMRuntimePayload();
+        w.DB.sysReqs = JSON.parse(JSON.stringify(payload.sysReqs));
+        w.DB.swReqs = JSON.parse(JSON.stringify(payload.swReqs));
+        w.DB.meReqs = JSON.parse(JSON.stringify(payload.meReqs));
+        w.DB.vv = JSON.parse(JSON.stringify(payload.vv));
+        w.setVCRMFilter('discipline', 'SW');
+        var swRows = (w.document.getElementById('vcrmBody') || {}).querySelectorAll ? w.document.getElementById('vcrmBody').querySelectorAll('[data-vcrm-row="true"]').length : 0;
+        w.setVCRMFilter('coverage', 'Partial');
+        var partialRows = (w.document.getElementById('vcrmBody') || {}).querySelectorAll ? w.document.getElementById('vcrmBody').querySelectorAll('[data-vcrm-row="true"]').length : 0;
+        w.setVCRMFilter('discipline', 'all');
+        w.setVCRMFilter('coverage', 'all');
+        w.setVCRMFilter('search', 'vibration');
+        var searchRows = (w.document.getElementById('vcrmBody') || {}).querySelectorAll ? w.document.getElementById('vcrmBody').querySelectorAll('[data-vcrm-row="true"]').length : 0;
+        var ok = swRows === 1 && partialRows === 1 && searchRows === 1;
+        return ok ? _runtimePass('VCRM filters narrow visible rows correctly') : _runtimeFail('Unexpected VCRM filter results: SW=' + swRows + ', Partial=' + partialRows + ', Search=' + searchRows);
+      } finally {
+        var restored = JSON.parse(snapshot);
+        w.DB.sysReqs = restored.sysReqs;
+        w.DB.swReqs = restored.swReqs;
+        w.DB.meReqs = restored.meReqs;
+        w.DB.vv = restored.vv;
+        try { w._vcrmView = JSON.parse(prevView); } catch(e) {}
+      }
+    });
+  },
+  checkVCRMNoMutationRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.renderVCRM !== 'function' || typeof w.setVCRMFilter !== 'function' || !w.DB) return _runtimeFail('VCRM helpers or DB missing');
+      var snapshot = JSON.stringify({ sysReqs:w.DB.sysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], vv:w.DB.vv||[] });
+      var prevView = JSON.stringify(w._vcrmView || {});
+      try{
+        var payload = _buildVCRMRuntimePayload();
+        w.DB.sysReqs = JSON.parse(JSON.stringify(payload.sysReqs));
+        w.DB.swReqs = JSON.parse(JSON.stringify(payload.swReqs));
+        w.DB.meReqs = JSON.parse(JSON.stringify(payload.meReqs));
+        w.DB.vv = JSON.parse(JSON.stringify(payload.vv));
+        var before = JSON.stringify({ sysReqs:w.DB.sysReqs, swReqs:w.DB.swReqs, meReqs:w.DB.meReqs, vv:w.DB.vv });
+        w.renderVCRM();
+        w.setVCRMFilter('discipline', 'ME');
+        w.setVCRMFilter('coverage', 'Missing');
+        w.setVCRMFilter('search', 'enclosure');
+        var after = JSON.stringify({ sysReqs:w.DB.sysReqs, swReqs:w.DB.swReqs, meReqs:w.DB.meReqs, vv:w.DB.vv });
+        return before === after ? _runtimePass('VCRM stays read-only and does not mutate DB arrays') : _runtimeFail('VCRM mutated requirement or VV arrays');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        w.DB.sysReqs = restored.sysReqs;
+        w.DB.swReqs = restored.swReqs;
+        w.DB.meReqs = restored.meReqs;
+        w.DB.vv = restored.vv;
+        try { w._vcrmView = JSON.parse(prevView); } catch(e) {}
+      }
+    });
+  },
+  checkVCRMVvRenderingUnaffectedRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.renderVV !== 'function' || typeof w.renderVCRM !== 'function' || !w.DB) return _runtimeFail('renderVV/renderVCRM/DB missing');
+      var snapshot = JSON.stringify({ sysReqs:w.DB.sysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], vv:w.DB.vv||[] });
+      try{
+        var payload = _buildVCRMRuntimePayload();
+        w.DB.sysReqs = JSON.parse(JSON.stringify(payload.sysReqs));
+        w.DB.swReqs = JSON.parse(JSON.stringify(payload.swReqs));
+        w.DB.meReqs = JSON.parse(JSON.stringify(payload.meReqs));
+        w.DB.vv = JSON.parse(JSON.stringify(payload.vv));
+        w.renderVV();
+        var before = (w.document.getElementById('vvBody') || {}).innerHTML || '';
+        w.renderVCRM();
+        w.renderVV();
+        var after = (w.document.getElementById('vvBody') || {}).innerHTML || '';
+        return before && before === after ? _runtimePass('renderVV remains intact after VCRM rendering') : _runtimeFail('V&V rendering changed after VCRM');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        w.DB.sysReqs = restored.sysReqs;
+        w.DB.swReqs = restored.swReqs;
+        w.DB.meReqs = restored.meReqs;
+        w.DB.vv = restored.vv;
+      }
+    });
+  },
+  checkVCRMSysengRenderingUnaffectedRuntime: async function(){
+    return withAppWindow(function(w){
+      var fns = ['renderReqs','renderArch','renderICD','renderVV','renderVCRM'];
+      var missing = fns.filter(function(name){ return typeof w[name] !== 'function'; });
+      if(missing.length || !w.DB) return _runtimeFail('Missing syseng render functions: ' + missing.join(', '));
+      var snapshot = JSON.stringify({
+        sysReqs:w.DB.sysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], vv:w.DB.vv||[], arch:w.DB.arch||[], icd:w.DB.icd||[]
+      });
+      try{
+        var vcrm = _buildVCRMRuntimePayload();
+        var consistency = _buildConsistencyRuntimePayload();
+        w.DB.sysReqs = JSON.parse(JSON.stringify(vcrm.sysReqs));
+        w.DB.swReqs = JSON.parse(JSON.stringify(vcrm.swReqs));
+        w.DB.meReqs = JSON.parse(JSON.stringify(vcrm.meReqs));
+        w.DB.vv = JSON.parse(JSON.stringify(vcrm.vv));
+        w.DB.arch = JSON.parse(JSON.stringify(consistency.arch));
+        w.DB.icd = JSON.parse(JSON.stringify(consistency.icd));
+        w.renderReqs('sys');
+        w.renderArch();
+        w.renderICD();
+        w.renderVV();
+        w.renderVCRM();
+        var ok = !!((w.document.getElementById('sysReqsBody') || {}).innerHTML &&
+          (w.document.getElementById('archBody') || {}).innerHTML &&
+          (w.document.getElementById('icdBody') || {}).innerHTML &&
+          (w.document.getElementById('vvBody') || {}).innerHTML &&
+          (w.document.getElementById('vcrmBody') || {}).innerHTML);
+        return ok ? _runtimePass('System engineering renderers remain intact with VCRM enabled') : _runtimeFail('One or more syseng renderers failed after adding VCRM');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        w.DB.sysReqs = restored.sysReqs;
+        w.DB.swReqs = restored.swReqs;
+        w.DB.meReqs = restored.meReqs;
+        w.DB.vv = restored.vv;
+        w.DB.arch = restored.arch;
+        w.DB.icd = restored.icd;
+      }
+    });
+  },
   checkAIFoundationOfflineStubSource: async function(){
     var src = await loadAppSource();
     var start = src.indexOf('window.AIFacade');
@@ -3356,7 +3625,7 @@ var AUTOMATION = {
 
   checkAllTabs: async function(){
     var src = await loadAppSource();
-    var tabs = ['cm-ecp','cm-ccb','cm-docs','cm-baseline','cm-bom','se-reqs','se-arch','se-icd','se-vv',
+    var tabs = ['cm-ecp','cm-ccb','cm-docs','cm-baseline','cm-bom','se-reqs','se-arch','se-icd','se-vv','se-vcrm',
                 'risk-register','risk-residual','sw-reqs','sw-modules','sw-defects','sw-tests','sw-versions',
                 'me-reqs','me-bom','me-drawings','me-tests','me-docs','sf-plan','sf-hazards','sf-analyses',
                 'sf-sar','sf-srb','qa-overview','qa-ncr','qa-fod','qa-audits','ils-plan','ils-lru','ils-spares',
