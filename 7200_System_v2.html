@@ -3981,6 +3981,9 @@ var DB = {
   updateProposals: [],
   changeRequests: [],
   auditLog: [],
+  projectBackups: [],
+  releasePackages: [],
+  userRoles: { currentUser:"default", currentRole:"engineer" },
   ai: {provider:"local",apiKey:""},
   docRegistry: {}
 };
@@ -4001,6 +4004,62 @@ function ensureImpactEngineStructures(){
   if(!Array.isArray(DB.baselines)) DB.baselines = [];
   if(!Array.isArray(DB.changeRequests)) DB.changeRequests = [];
   if(!Array.isArray(DB.auditLog)) DB.auditLog = [];
+  if(!Array.isArray(DB.projectBackups)) DB.projectBackups = [];
+  if(!Array.isArray(DB.releasePackages)) DB.releasePackages = [];
+  if(!DB.userRoles || typeof DB.userRoles !== "object") DB.userRoles = { currentUser:"default", currentRole:"engineer" };
+  if(!DB.userRoles.currentUser) DB.userRoles.currentUser = "default";
+  if(["viewer","engineer","approver","admin"].indexOf(DB.userRoles.currentRole) < 0) DB.userRoles.currentRole = "engineer";
+}
+
+function _executionRoleOrder(role){
+  return { viewer:0, engineer:1, approver:2, admin:3 }[String(role || "").toLowerCase()] || 0;
+}
+
+function getCurrentUserRole(){
+  ensureImpactEngineStructures();
+  return DB.userRoles.currentRole || "engineer";
+}
+
+function getCurrentUserName(){
+  ensureImpactEngineStructures();
+  return DB.userRoles.currentUser || "default";
+}
+
+function setCurrentUserRole(userName, roleName){
+  ensureImpactEngineStructures();
+  if(userName) DB.userRoles.currentUser = String(userName);
+  if(["viewer","engineer","approver","admin"].indexOf(String(roleName || "").toLowerCase()) >= 0){
+    DB.userRoles.currentRole = String(roleName).toLowerCase();
+  }
+  markDirty();
+  return JSON.parse(JSON.stringify(DB.userRoles));
+}
+
+function _roleNotAuthorized(requiredRole){
+  return { ok:false, reason:"ROLE_NOT_AUTHORIZED", requiredRole: requiredRole };
+}
+
+function _requireRole(requiredRole){
+  ensureImpactEngineStructures();
+  return _executionRoleOrder(getCurrentUserRole()) >= _executionRoleOrder(requiredRole);
+}
+
+function _cloneExecutionData(value){
+  return JSON.parse(JSON.stringify(value));
+}
+
+function _downloadJsonPayload(filename, payload){
+  var blob = new Blob([JSON.stringify(payload, null, 2)], { type:"application/json" });
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+}
+
+function _validateTrackedEngineeringSnapshot(snapshot){
+  if(!snapshot || typeof snapshot !== "object") return false;
+  var requiredArrays = ["sysReqs","subsysReqs","swReqs","meReqs","vv","risks","arch","archLinks","icd"];
+  return requiredArrays.every(function(key){ return Array.isArray(snapshot[key]); });
 }
 
 function _cloneSeedItems(items){
@@ -5549,7 +5608,8 @@ function appendAuditLogEntry(entry){
   ensureImpactEngineStructures();
   DB.auditLog.push(Object.assign({
     id: uid(),
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    actorRole: getCurrentUserRole()
   }, entry || {}));
   markDirty();
 }
@@ -5560,20 +5620,25 @@ function _baselineSnapshot(){
     sysReqs: JSON.parse(JSON.stringify(DB.sysReqs || [])),
     swReqs: JSON.parse(JSON.stringify(DB.swReqs || [])),
     subsysReqs: JSON.parse(JSON.stringify(DB.subsysReqs || [])),
+    meReqs: JSON.parse(JSON.stringify(DB.meReqs || [])),
     vv: JSON.parse(JSON.stringify(DB.vv || [])),
     risks: JSON.parse(JSON.stringify(DB.risks || [])),
     arch: JSON.parse(JSON.stringify(DB.arch || [])),
-    archLinks: JSON.parse(JSON.stringify(DB.archLinks || []))
+    archLinks: JSON.parse(JSON.stringify(DB.archLinks || [])),
+    icd: JSON.parse(JSON.stringify(DB.icd || []))
   };
 }
 
 function createBaseline(name){
   ensureImpactEngineStructures();
+  if(!_requireRole("engineer")) return _roleNotAuthorized("engineer");
   var baseline = {
     id: uid(),
     name: String(name || "Baseline").trim() || "Baseline",
     timestamp: new Date().toISOString(),
-    snapshot: _baselineSnapshot()
+    snapshot: _baselineSnapshot(),
+    status: "draft",
+    locked: false
   };
   DB.baselines.push(baseline);
   markDirty();
@@ -5625,10 +5690,12 @@ function compareToBaseline(baselineId){
     ["sysReqs","requirement"],
     ["swReqs","sw_requirement"],
     ["subsysReqs","subsystem_requirement"],
+    ["meReqs","me_requirement"],
     ["vv","vv"],
     ["risks","risk"],
     ["arch","architecture_component"],
-    ["archLinks","architecture_link"]
+    ["archLinks","architecture_link"],
+    ["icd","icd"]
   ].forEach(function(pair){
     var delta = _compareBaselineCollection(DB[pair[0]] || [], baseline.snapshot[pair[0]] || [], pair[1]);
     result.added = result.added.concat(delta.added);
@@ -5655,12 +5722,179 @@ function createChangeRequest(title, source, relatedIds, impacts, proposals){
   return item;
 }
 
+function freezeBaseline(baselineId){
+  ensureImpactEngineStructures();
+  if(!_requireRole("approver")) return _roleNotAuthorized("approver");
+  var baseline = (DB.baselines || []).find(function(item){ return item.id === baselineId; });
+  if(!baseline) return { ok:false, reason:"BASELINE_NOT_FOUND" };
+  if(baseline.locked && baseline.status === "frozen") return { ok:true, baseline: _cloneExecutionData(baseline) };
+  var before = _cloneExecutionData(baseline);
+  baseline.status = "frozen";
+  baseline.locked = true;
+  baseline.approvedBy = getCurrentUserName();
+  appendAuditLogEntry({
+    action: "freeze_baseline",
+    entityType: "baseline",
+    entityId: baseline.id,
+    before: before,
+    after: _cloneExecutionData(baseline)
+  });
+  return { ok:true, baseline: _cloneExecutionData(baseline) };
+}
+
+function releaseBaseline(baselineId){
+  ensureImpactEngineStructures();
+  if(!_requireRole("approver")) return _roleNotAuthorized("approver");
+  var baseline = (DB.baselines || []).find(function(item){ return item.id === baselineId; });
+  if(!baseline) return { ok:false, reason:"BASELINE_NOT_FOUND" };
+  var before = _cloneExecutionData(baseline);
+  baseline.status = "released";
+  baseline.locked = true;
+  baseline.approvedBy = getCurrentUserName();
+  appendAuditLogEntry({
+    action: "release_baseline",
+    entityType: "baseline",
+    entityId: baseline.id,
+    before: before,
+    after: _cloneExecutionData(baseline)
+  });
+  return { ok:true, baseline: _cloneExecutionData(baseline) };
+}
+
 function createChangeRequestFromImpact(bundle, title){
   bundle = bundle || {};
   var ctx = bundle.changeContext || {};
   var relatedIds = _impactUniqueValues([ctx.sourceId].concat((bundle.recommendations || []).map(function(rec){ return rec.targetId; })));
   var source = ctx.sourceType === "architecture_component" || ctx.sourceType === "architecture_link" ? "architecture" : ctx.sourceType === "document" ? "document" : "requirement";
   return createChangeRequest(title || ("CR for " + (ctx.sourceId || source)), source, relatedIds, bundle.recommendations || [], bundle.proposals || []);
+}
+
+function createReleasePackage(baselineId, options){
+  ensureImpactEngineStructures();
+  if(!_requireRole("approver")) return _roleNotAuthorized("approver");
+  var baseline = (DB.baselines || []).find(function(item){ return item.id === baselineId; });
+  if(!baseline || !_validateTrackedEngineeringSnapshot(baseline.snapshot)) return { ok:false, reason:"BASELINE_NOT_FOUND" };
+  if(baseline.status === "draft") return { ok:false, reason:"BASELINE_NOT_FROZEN" };
+  var pkg = {
+    packageType: "7200_release_package",
+    version: 1,
+    project: _cloneExecutionData(DB.project || {}),
+    baseline: _cloneExecutionData(baseline),
+    exportedAt: new Date().toISOString(),
+    contents: {
+      requirements: _cloneExecutionData(baseline.snapshot.sysReqs || []),
+      subsystemRequirements: _cloneExecutionData(baseline.snapshot.subsysReqs || []),
+      softwareRequirements: _cloneExecutionData(baseline.snapshot.swReqs || []),
+      mechanicalRequirements: _cloneExecutionData(baseline.snapshot.meReqs || []),
+      vv: _cloneExecutionData(baseline.snapshot.vv || []),
+      risks: _cloneExecutionData(baseline.snapshot.risks || []),
+      architecture: _cloneExecutionData(baseline.snapshot.arch || []),
+      architectureLinks: _cloneExecutionData(baseline.snapshot.archLinks || []),
+      icd: _cloneExecutionData(baseline.snapshot.icd || []),
+      vcrmSnapshot: typeof buildVCRMRows === "function" ? _cloneExecutionData(buildVCRMRows()) : [],
+      auditSummary: {
+        totalAuditEntries: (DB.auditLog || []).length,
+        lastAuditAction: (DB.auditLog || []).length ? DB.auditLog[DB.auditLog.length - 1].action : ""
+      },
+      changeRequestSummary: _cloneExecutionData((DB.changeRequests || []).map(function(item){
+        return { id:item.id, title:item.title, status:item.status, relatedIds:(item.relatedIds || []).slice() };
+      }))
+    }
+  };
+  DB.releasePackages.push(_cloneExecutionData(pkg));
+  appendAuditLogEntry({
+    action: "create_release_package",
+    entityType: "baseline",
+    entityId: baseline.id,
+    before: null,
+    after: { packageType: pkg.packageType, exportedAt: pkg.exportedAt, baselineId: baseline.id }
+  });
+  if(!options || options.download !== false){
+    _downloadJsonPayload("release_package_"+(baseline.name || baseline.id)+".json", pkg);
+  }
+  return pkg;
+}
+
+function createProjectBackup(name, options){
+  ensureImpactEngineStructures();
+  if(!_requireRole("engineer")) return _roleNotAuthorized("engineer");
+  var backup = {
+    backupType: "7200_backup",
+    version: 1,
+    createdAt: new Date().toISOString(),
+    name: String(name || "Project Backup").trim() || "Project Backup",
+    dbSnapshot: _cloneExecutionData(DB)
+  };
+  DB.projectBackups.push(_cloneExecutionData(backup));
+  appendAuditLogEntry({
+    action: "create_backup",
+    entityType: "backup",
+    entityId: backup.name,
+    before: null,
+    after: { backupType: backup.backupType, createdAt: backup.createdAt, name: backup.name }
+  });
+  if(!options || options.download !== false){
+    _downloadJsonPayload("backup_"+backup.name.replace(/\s+/g,"_")+".json", backup);
+  }
+  return backup;
+}
+
+function restoreProjectBackup(payload){
+  ensureImpactEngineStructures();
+  if(!_requireRole("approver")) return _roleNotAuthorized("approver");
+  if(!payload || payload.backupType !== "7200_backup" || payload.version !== 1 || !payload.dbSnapshot || typeof payload.dbSnapshot !== "object"){
+    return { ok:false, reason:"INVALID_BACKUP_PAYLOAD" };
+  }
+  var snapshot = _cloneExecutionData(payload.dbSnapshot);
+  if(!Array.isArray(snapshot.sysReqs) || !Array.isArray(snapshot.vv) || !Array.isArray(snapshot.arch) || !Array.isArray(snapshot.archLinks)){
+    return { ok:false, reason:"INVALID_BACKUP_PAYLOAD" };
+  }
+  var before = _cloneExecutionData(DB);
+  var actorUser = getCurrentUserName();
+  var actorRole = getCurrentUserRole();
+  Object.keys(DB).forEach(function(key){
+    if(Object.prototype.hasOwnProperty.call(snapshot, key)) DB[key] = snapshot[key];
+  });
+  ensureImpactEngineStructures();
+  DB.userRoles.currentUser = actorUser;
+  DB.userRoles.currentRole = actorRole;
+  syncUIFromDB();
+  renderPage(getCurrentPage());
+  appendAuditLogEntry({
+    action: "restore_backup",
+    entityType: "backup",
+    entityId: payload.name || payload.createdAt || "backup",
+    before: before,
+    after: _cloneExecutionData(DB)
+  });
+  return { ok:true };
+}
+
+function rollbackToBaseline(baselineId){
+  ensureImpactEngineStructures();
+  if(!_requireRole("approver")) return _roleNotAuthorized("approver");
+  var baseline = (DB.baselines || []).find(function(item){ return item.id === baselineId; });
+  if(!baseline || !_validateTrackedEngineeringSnapshot(baseline.snapshot)) return { ok:false, reason:"BASELINE_NOT_FOUND" };
+  var before = _cloneExecutionData({
+    sysReqs: DB.sysReqs, subsysReqs: DB.subsysReqs, swReqs: DB.swReqs, meReqs: DB.meReqs,
+    vv: DB.vv, risks: DB.risks, arch: DB.arch, archLinks: DB.archLinks, icd: DB.icd
+  });
+  ["sysReqs","subsysReqs","swReqs","meReqs","vv","risks","arch","archLinks","icd"].forEach(function(key){
+    DB[key] = _cloneExecutionData(baseline.snapshot[key] || []);
+  });
+  syncUIFromDB();
+  renderPage(getCurrentPage());
+  appendAuditLogEntry({
+    action: "rollback_baseline",
+    entityType: "baseline",
+    entityId: baseline.id,
+    before: before,
+    after: _cloneExecutionData({
+      sysReqs: DB.sysReqs, subsysReqs: DB.subsysReqs, swReqs: DB.swReqs, meReqs: DB.meReqs,
+      vv: DB.vv, risks: DB.risks, arch: DB.arch, archLinks: DB.archLinks, icd: DB.icd
+    })
+  });
+  return { ok:true, baseline: _cloneExecutionData(baseline) };
 }
 
 function buildChangeContext(partial){
@@ -6570,6 +6804,7 @@ function analyzeProjectImpact(changeContext){
 
 function approveUpdateProposals(proposalIds){
   ensureImpactEngineStructures();
+  if(!_requireRole("approver")) return _roleNotAuthorized("approver");
   var ids = Array.isArray(proposalIds) ? proposalIds : [];
   DB.updateProposals.forEach(function(proposal){
     if(ids.indexOf(proposal.proposalId) >= 0 && proposal.approvalState === "pending"){
@@ -6598,6 +6833,7 @@ function rejectUpdateProposals(proposalIds){
 
 function applyApprovedProposals(proposalIds){
   ensureImpactEngineStructures();
+  if(!_requireRole("approver")) return _roleNotAuthorized("approver");
   var ids = Array.isArray(proposalIds) ? proposalIds : [];
   var applied = [];
   var skipped = [];
@@ -23034,7 +23270,15 @@ window.renderMEArch = renderMEArch;
 window.openAddMEArchItem = openAddMEArchItem;
 window.buildVCRMRows = buildVCRMRows;
 window.createBaseline = createBaseline;
+window.freezeBaseline = freezeBaseline;
+window.releaseBaseline = releaseBaseline;
 window.compareToBaseline = compareToBaseline;
+window.createReleasePackage = createReleasePackage;
+window.createProjectBackup = createProjectBackup;
+window.restoreProjectBackup = restoreProjectBackup;
+window.rollbackToBaseline = rollbackToBaseline;
+window.setCurrentUserRole = setCurrentUserRole;
+window.getCurrentUserRole = getCurrentUserRole;
 window.createChangeRequest = createChangeRequest;
 window.createChangeRequestFromImpact = createChangeRequestFromImpact;
 window.appendAuditLogEntry = appendAuditLogEntry;

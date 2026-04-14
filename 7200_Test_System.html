@@ -1083,6 +1083,19 @@ var CHANGE_CONTROL_TCS = [
   {id:"TC-390",title:"Requirement-driven proposals are never empty when review is warranted",cat:"Change Control",type:"Regression",pri:"High",reqs:"REQ-132",steps:"Inspect requirement-driven recommendations and proposals",expected:"Review-type requirement impacts carry structured review/patch/create/link proposals",auto:"yes",fn:"checkRequirementPropagationProposalQualityRuntime"}
 ];
 
+var PROJECT_EXECUTION_TCS = [
+  {id:"TC-391",title:"Role model exists",cat:"Execution Readiness",type:"Regression",pri:"Critical",reqs:"REQ-133",steps:"Inspect the local role model and role helper functions",expected:"userRoles state and role helpers exist locally",auto:"yes",fn:"checkRoleModelExistsRuntime"},
+  {id:"TC-392",title:"Viewer cannot approve apply freeze or release",cat:"Execution Readiness",type:"Regression",pri:"Critical",reqs:"REQ-133",steps:"Set viewer role and attempt approval and release actions",expected:"Unauthorized actions fail safely without mutation",auto:"yes",fn:"checkViewerRoleRestrictionsRuntime"},
+  {id:"TC-393",title:"Approver or admin can freeze baseline",cat:"Execution Readiness",type:"Regression",pri:"High",reqs:"REQ-133",steps:"Create baseline and freeze it as approver",expected:"Frozen baseline is locked and approved locally",auto:"yes",fn:"checkFreezeBaselineRuntime"},
+  {id:"TC-394",title:"Frozen baseline preserves immutable snapshot semantics",cat:"Execution Readiness",type:"Regression",pri:"High",reqs:"REQ-133",steps:"Freeze baseline, mutate DB, and verify snapshot remains unchanged",expected:"Frozen baseline snapshot stays immutable and compareToBaseline still detects deltas",auto:"yes",fn:"checkFrozenBaselineImmutableRuntime"},
+  {id:"TC-395",title:"Release package export creates structured local package",cat:"Execution Readiness",type:"Regression",pri:"Critical",reqs:"REQ-133",steps:"Create a frozen baseline and export a release package",expected:"Structured local JSON package is created without network dependency",auto:"yes",fn:"checkReleasePackageExportRuntime"},
+  {id:"TC-396",title:"Backup export creates structured local backup",cat:"Execution Readiness",type:"Regression",pri:"High",reqs:"REQ-133",steps:"Create a local project backup",expected:"Structured local backup payload is created and stored safely",auto:"yes",fn:"checkProjectBackupRuntime"},
+  {id:"TC-397",title:"Restore validates payload and restores safely",cat:"Execution Readiness",type:"Regression",pri:"Critical",reqs:"REQ-133",steps:"Attempt malformed restore then valid restore",expected:"Malformed payload is rejected safely and valid backup restores state",auto:"yes",fn:"checkRestoreBackupRuntime"},
+  {id:"TC-398",title:"Rollback restores tracked engineering collections from baseline",cat:"Execution Readiness",type:"Regression",pri:"Critical",reqs:"REQ-133",steps:"Create baseline, mutate tracked arrays, then rollback",expected:"Tracked engineering collections are restored from baseline snapshot",auto:"yes",fn:"checkRollbackToBaselineRuntime"},
+  {id:"TC-399",title:"Release backup restore and rollback actions create audit entries",cat:"Execution Readiness",type:"Regression",pri:"High",reqs:"REQ-133",steps:"Run execution readiness actions and inspect audit log",expected:"Execution actions append audit entries with actorRole metadata",auto:"yes",fn:"checkExecutionReadinessAuditRuntime"},
+  {id:"TC-400",title:"Existing save load change control impact VCRM and AI flows remain intact",cat:"Execution Readiness",type:"Regression",pri:"Critical",reqs:"REQ-133",steps:"Verify new execution readiness controls coexist with existing key flows",expected:"Save/load plus impact, VCRM, AI, and baseline helpers stay available",auto:"yes",fn:"checkExecutionReadinessCompatibilityRuntime"}
+];
+
 var AI_REQUIREMENT_APPLY_TCS = [
   {id:"TC-241",title:"Requirement Assist apply action exists",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-123",steps:"בדוק שכפתור Apply Suggestion קיים ב-Requirement Assist",expected:"קיים apply control בטוח בתוך modal ההצעה",auto:"yes",fn:"checkRequirementAssistApplyActionExistsRuntime"},
   {id:"TC-242",title:"Suggestion generation does not auto-apply",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-123",steps:"בדוק שפתיחת Requirement Assist לא משנה את הדרישה אוטומטית",expected:"אין auto-apply ואין audit על פתיחת suggestion בלבד",auto:"yes",fn:"checkRequirementAssistNoAutoApplyRuntime"},
@@ -1123,6 +1136,7 @@ ensureTestCasesPresent(AI_ARCHITECTURE_ASSIST_TCS);
 ensureTestCasesPresent(AI_CONSISTENCY_REVIEW_TCS);
 ensureTestCasesPresent(IMPACT_PROPAGATION_TCS);
 ensureTestCasesPresent(CHANGE_CONTROL_TCS);
+ensureTestCasesPresent(PROJECT_EXECUTION_TCS);
 ensureTestCasesPresent(SOFTWARE_REQUIREMENTS_EXPANSION_TCS);
 ensureTestCasesPresent(AI_REQUIREMENT_APPLY_TCS);
 saveTMS();
@@ -1398,6 +1412,12 @@ function _buildImpactRuntimeChange(sourceType){
       after: { sourceName:'SRS-LOCAL-001', summary:'Updated local requirements document', recommendationCount:6 }
     }
   };
+}
+
+function _setRuntimeRole(w, roleName, userName){
+  if(!w || typeof w.setCurrentUserRole !== 'function') return false;
+  w.setCurrentUserRole(userName || 'runtime-user', roleName);
+  return true;
 }
 
 // ── Automation test functions ─────────────────────────────────
@@ -4174,11 +4194,12 @@ var AUTOMATION = {
     return withAppWindow(function(w){
       if(typeof w.analyzeProjectImpact !== 'function' || typeof w.approveUpdateProposals !== 'function') return _runtimeFail('impact analysis or approveUpdateProposals missing');
       var setup = _buildImpactRuntimeChange('requirement');
-      var snapshot = JSON.stringify({ sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], vv:w.DB.vv||[], impactRecommendations:w.DB.impactRecommendations||[], updateProposals:w.DB.updateProposals||[] });
+      var snapshot = JSON.stringify({ sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], vv:w.DB.vv||[], impactRecommendations:w.DB.impactRecommendations||[], updateProposals:w.DB.updateProposals||[], userRoles:w.DB.userRoles||{} });
       try{
         ['sysReqs','subsysReqs','swReqs','meReqs','vv'].forEach(function(key){ w.DB[key] = JSON.parse(JSON.stringify(setup.db[key] || [])); });
         w.DB.impactRecommendations = [];
         w.DB.updateProposals = [];
+        _setRuntimeRole(w, 'approver', 'impact-approver');
         var bundle = w.analyzeProjectImpact(setup.ctx);
         var proposalIds = (bundle.proposals || []).slice(0,2).map(function(p){ return p.proposalId; });
         var targetId = (bundle.proposals || []).find(function(p){ return p.entityType === 'subsystem_requirement'; });
@@ -4220,13 +4241,14 @@ var AUTOMATION = {
     return withAppWindow(function(w){
       if(typeof w.analyzeProjectImpact !== 'function' || typeof w.approveUpdateProposals !== 'function' || typeof w.applyApprovedProposals !== 'function') return _runtimeFail('Impact engine apply functions missing');
       var setup = _buildImpactRuntimeChange('requirement');
-      var snapshot = JSON.stringify({ sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], vv:w.DB.vv||[], impactRecommendations:w.DB.impactRecommendations||[], updateProposals:w.DB.updateProposals||[], impactAudit:w.DB.impactAudit||[], auditLog:w.DB.auditLog||[] });
+      var snapshot = JSON.stringify({ sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], vv:w.DB.vv||[], impactRecommendations:w.DB.impactRecommendations||[], updateProposals:w.DB.updateProposals||[], impactAudit:w.DB.impactAudit||[], auditLog:w.DB.auditLog||[], userRoles:w.DB.userRoles||{} });
       try{
         ['sysReqs','subsysReqs','swReqs','meReqs','vv'].forEach(function(key){ w.DB[key] = JSON.parse(JSON.stringify(setup.db[key] || [])); });
         w.DB.impactRecommendations = [];
         w.DB.updateProposals = [];
         w.DB.impactAudit = [];
         w.DB.auditLog = [];
+        _setRuntimeRole(w, 'approver', 'impact-approver');
         var bundle = w.analyzeProjectImpact(setup.ctx);
         var proposal = (bundle.proposals || []).find(function(p){ return p.entityType === 'subsystem_requirement' && p.changedFields && p.changedFields.indexOf('impactStatus') >= 0; });
         if(!proposal) return _runtimeFail('No concrete subsystem requirement proposal found for apply test');
@@ -4560,6 +4582,238 @@ var AUTOMATION = {
       }
     });
   },
+  checkRoleModelExistsRuntime: async function(){
+    return withAppWindow(function(w){
+      var ok = !!w.DB &&
+        w.DB.userRoles &&
+        typeof w.getCurrentUserRole === 'function' &&
+        typeof w.setCurrentUserRole === 'function' &&
+        ['viewer','engineer','approver','admin'].indexOf(w.DB.userRoles.currentRole) >= 0;
+      return ok ? _runtimePass('Local role model and role helpers exist') : _runtimeFail('Role model or role helpers are missing');
+    });
+  },
+  checkViewerRoleRestrictionsRuntime: async function(){
+    return withAppWindow(function(w){
+      var missing = ['createBaseline','freezeBaseline','releaseBaseline','approveUpdateProposals','applyApprovedProposals'].filter(function(name){ return typeof w[name] !== 'function'; });
+      if(missing.length) return _runtimeFail('Missing execution readiness functions: ' + missing.join(', '));
+      var snapshot = JSON.stringify({ baselines:w.DB.baselines||[], updateProposals:w.DB.updateProposals||[], impactRecommendations:w.DB.impactRecommendations||[], userRoles:w.DB.userRoles||{} });
+      try{
+        w.DB.baselines = [];
+        w.DB.impactRecommendations = [];
+        w.DB.updateProposals = [];
+        _setRuntimeRole(w, 'engineer', 'baseline-author');
+        var baseline = w.createBaseline('TC-392 baseline');
+        _setRuntimeRole(w, 'viewer', 'viewer-user');
+        var freezeResult = w.freezeBaseline(baseline.id);
+        var releaseResult = w.releaseBaseline(baseline.id);
+        var approveResult = w.approveUpdateProposals(['missing-proposal']);
+        var applyResult = w.applyApprovedProposals(['missing-proposal']);
+        var ok = freezeResult && freezeResult.reason === 'ROLE_NOT_AUTHORIZED' &&
+          releaseResult && releaseResult.reason === 'ROLE_NOT_AUTHORIZED' &&
+          approveResult && approveResult.reason === 'ROLE_NOT_AUTHORIZED' &&
+          applyResult && applyResult.reason === 'ROLE_NOT_AUTHORIZED' &&
+          (w.DB.baselines[0] || {}).status === 'draft';
+        return ok ? _runtimePass('Viewer role is blocked from approve/apply/freeze/release actions') : _runtimeFail('Viewer restrictions are incomplete');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        Object.keys(restored).forEach(function(key){ w.DB[key] = restored[key]; });
+      }
+    });
+  },
+  checkFreezeBaselineRuntime: async function(){
+    return withAppWindow(function(w){
+      var missing = ['createBaseline','freezeBaseline'].filter(function(name){ return typeof w[name] !== 'function'; });
+      if(missing.length) return _runtimeFail('Missing baseline functions: ' + missing.join(', '));
+      var snapshot = JSON.stringify({ baselines:w.DB.baselines||[], userRoles:w.DB.userRoles||{}, sysReqs:w.DB.sysReqs||[], swReqs:w.DB.swReqs||[], subsysReqs:w.DB.subsysReqs||[], meReqs:w.DB.meReqs||[], vv:w.DB.vv||[], risks:w.DB.risks||[], arch:w.DB.arch||[], archLinks:w.DB.archLinks||[], icd:w.DB.icd||[] });
+      try{
+        var payload = _buildEngineeringDecompositionRuntimePayload();
+        ['sysReqs','swReqs','subsysReqs','meReqs','vv','arch','archLinks','icd'].forEach(function(key){ w.DB[key] = JSON.parse(JSON.stringify(payload[key] || [])); });
+        w.DB.risks = [{id:'RISK-FREEZE',desc:'Recorder link risk',req:'SYS-410',status:'open'}];
+        w.DB.baselines = [];
+        _setRuntimeRole(w, 'engineer', 'baseline-author');
+        var baseline = w.createBaseline('TC-393 baseline');
+        _setRuntimeRole(w, 'approver', 'baseline-approver');
+        var result = w.freezeBaseline(baseline.id);
+        var ok = !!result && result.ok === true && result.baseline && result.baseline.status === 'frozen' && result.baseline.locked === true && result.baseline.approvedBy === 'baseline-approver';
+        return ok ? _runtimePass('Approver can freeze baseline and lock it locally') : _runtimeFail('Baseline freeze did not succeed as expected');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        Object.keys(restored).forEach(function(key){ w.DB[key] = restored[key]; });
+      }
+    });
+  },
+  checkFrozenBaselineImmutableRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.createBaseline !== 'function' || typeof w.freezeBaseline !== 'function' || typeof w.compareToBaseline !== 'function') return _runtimeFail('Baseline functions missing');
+      var snapshot = JSON.stringify({ baselines:w.DB.baselines||[], userRoles:w.DB.userRoles||{}, sysReqs:w.DB.sysReqs||[], swReqs:w.DB.swReqs||[], subsysReqs:w.DB.subsysReqs||[], meReqs:w.DB.meReqs||[], vv:w.DB.vv||[], risks:w.DB.risks||[], arch:w.DB.arch||[], archLinks:w.DB.archLinks||[], icd:w.DB.icd||[] });
+      try{
+        var payload = _buildEngineeringDecompositionRuntimePayload();
+        ['sysReqs','swReqs','subsysReqs','meReqs','vv','arch','archLinks','icd'].forEach(function(key){ w.DB[key] = JSON.parse(JSON.stringify(payload[key] || [])); });
+        w.DB.risks = [{id:'RISK-IMM',desc:'Recorder link risk',req:'SYS-410',status:'open'}];
+        w.DB.baselines = [];
+        _setRuntimeRole(w, 'engineer', 'baseline-author');
+        var baseline = w.createBaseline('TC-394 baseline');
+        _setRuntimeRole(w, 'approver', 'baseline-approver');
+        w.freezeBaseline(baseline.id);
+        var stored = JSON.stringify((w.DB.baselines[0] || {}).snapshot || {});
+        w.DB.sysReqs[0].desc = 'Mutated after freeze';
+        var delta = w.compareToBaseline(baseline.id);
+        var ok = stored === JSON.stringify((w.DB.baselines[0] || {}).snapshot || {}) && Array.isArray(delta.changed) && delta.changed.length >= 1;
+        return ok ? _runtimePass('Frozen baseline snapshot remains immutable while compareToBaseline still detects local deltas') : _runtimeFail('Frozen baseline snapshot semantics are broken');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        Object.keys(restored).forEach(function(key){ w.DB[key] = restored[key]; });
+      }
+    });
+  },
+  checkReleasePackageExportRuntime: async function(){
+    return withAppWindow(function(w){
+      var missing = ['createBaseline','freezeBaseline','createReleasePackage'].filter(function(name){ return typeof w[name] !== 'function'; });
+      if(missing.length) return _runtimeFail('Missing release package functions: ' + missing.join(', '));
+      var snapshot = JSON.stringify({ baselines:w.DB.baselines||[], releasePackages:w.DB.releasePackages||[], userRoles:w.DB.userRoles||{}, sysReqs:w.DB.sysReqs||[], swReqs:w.DB.swReqs||[], subsysReqs:w.DB.subsysReqs||[], meReqs:w.DB.meReqs||[], vv:w.DB.vv||[], risks:w.DB.risks||[], arch:w.DB.arch||[], archLinks:w.DB.archLinks||[], icd:w.DB.icd||[] });
+      try{
+        var payload = _buildEngineeringDecompositionRuntimePayload();
+        ['sysReqs','swReqs','subsysReqs','meReqs','vv','arch','archLinks','icd'].forEach(function(key){ w.DB[key] = JSON.parse(JSON.stringify(payload[key] || [])); });
+        w.DB.risks = [{id:'RISK-REL',desc:'Recorder link risk',req:'SYS-410',status:'open'}];
+        w.DB.baselines = [];
+        w.DB.releasePackages = [];
+        _setRuntimeRole(w, 'engineer', 'baseline-author');
+        var baseline = w.createBaseline('TC-395 baseline');
+        _setRuntimeRole(w, 'approver', 'release-approver');
+        w.freezeBaseline(baseline.id);
+        var pkg = w.createReleasePackage(baseline.id, { download:false });
+        var ok = !!pkg &&
+          pkg.packageType === '7200_release_package' &&
+          pkg.version === 1 &&
+          pkg.baseline &&
+          pkg.contents &&
+          Array.isArray(pkg.contents.requirements) &&
+          Array.isArray(pkg.contents.softwareRequirements) &&
+          Array.isArray(pkg.contents.architectureLinks) &&
+          Array.isArray(w.DB.releasePackages) && w.DB.releasePackages.length === 1;
+        return ok ? _runtimePass('Release package export creates a structured local package') : _runtimeFail('Release package export is incomplete');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        Object.keys(restored).forEach(function(key){ w.DB[key] = restored[key]; });
+      }
+    });
+  },
+  checkProjectBackupRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.createProjectBackup !== 'function') return _runtimeFail('createProjectBackup missing');
+      var snapshot = JSON.stringify({ projectBackups:w.DB.projectBackups||[], userRoles:w.DB.userRoles||{} });
+      try{
+        w.DB.projectBackups = [];
+        _setRuntimeRole(w, 'engineer', 'backup-owner');
+        var backup = w.createProjectBackup('TC-396 backup', { download:false });
+        var ok = !!backup &&
+          backup.backupType === '7200_backup' &&
+          backup.version === 1 &&
+          backup.dbSnapshot &&
+          Array.isArray(w.DB.projectBackups) && w.DB.projectBackups.length === 1;
+        return ok ? _runtimePass('Project backup export creates a structured local backup payload') : _runtimeFail('Project backup export is incomplete');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        Object.keys(restored).forEach(function(key){ w.DB[key] = restored[key]; });
+      }
+    });
+  },
+  checkRestoreBackupRuntime: async function(){
+    return withAppWindow(function(w){
+      var missing = ['createProjectBackup','restoreProjectBackup'].filter(function(name){ return typeof w[name] !== 'function'; });
+      if(missing.length) return _runtimeFail('Missing backup restore functions: ' + missing.join(', '));
+      var snapshot = JSON.stringify({ projectBackups:w.DB.projectBackups||[], userRoles:w.DB.userRoles||{}, sysReqs:w.DB.sysReqs||[], vv:w.DB.vv||[], arch:w.DB.arch||[], archLinks:w.DB.archLinks||[] });
+      try{
+        var payload = _buildEngineeringDecompositionRuntimePayload();
+        ['sysReqs','vv','arch','archLinks'].forEach(function(key){ w.DB[key] = JSON.parse(JSON.stringify(payload[key] || [])); });
+        w.DB.projectBackups = [];
+        _setRuntimeRole(w, 'engineer', 'backup-owner');
+        var backup = w.createProjectBackup('TC-397 backup', { download:false });
+        var bad = w.restoreProjectBackup({ backupType:'bad', version:1, dbSnapshot:{} });
+        w.DB.sysReqs[0].desc = 'Broken state';
+        _setRuntimeRole(w, 'approver', 'restore-approver');
+        var good = w.restoreProjectBackup(backup);
+        var ok = bad && bad.ok === false && bad.reason === 'INVALID_BACKUP_PAYLOAD' &&
+          good && good.ok === true &&
+          w.DB.sysReqs[0].desc !== 'Broken state';
+        return ok ? _runtimePass('Restore validates malformed payloads and safely restores valid backups') : _runtimeFail('Backup restore validation or restore behavior is broken');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        Object.keys(restored).forEach(function(key){ w.DB[key] = restored[key]; });
+      }
+    });
+  },
+  checkRollbackToBaselineRuntime: async function(){
+    return withAppWindow(function(w){
+      var missing = ['createBaseline','rollbackToBaseline'].filter(function(name){ return typeof w[name] !== 'function'; });
+      if(missing.length) return _runtimeFail('Missing rollback functions: ' + missing.join(', '));
+      var snapshot = JSON.stringify({ baselines:w.DB.baselines||[], userRoles:w.DB.userRoles||{}, sysReqs:w.DB.sysReqs||[], swReqs:w.DB.swReqs||[], subsysReqs:w.DB.subsysReqs||[], meReqs:w.DB.meReqs||[], vv:w.DB.vv||[], risks:w.DB.risks||[], arch:w.DB.arch||[], archLinks:w.DB.archLinks||[], icd:w.DB.icd||[] });
+      try{
+        var payload = _buildEngineeringDecompositionRuntimePayload();
+        ['sysReqs','swReqs','subsysReqs','meReqs','vv','arch','archLinks','icd'].forEach(function(key){ w.DB[key] = JSON.parse(JSON.stringify(payload[key] || [])); });
+        w.DB.risks = [{id:'RISK-RB',desc:'Recorder link risk',req:'SYS-410',status:'open'}];
+        w.DB.baselines = [];
+        _setRuntimeRole(w, 'engineer', 'baseline-author');
+        var baseline = w.createBaseline('TC-398 baseline');
+        w.DB.sysReqs = [];
+        w.DB.archLinks = [];
+        _setRuntimeRole(w, 'approver', 'rollback-approver');
+        var result = w.rollbackToBaseline(baseline.id);
+        var ok = !!result && result.ok === true && (w.DB.sysReqs || []).length === payload.sysReqs.length && (w.DB.archLinks || []).length === payload.archLinks.length;
+        return ok ? _runtimePass('Rollback restores tracked engineering collections from baseline snapshot') : _runtimeFail('Rollback did not restore tracked collections correctly');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        Object.keys(restored).forEach(function(key){ w.DB[key] = restored[key]; });
+      }
+    });
+  },
+  checkExecutionReadinessAuditRuntime: async function(){
+    return withAppWindow(function(w){
+      var missing = ['createBaseline','freezeBaseline','releaseBaseline','createReleasePackage','createProjectBackup','restoreProjectBackup','rollbackToBaseline'].filter(function(name){ return typeof w[name] !== 'function'; });
+      if(missing.length) return _runtimeFail('Missing execution readiness functions: ' + missing.join(', '));
+      var snapshot = JSON.stringify({ baselines:w.DB.baselines||[], projectBackups:w.DB.projectBackups||[], releasePackages:w.DB.releasePackages||[], auditLog:w.DB.auditLog||[], userRoles:w.DB.userRoles||{}, sysReqs:w.DB.sysReqs||[], swReqs:w.DB.swReqs||[], subsysReqs:w.DB.subsysReqs||[], meReqs:w.DB.meReqs||[], vv:w.DB.vv||[], risks:w.DB.risks||[], arch:w.DB.arch||[], archLinks:w.DB.archLinks||[], icd:w.DB.icd||[] });
+      try{
+        var payload = _buildEngineeringDecompositionRuntimePayload();
+        ['sysReqs','swReqs','subsysReqs','meReqs','vv','arch','archLinks','icd'].forEach(function(key){ w.DB[key] = JSON.parse(JSON.stringify(payload[key] || [])); });
+        w.DB.risks = [{id:'RISK-AUD',desc:'Recorder link risk',req:'SYS-410',status:'open'}];
+        w.DB.baselines = [];
+        w.DB.projectBackups = [];
+        w.DB.releasePackages = [];
+        w.DB.auditLog = [];
+        _setRuntimeRole(w, 'engineer', 'baseline-author');
+        var baseline = w.createBaseline('TC-399 baseline');
+        var backup = w.createProjectBackup('TC-399 backup', { download:false });
+        _setRuntimeRole(w, 'approver', 'release-approver');
+        w.freezeBaseline(baseline.id);
+        w.releaseBaseline(baseline.id);
+        w.createReleasePackage(baseline.id, { download:false });
+        w.restoreProjectBackup(backup);
+        w.rollbackToBaseline(baseline.id);
+        var actions = (w.DB.auditLog || []).map(function(entry){ return entry.action; });
+        var ok = ['freeze_baseline','release_baseline','create_release_package','create_backup','restore_backup','rollback_baseline'].every(function(action){ return actions.indexOf(action) >= 0; }) &&
+          (w.DB.auditLog || []).every(function(entry){ return typeof entry.actorRole === 'string' && entry.actorRole.length > 0; });
+        return ok ? _runtimePass('Execution readiness actions append audit entries with actorRole metadata') : _runtimeFail('Execution readiness audit coverage is incomplete');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        Object.keys(restored).forEach(function(key){ w.DB[key] = restored[key]; });
+      }
+    });
+  },
+  checkExecutionReadinessCompatibilityRuntime: async function(){
+    return withAppWindow(function(w){
+      var ok = typeof w.manualSave === 'function' &&
+        typeof w.loadFromFile === 'function' &&
+        typeof w.analyzeProjectImpact === 'function' &&
+        typeof w.renderVCRM === 'function' &&
+        typeof w.runAIAction === 'function' &&
+        typeof w.createBaseline === 'function' &&
+        typeof w.freezeBaseline === 'function' &&
+        typeof w.createReleasePackage === 'function' &&
+        typeof w.restoreProjectBackup === 'function' &&
+        typeof w.rollbackToBaseline === 'function';
+      return ok ? _runtimePass('Execution readiness controls coexist with save/load, impact, VCRM, and AI flows') : _runtimeFail('Execution readiness controls broke existing key flows');
+    });
+  },
   checkBaselineCreationRuntime: async function(){
     return withAppWindow(function(w){
       if(typeof w.createBaseline !== 'function') return _runtimeFail('createBaseline missing');
@@ -4614,13 +4868,14 @@ var AUTOMATION = {
     return withAppWindow(function(w){
       if(typeof w.analyzeProjectImpact !== 'function' || typeof w.approveUpdateProposals !== 'function' || typeof w.applyApprovedProposals !== 'function') return _runtimeFail('Impact apply functions missing');
       var setup = _buildImpactRuntimeChange('requirement');
-      var snapshot = JSON.stringify({ sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], vv:w.DB.vv||[], impactRecommendations:w.DB.impactRecommendations||[], updateProposals:w.DB.updateProposals||[], impactAudit:w.DB.impactAudit||[], auditLog:w.DB.auditLog||[] });
+      var snapshot = JSON.stringify({ sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], vv:w.DB.vv||[], impactRecommendations:w.DB.impactRecommendations||[], updateProposals:w.DB.updateProposals||[], impactAudit:w.DB.impactAudit||[], auditLog:w.DB.auditLog||[], userRoles:w.DB.userRoles||{} });
       try{
         ['sysReqs','subsysReqs','swReqs','meReqs','vv'].forEach(function(key){ w.DB[key] = JSON.parse(JSON.stringify(setup.db[key] || [])); });
         w.DB.impactRecommendations = [];
         w.DB.updateProposals = [];
         w.DB.impactAudit = [];
         w.DB.auditLog = [];
+        _setRuntimeRole(w, 'approver', 'impact-approver');
         var bundle = w.analyzeProjectImpact(setup.ctx);
         var proposal = (bundle.proposals || []).find(function(p){ return p.entityType === 'subsystem_requirement' && p.changedFields && p.changedFields.indexOf('impactStatus') >= 0; });
         if(!proposal) return _runtimeFail('No proposal found for audit apply test');
@@ -4684,13 +4939,14 @@ var AUTOMATION = {
     return withAppWindow(function(w){
       if(typeof w.analyzeProjectImpact !== 'function' || typeof w.approveUpdateProposals !== 'function' || typeof w.applyApprovedProposals !== 'function') return _runtimeFail('Impact reanalysis functions missing');
       var setup = _buildImpactRuntimeChange('requirement');
-      var snapshot = JSON.stringify({ sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], vv:w.DB.vv||[], impactRecommendations:w.DB.impactRecommendations||[], updateProposals:w.DB.updateProposals||[], impactAudit:w.DB.impactAudit||[], auditLog:w.DB.auditLog||[] });
+      var snapshot = JSON.stringify({ sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], vv:w.DB.vv||[], impactRecommendations:w.DB.impactRecommendations||[], updateProposals:w.DB.updateProposals||[], impactAudit:w.DB.impactAudit||[], auditLog:w.DB.auditLog||[], userRoles:w.DB.userRoles||{} });
       try{
         ['sysReqs','subsysReqs','swReqs','meReqs','vv'].forEach(function(key){ w.DB[key] = JSON.parse(JSON.stringify(setup.db[key] || [])); });
         w.DB.impactRecommendations = [];
         w.DB.updateProposals = [];
         w.DB.impactAudit = [];
         w.DB.auditLog = [];
+        _setRuntimeRole(w, 'approver', 'impact-approver');
         var bundle = w.analyzeProjectImpact(setup.ctx);
         var beforeCount = (w.DB.impactRecommendations || []).length;
         var proposal = (bundle.proposals || []).find(function(p){ return p.entityType === 'subsystem_requirement' && p.changedFields && p.changedFields.indexOf('impactStatus') >= 0; });
