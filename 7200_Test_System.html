@@ -1074,7 +1074,13 @@ var CHANGE_CONTROL_TCS = [
   {id:"TC-381",title:"Audit log written on apply",cat:"Change Control",type:"Regression",pri:"Critical",reqs:"REQ-132",steps:"Apply an approved proposal and inspect auditLog",expected:"apply_change is written to auditLog only on real apply",auto:"yes",fn:"checkAuditLogOnApplyRuntime"},
   {id:"TC-382",title:"Audit not written on preview",cat:"Change Control",type:"Regression",pri:"Critical",reqs:"REQ-132",steps:"Generate recommendations and approve/reject without applying",expected:"Preview and approval-state changes do not write auditLog",auto:"yes",fn:"checkAuditLogNotWrittenOnPreviewRuntime"},
   {id:"TC-383",title:"Change request created from impact",cat:"Change Control",type:"Regression",pri:"High",reqs:"REQ-132",steps:"Generate impact bundle and create a local change request from it",expected:"A change request is created with related IDs, impact IDs, and proposal IDs",auto:"yes",fn:"checkCreateChangeRequestFromImpactRuntime"},
-  {id:"TC-384",title:"Apply triggers new impact analysis",cat:"Change Control",type:"Regression",pri:"High",reqs:"REQ-132",steps:"Apply an approved proposal and verify follow-up impact analysis runs",expected:"Applying a proposal creates a new local follow-up impact analysis pass",auto:"yes",fn:"checkApplyTriggersReanalysisRuntime"}
+  {id:"TC-384",title:"Apply triggers new impact analysis",cat:"Change Control",type:"Regression",pri:"High",reqs:"REQ-132",steps:"Apply an approved proposal and verify follow-up impact analysis runs",expected:"Applying a proposal creates a new local follow-up impact analysis pass",auto:"yes",fn:"checkApplyTriggersReanalysisRuntime"},
+  {id:"TC-385",title:"Requirement change hits subsystem requirement domain",cat:"Change Control",type:"Regression",pri:"High",reqs:"REQ-132",steps:"Analyze a system requirement change and inspect subsystem requirement impacts",expected:"At least one subsystem_requirement impact is created",auto:"yes",fn:"checkRequirementPropagationSubsystemRuntime"},
+  {id:"TC-386",title:"Requirement change hits software requirement domain",cat:"Change Control",type:"Regression",pri:"High",reqs:"REQ-132",steps:"Analyze a system requirement change and inspect software requirement impacts",expected:"At least one software_requirement impact is created",auto:"yes",fn:"checkRequirementPropagationSoftwareRuntime"},
+  {id:"TC-387",title:"Requirement change hits mechanical requirement domain",cat:"Change Control",type:"Regression",pri:"High",reqs:"REQ-132",steps:"Analyze a system requirement change and inspect mechanical requirement impacts",expected:"At least one me_requirement impact is created",auto:"yes",fn:"checkRequirementPropagationMechanicalRuntime"},
+  {id:"TC-388",title:"Requirement change hits ICD interface review domain",cat:"Change Control",type:"Regression",pri:"High",reqs:"REQ-132",steps:"Analyze an interface-oriented requirement change and inspect ICD impacts",expected:"At least one ICD/interface review impact is created",auto:"yes",fn:"checkRequirementPropagationIcdRuntime"},
+  {id:"TC-389",title:"Requirement change hits architecture review domain",cat:"Change Control",type:"Regression",pri:"High",reqs:"REQ-132",steps:"Analyze a requirement change and inspect architecture impacts",expected:"At least one architecture component or link review impact is created",auto:"yes",fn:"checkRequirementPropagationArchitectureRuntime"},
+  {id:"TC-390",title:"Requirement-driven proposals are never empty when review is warranted",cat:"Change Control",type:"Regression",pri:"High",reqs:"REQ-132",steps:"Inspect requirement-driven recommendations and proposals",expected:"Review-type requirement impacts carry structured review/patch/create/link proposals",auto:"yes",fn:"checkRequirementPropagationProposalQualityRuntime"}
 ];
 
 var AI_REQUIREMENT_APPLY_TCS = [
@@ -4069,6 +4075,7 @@ var AUTOMATION = {
           types.indexOf('vv') >= 0 &&
           types.indexOf('risk') >= 0 &&
           types.indexOf('icd') >= 0 &&
+          (types.indexOf('architecture_component') >= 0 || types.indexOf('architecture_link') >= 0) &&
           types.indexOf('consistency') >= 0 &&
           impactTypes.indexOf('traceability_gap') >= 0 &&
           (bundle.proposals || []).length >= bundle.recommendations.length;
@@ -4427,8 +4434,126 @@ var AUTOMATION = {
           types.indexOf('vv') >= 0 &&
           types.indexOf('risk') >= 0 &&
           types.indexOf('icd') >= 0 &&
+          (types.indexOf('architecture_component') >= 0 || types.indexOf('architecture_link') >= 0) &&
           impactTypes.indexOf('traceability_gap') >= 0;
         return ok ? _runtimePass('Requirement change propagates across subsystem, software, VV, risk, ICD, and traceability domains') : _runtimeFail('Requirement propagation did not cover all expected domains');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        Object.keys(restored).forEach(function(key){ w.DB[key] = restored[key]; });
+      }
+    });
+  },
+  checkRequirementPropagationSubsystemRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.analyzeProjectImpact !== 'function') return _runtimeFail('analyzeProjectImpact missing');
+      var setup = _buildImpactRuntimeChange('requirement');
+      var snapshot = JSON.stringify({ sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], vv:w.DB.vv||[], impactRecommendations:w.DB.impactRecommendations||[], updateProposals:w.DB.updateProposals||[] });
+      try{
+        ['sysReqs','subsysReqs','swReqs','meReqs','vv'].forEach(function(key){ w.DB[key] = JSON.parse(JSON.stringify(setup.db[key] || [])); });
+        w.DB.impactRecommendations = [];
+        w.DB.updateProposals = [];
+        var bundle = w.analyzeProjectImpact(setup.ctx);
+        var ok = (bundle.recommendations || []).some(function(rec){ return rec.targetType === 'subsystem_requirement'; });
+        return ok ? _runtimePass('Requirement change reaches subsystem requirement review domain') : _runtimeFail('No subsystem requirement impact was created');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        Object.keys(restored).forEach(function(key){ w.DB[key] = restored[key]; });
+      }
+    });
+  },
+  checkRequirementPropagationSoftwareRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.analyzeProjectImpact !== 'function') return _runtimeFail('analyzeProjectImpact missing');
+      var setup = _buildImpactRuntimeChange('requirement');
+      var snapshot = JSON.stringify({ sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], vv:w.DB.vv||[], impactRecommendations:w.DB.impactRecommendations||[], updateProposals:w.DB.updateProposals||[] });
+      try{
+        ['sysReqs','subsysReqs','swReqs','meReqs','vv'].forEach(function(key){ w.DB[key] = JSON.parse(JSON.stringify(setup.db[key] || [])); });
+        w.DB.impactRecommendations = [];
+        w.DB.updateProposals = [];
+        var bundle = w.analyzeProjectImpact(setup.ctx);
+        var ok = (bundle.recommendations || []).some(function(rec){ return rec.targetType === 'software_requirement'; });
+        return ok ? _runtimePass('Requirement change reaches software requirement review domain') : _runtimeFail('No software requirement impact was created');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        Object.keys(restored).forEach(function(key){ w.DB[key] = restored[key]; });
+      }
+    });
+  },
+  checkRequirementPropagationMechanicalRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.analyzeProjectImpact !== 'function') return _runtimeFail('analyzeProjectImpact missing');
+      var setup = _buildImpactRuntimeChange('requirement');
+      var snapshot = JSON.stringify({ sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], vv:w.DB.vv||[], impactRecommendations:w.DB.impactRecommendations||[], updateProposals:w.DB.updateProposals||[] });
+      try{
+        ['sysReqs','subsysReqs','swReqs','meReqs','vv'].forEach(function(key){ w.DB[key] = JSON.parse(JSON.stringify(setup.db[key] || [])); });
+        w.DB.impactRecommendations = [];
+        w.DB.updateProposals = [];
+        var bundle = w.analyzeProjectImpact(setup.ctx);
+        var ok = (bundle.recommendations || []).some(function(rec){ return rec.targetType === 'me_requirement'; });
+        return ok ? _runtimePass('Requirement change reaches mechanical requirement review domain') : _runtimeFail('No mechanical requirement impact was created');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        Object.keys(restored).forEach(function(key){ w.DB[key] = restored[key]; });
+      }
+    });
+  },
+  checkRequirementPropagationIcdRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.analyzeProjectImpact !== 'function') return _runtimeFail('analyzeProjectImpact missing');
+      var setup = _buildImpactRuntimeChange('requirement');
+      var snapshot = JSON.stringify({ sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], vv:w.DB.vv||[], icd:w.DB.icd||[], archLinks:w.DB.archLinks||[], impactRecommendations:w.DB.impactRecommendations||[], updateProposals:w.DB.updateProposals||[] });
+      try{
+        ['sysReqs','subsysReqs','swReqs','meReqs','vv','icd','archLinks'].forEach(function(key){ w.DB[key] = JSON.parse(JSON.stringify(setup.db[key] || [])); });
+        w.DB.impactRecommendations = [];
+        w.DB.updateProposals = [];
+        var bundle = w.analyzeProjectImpact(setup.ctx);
+        var ok = (bundle.recommendations || []).some(function(rec){
+          return rec.targetType === 'icd' && ['interface_mismatch','icd_review','endpoint_review','protocol_review'].indexOf(rec.impactType) >= 0;
+        });
+        return ok ? _runtimePass('Requirement change reaches ICD/interface review domain') : _runtimeFail('No ICD/interface review impact was created');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        Object.keys(restored).forEach(function(key){ w.DB[key] = restored[key]; });
+      }
+    });
+  },
+  checkRequirementPropagationArchitectureRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.analyzeProjectImpact !== 'function') return _runtimeFail('analyzeProjectImpact missing');
+      var setup = _buildImpactRuntimeChange('requirement');
+      var snapshot = JSON.stringify({ sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], vv:w.DB.vv||[], arch:w.DB.arch||[], archLinks:w.DB.archLinks||[], impactRecommendations:w.DB.impactRecommendations||[], updateProposals:w.DB.updateProposals||[] });
+      try{
+        ['sysReqs','subsysReqs','swReqs','meReqs','vv','arch','archLinks'].forEach(function(key){ w.DB[key] = JSON.parse(JSON.stringify(setup.db[key] || [])); });
+        w.DB.arch.push({id:'ARCH-2',name:'Recorder',type:'HW',subsystem:'Signal Processing',desc:'Mission recorder node',interfaces:'Ethernet',connections:'Mission Computer',flowDesc:'Mission data sink',status:'Draft'});
+        w.DB.impactRecommendations = [];
+        w.DB.updateProposals = [];
+        var bundle = w.analyzeProjectImpact(setup.ctx);
+        var ok = (bundle.recommendations || []).some(function(rec){
+          return rec.targetType === 'architecture_component' || rec.targetType === 'architecture_link';
+        });
+        return ok ? _runtimePass('Requirement change reaches architecture review domain') : _runtimeFail('No architecture review impact was created');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        Object.keys(restored).forEach(function(key){ w.DB[key] = restored[key]; });
+      }
+    });
+  },
+  checkRequirementPropagationProposalQualityRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.analyzeProjectImpact !== 'function') return _runtimeFail('analyzeProjectImpact missing');
+      var setup = _buildImpactRuntimeChange('requirement');
+      var snapshot = JSON.stringify({ sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], vv:w.DB.vv||[], risks:w.DB.risks||[], icd:w.DB.icd||[], arch:w.DB.arch||[], archLinks:w.DB.archLinks||[], impactRecommendations:w.DB.impactRecommendations||[], updateProposals:w.DB.updateProposals||[] });
+      try{
+        ['sysReqs','subsysReqs','swReqs','meReqs','vv','icd','arch','archLinks'].forEach(function(key){ w.DB[key] = JSON.parse(JSON.stringify(setup.db[key] || [])); });
+        w.DB.risks = [{id:'RISK-REQ-390',desc:'Mission Computer to Recorder synchronization risk',component:'Mission Computer',req:'SYS-410',status:'open'}];
+        w.DB.impactRecommendations = [];
+        w.DB.updateProposals = [];
+        var bundle = w.analyzeProjectImpact(setup.ctx);
+        var reviewRecs = (bundle.recommendations || []).filter(function(rec){ return rec.proposedAction === 'review'; });
+        var ok = reviewRecs.length > 0 && reviewRecs.every(function(rec){
+          return rec.proposal && typeof rec.proposal.type === 'string' && rec.proposal.type !== 'none' && (rec.proposal.summary || rec.rationale);
+        });
+        return ok ? _runtimePass('Requirement-driven review recommendations carry structured proposals') : _runtimeFail('Requirement-driven review proposals are still under-specified');
       } finally {
         var restored = JSON.parse(snapshot);
         Object.keys(restored).forEach(function(key){ w.DB[key] = restored[key]; });

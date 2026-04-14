@@ -5698,14 +5698,21 @@ function _normalizeImpactProposal(patch, action){
   if(patch && patch.proposal){
     var cloned = JSON.parse(JSON.stringify(patch.proposal));
     cloned.type = cloned.type || "none";
+    if(!cloned.summary && patch.rationale) cloned.summary = String(patch.rationale);
     return cloned;
   }
-  if(!patch || !patch.proposedPatch) return { type: "none" };
   var normalizedAction = _normalizeImpactAction(action);
+  if(!patch || !patch.proposedPatch){
+    if(normalizedAction === "review"){
+      return { type: "review", summary: String((patch && patch.rationale) || "נדרש review הנדסי מקומי.") };
+    }
+    return { type: "none", summary: String((patch && patch.rationale) || "") };
+  }
   return {
     type: normalizedAction === "link" ? "link" : normalizedAction === "add" ? "create" : "patch",
     before: patch.before ? JSON.parse(JSON.stringify(patch.before)) : undefined,
-    after: JSON.parse(JSON.stringify(patch.proposedPatch))
+    after: JSON.parse(JSON.stringify(patch.proposedPatch)),
+    summary: String(patch.rationale || "")
   };
 }
 
@@ -5861,6 +5868,42 @@ function _impactLinkSignals(changeContext){
   return { components: components, terms: terms };
 }
 
+function _requirementChangeSignals(changeContext, changedTerms){
+  var before = changeContext.before || {};
+  var after = changeContext.after || {};
+  var combinedText = [
+    before.rid, after.rid,
+    before.desc, after.desc,
+    before.domain, after.domain,
+    before.allocation, after.allocation,
+    before.subsystem, after.subsystem,
+    before.source, after.source,
+    before.origin, after.origin,
+    (changeContext.changedFields || []).join(" ")
+  ].join(" ");
+  var normalized = _normalizeImpactText(combinedText);
+  function hasAny(words){
+    return words.some(function(word){
+      return word && normalized.indexOf(_normalizeImpactText(word)) >= 0;
+    });
+  }
+  return {
+    interfaceLike: hasAny(["interface","protocol","message","packet","ethernet","can","mil-std-1553","bus","link","icd","ממשק","פרוטוקול","הודעה","חבילה","איתרנט","אתרנט","קישור"]),
+    timingLike: hasAny(["timing","latency","cycle","frequency","throughput","update rate","hz","performance","זמן","קצב","תדירות","latency","throughput"]),
+    safetyLike: hasAny(["safe","safety","fail-safe","degraded","inhibit","hazard","hazards","בטיחות","בטוח","כשל","מופחת","degraded mode"]),
+    monitoringLike: hasAny(["bit","bite","health","monitoring","logging","watchdog","heartbeat","log","record","bit/bite","ניטור","לוג","רישום","בריאות"]),
+    allocationLike: hasAny(["allocation","allocated","subsystem","component","architecture","allocated to","הקצאה","תת מערכת","תת-מערכת","רכיב","ארכיטקטורה"]),
+    mechanicalLike: hasAny(["mechanical","enclosure","tray","mount","vibration","power feed","thermal","מבני","מכני","מארז","מגש","רעידות","תרמי"]),
+    verificationLike: hasAny(["verification","vv","test","analysis","inspection","demonstration","phase","artifact","אימות","בדיקה","אנליזה","inspection"]),
+    architectureLike: hasAny(["flow","interface","component","subsystem","architecture","recorder","console","rf","power","ui","operator","mission computer","זרימה","רכיב","ארכיטקטורה","מקליט","קונסול","rf","הספק","מפעיל"]),
+    matchedTerms: _impactUniqueValues((changedTerms || []).concat([
+      before.allocation, after.allocation,
+      before.subsystem, after.subsystem,
+      before.domain, after.domain
+    ]))
+  };
+}
+
 function _riskMentionsImpact(risk, components, reqIds, terms){
   var hay = _normalizeImpactText([
     risk && risk.desc,
@@ -5912,17 +5955,51 @@ function _detectChangeImpact(changeContext){
     recs.push(rec);
   }
 
+  function resolveFallbackTarget(entityType, predicate, fallbackId){
+    var foundId = null;
+    _impactEntityCollections(entityType).some(function(arrName){
+      var arr = DB[arrName] || [];
+      return arr.some(function(item){
+        if(!item) return false;
+        if(predicate && !predicate(item)) return false;
+        foundId = item.id || item.rid || item.name || fallbackId;
+        return !!foundId;
+      });
+    });
+    return foundId || fallbackId || "unlinked";
+  }
+
   if(["requirement","subsystem_requirement","sw_requirement","me_requirement"].indexOf(changeContext.sourceType) >= 0){
+    var reqSignals = _requirementChangeSignals(changeContext, changedTerms);
+    var reqDomainHits = {
+      subsystem: false,
+      software: false,
+      mechanical: false,
+      vv: false,
+      vcrm: false,
+      risk: false,
+      icd: false,
+      architecture: false
+    };
+    function markReqDomain(domain){
+      if(Object.prototype.hasOwnProperty.call(reqDomainHits, domain)) reqDomainHits[domain] = true;
+    }
+    function addReqRec(domain, patch){
+      markReqDomain(domain);
+      addRec(patch);
+    }
     _collectRequirementChildren(sourceRid).forEach(function(hit){
       trackReq(hit.item, hit.entityType);
-      addRec({
+      addReqRec(
+        hit.entityType === "subsystem_requirement" ? "subsystem" : hit.entityType === "sw_requirement" ? "software" : "mechanical",
+        {
         targetType: _impactRequirementTargetType(hit.entityType),
         targetEntityType: hit.entityType,
         targetId: hit.item.id || hit.item.rid,
-        impactType: "trace_break",
-        severity: "high",
-        confidence: 0.9,
-        rationale: "הדרישה ההורית השתנתה ולכן ייתכן שהדרישה הנגזרת אינה מעודכנת.",
+        impactType: (changeContext.triggerType === "delete" || (changeContext.changedFields || []).indexOf("parentRid") >= 0) ? "trace_break" : "derived_update",
+        severity: (changeContext.triggerType === "delete" || (changeContext.changedFields || []).indexOf("parentRid") >= 0) ? "high" : "medium",
+        confidence: (changeContext.triggerType === "delete" || (changeContext.changedFields || []).indexOf("parentRid") >= 0) ? 0.92 : 0.86,
+        rationale: "הדרישה ההורית השתנתה ולכן הדרישה הנגזרת עשויה להיות לא מעודכנת.",
         evidence: ["parentRid="+(hit.item.parentRid||"-"), "sourceRid="+sourceRid],
         proposedAction: "review",
         proposal: { type: "patch", after: _buildImpactStatusPatch(changeContext, "Parent requirement changed") }
@@ -5933,16 +6010,38 @@ function _detectChangeImpact(changeContext){
         if(pair[1] === changeContext.sourceType && (req.rid === sourceRid || req.id === sourceRid || req.id === changeContext.sourceId)) return;
         if(!_requirementMentions([req.parentRid, req.allocation, req.subsystem, req.desc, req.source, req.origin], changedTerms)) return;
         trackReq(req, pair[1]);
-        addRec({
+        var reqDomain = pair[1] === "subsystem_requirement" ? "subsystem" : pair[1] === "sw_requirement" ? "software" : pair[1] === "me_requirement" ? "mechanical" : "vcrm";
+        var impactType = "trace_break";
+        var severity = "medium";
+        var confidence = 0.78;
+        var rationale = "נמצא קישור עקיבות לדרישה שהשתנתה ולכן נדרש review של ההקשר ההנדסי.";
+        if(pair[1] === "sw_requirement"){
+          if(reqSignals.interfaceLike) impactType = "interface_mismatch";
+          else if(reqSignals.timingLike) impactType = "performance_review";
+          else if(reqSignals.verificationLike) impactType = "verification_gap";
+          else impactType = "derived_update";
+          severity = impactType === "performance_review" || impactType === "verification_gap" ? "medium" : "high";
+          confidence = impactType === "derived_update" ? 0.8 : 0.86;
+          rationale = "דרישת התוכנה תלויה בדרישה שהשתנתה ולכן יש לבדוק הקצאה, ממשק, תזמון ויכולת אימות.";
+        } else if(pair[1] === "me_requirement"){
+          impactType = reqSignals.mechanicalLike || reqSignals.allocationLike ? "allocation_mismatch" : "derived_update";
+          severity = "medium";
+          confidence = 0.8;
+          rationale = "הדרישה המכאנית תלויה בדרישה שהשתנתה ולכן ייתכן שנדרשת התאמת הקצאה או הנחה פיזית.";
+        } else if(pair[1] === "subsystem_requirement"){
+          impactType = reqSignals.allocationLike ? "allocation_mismatch" : "derived_update";
+          severity = "high";
+          confidence = 0.84;
+          rationale = "דרישת תת-המערכת עשויה להיות לא מעודכנת לאחר שינוי בדרישת המערכת.";
+        }
+        addReqRec(reqDomain, {
           targetType: _impactRequirementTargetType(pair[1]),
           targetEntityType: pair[1],
           targetId: req.id || req.rid,
-          impactType: pair[1] === "sw_requirement" ? "interface_mismatch" : "trace_break",
-          severity: pair[1] === "sw_requirement" ? "high" : "medium",
-          confidence: pair[1] === "sw_requirement" ? 0.84 : 0.78,
-          rationale: pair[1] === "sw_requirement"
-            ? "דרישת התוכנה תלויה בדרישה ששונתה דרך parent, allocation או subsystem ולכן נדרש review של ההתאמה."
-            : "נמצא קישור עקיבות לדרישה שהשתנתה ולכן נדרש review של ההקשר ההנדסי.",
+          impactType: impactType,
+          severity: severity,
+          confidence: confidence,
+          rationale: rationale,
           evidence: ["requirement="+(req.rid||req.id), "sourceRid="+sourceRid, "allocation="+(req.allocation||"-")],
           proposedAction: "review",
           proposal: { type: "patch", after: _buildImpactStatusPatch(changeContext, "Requirement changed") }
@@ -5951,21 +6050,21 @@ function _detectChangeImpact(changeContext){
     });
     (DB.vv || []).forEach(function(vv){
       if(_reqRefsMatch(vv.req, sourceRid)){
-        addRec({
+        addReqRec("vv", {
           targetType: "vv",
           targetEntityType: "vv",
           targetId: vv.id || vv.req,
-          impactType: "verification_gap",
+          impactType: reqSignals.verificationLike ? "verification_review" : "verification_gap",
           severity: "medium",
-          confidence: 0.82,
-          rationale: "פריט V&V מקושר לדרישה ששונתה ולכן נדרש review של שיטת האימות והארטיפקט.",
-          evidence: ["vv.req="+String(vv.req||""), "changedFields="+(changeContext.changedFields||[]).join(", ")],
+          confidence: reqSignals.verificationLike ? 0.86 : 0.82,
+          rationale: "פריט V&V מקושר לדרישה ששונתה ולכן נדרש review של שיטת האימות, השלב והארטיפקט.",
+          evidence: ["vv.req="+String(vv.req||""), "changedFields="+(changeContext.changedFields||[]).join(", "), "method="+String(vv.method||"-")],
           proposedAction: "review",
-          proposal: { type: "patch", after: _buildImpactStatusPatch(changeContext, "Linked requirement changed") }
+          proposal: { type: "review", summary: "Review linked V&V row after requirement change." }
         });
       }
     });
-    addRec({
+    addReqRec("vcrm", {
       targetType: _impactRequirementTargetType(changeContext.sourceType),
       targetEntityType: changeContext.sourceType,
       targetId: sourceRid,
@@ -5975,57 +6074,182 @@ function _detectChangeImpact(changeContext){
       rationale: "שינוי בדרישה מחייב רענון של מטריצת הכיסוי והקישור לאימות.",
       evidence: ["requirement="+sourceRid],
       proposedAction: "review",
-      proposal: { type: "none" }
+      proposal: { type: "review", summary: "Refresh requirement-to-verification coverage." }
     });
     (DB.risks || []).forEach(function(risk){
       var riskMatch = _riskMentionsImpact(risk, linkSignals.components, [sourceRid], changedTerms);
       if(!riskMatch.matched) return;
-      addRec({
+      addReqRec("risk", {
         targetType: "risk",
         targetEntityType: "risk",
         targetId: risk.id || risk.desc || sourceRid,
-        impactType: "risk_inconsistency",
+        impactType: !risk.mitigation ? "mitigation_review" : "risk_inconsistency",
         severity: "high",
         confidence: 0.81,
         rationale: "נמצא סיכון המקושר לדרישה שהשתנתה ולכן נדרש review של הנחת הסיכון וההפחתה.",
         evidence: ["risk="+(risk.id||risk.desc||"-"), "requirement="+sourceRid],
         proposedAction: "review",
-        proposal: { type: "none" }
+        proposal: { type: "review", summary: "Review linked risk rationale and mitigation." }
       });
     });
     var interfaceLike = /(?:interface|ethernet|protocol|packet|message|link|icd|ממשק|פרוטוקול|הודעה|קישור)/i.test([before.desc, after.desc, before.domain, after.domain].join(" "));
     if(interfaceLike){
       (DB.archLinks || []).forEach(function(link){
         if(!_requirementMentions([link.sourceComponent, link.targetComponent, link.flowName, link.protocolOrMedium, link.payloadOrMessage], changedTerms)) return;
-        addRec({
+        addReqRec("architecture", {
           targetType: "architecture_link",
           targetEntityType: "architecture_link",
           targetId: link.id || link.flowName,
-          impactType: "interface_mismatch",
+          impactType: (changeContext.changedFields || []).indexOf("protocolOrMedium") >= 0 ? "protocol_review" : "flow_review",
           severity: "medium",
           confidence: 0.77,
           rationale: "הדרישה מתארת ממשק או קישור ולכן שינוי בה מחייב review של קישור הארכיטקטורה התואם.",
           evidence: ["requirement="+sourceRid, "link="+(link.flowName||link.id)],
           proposedAction: "review",
-          proposal: { type: "patch", after: _buildImpactStatusPatch(changeContext, "Interface requirement changed") }
+          proposal: { type: "review", summary: "Review impacted architecture flow and interface definition." }
         });
       });
       (DB.icd || []).forEach(function(icd){
         if(!_requirementMentions([icd.name, icd.a, icd.b, icd.type, icd.sourceComp, icd.targetComp], changedTerms)) return;
-        addRec({
+        addReqRec("icd", {
           targetType: "icd",
           targetEntityType: "icd",
           targetId: icd.id || icd.name,
-          impactType: "interface_mismatch",
+          impactType: reqSignals.interfaceLike && reqSignals.timingLike ? "protocol_review" : "icd_review",
           severity: "medium",
           confidence: 0.79,
           rationale: "הדרישה מתארת ממשק ולכן מומלץ לבדוק אם מסמך ה-ICD המקומי עדיין עקבי לאחר השינוי.",
           evidence: ["requirement="+sourceRid, "icd="+(icd.name||icd.id)],
           proposedAction: "review",
-          proposal: { type: "patch", after: _buildImpactStatusPatch(changeContext, "Interface requirement changed") }
+          proposal: { type: "review", summary: "Review impacted ICD endpoints, protocol, and interface notes." }
         });
       });
     }
+    (DB.arch || []).forEach(function(component){
+      if(!_requirementMentions([component.name, component.subsystem, component.desc, component.interfaces, component.connections, component.flowDesc], reqSignals.matchedTerms)) return;
+      addReqRec("architecture", {
+        targetType: "architecture_component",
+        targetEntityType: "architecture_component",
+        targetId: component.id || component.name,
+        impactType: reqSignals.allocationLike ? "allocation_mismatch" : "architecture_gap",
+        severity: "medium",
+        confidence: reqSignals.allocationLike ? 0.83 : 0.76,
+        rationale: "רכיב ארכיטקטורה מקומי מושפע מהדרישה ששונתה ולכן נדרש review של ההקצאה וההקשר.",
+        evidence: ["component="+(component.name||component.id), "requirement="+sourceRid],
+        proposedAction: "review",
+        proposal: { type: "review", summary: "Review architecture component allocation and affected assumptions." }
+      });
+    });
+    var relevantDomains = {
+      subsystem: _collectRequirementChildren(sourceRid).some(function(hit){ return hit.entityType === "subsystem_requirement"; }) || reqSignals.allocationLike,
+      software: _collectRequirementChildren(sourceRid).some(function(hit){ return hit.entityType === "sw_requirement"; }) || reqSignals.interfaceLike || reqSignals.timingLike || reqSignals.monitoringLike || reqSignals.safetyLike,
+      mechanical: _collectRequirementChildren(sourceRid).some(function(hit){ return hit.entityType === "me_requirement"; }) || reqSignals.mechanicalLike,
+      vv: true,
+      vcrm: true,
+      risk: (DB.risks || []).some(function(risk){ return _riskMentionsImpact(risk, linkSignals.components, [sourceRid], changedTerms).matched; }) || reqSignals.safetyLike || reqSignals.monitoringLike,
+      icd: reqSignals.interfaceLike,
+      architecture: reqSignals.interfaceLike || reqSignals.allocationLike || reqSignals.architectureLike
+    };
+    Object.keys(relevantDomains).forEach(function(domain){
+      if(!relevantDomains[domain] || reqDomainHits[domain]) return;
+      if(domain === "subsystem"){
+        addReqRec("subsystem", {
+          targetType: "subsystem_requirement",
+          targetEntityType: "subsystem_requirement",
+          targetId: resolveFallbackTarget("subsystem_requirement", null, sourceRid+"::subsystem-review"),
+          impactType: reqSignals.allocationLike ? "allocation_mismatch" : "derived_update",
+          severity: "medium",
+          confidence: 0.72,
+          rationale: "שינוי בדרישה מצדיק review של דרישות תת-המערכת הקשורות.",
+          evidence: ["requirement="+sourceRid, "domain=subsystem"],
+          proposedAction: "review"
+        });
+      } else if(domain === "software"){
+        addReqRec("software", {
+          targetType: "software_requirement",
+          targetEntityType: "sw_requirement",
+          targetId: resolveFallbackTarget("sw_requirement", null, sourceRid+"::software-review"),
+          impactType: reqSignals.timingLike ? "performance_review" : reqSignals.interfaceLike ? "interface_mismatch" : "derived_update",
+          severity: "medium",
+          confidence: 0.74,
+          rationale: "השינוי בדרישה עשוי לדרוש review של דרישות התוכנה הנגזרות.",
+          evidence: ["requirement="+sourceRid, "domain=software"],
+          proposedAction: "review"
+        });
+      } else if(domain === "mechanical"){
+        addReqRec("mechanical", {
+          targetType: "me_requirement",
+          targetEntityType: "me_requirement",
+          targetId: resolveFallbackTarget("me_requirement", null, sourceRid+"::mechanical-review"),
+          impactType: reqSignals.mechanicalLike ? "allocation_mismatch" : "derived_update",
+          severity: "medium",
+          confidence: 0.72,
+          rationale: "השינוי בדרישה עשוי להשפיע על דרישות מכאניות או הנחות פיזיות נגזרות.",
+          evidence: ["requirement="+sourceRid, "domain=mechanical"],
+          proposedAction: "review"
+        });
+      } else if(domain === "vv"){
+        addReqRec("vv", {
+          targetType: "vv",
+          targetEntityType: "vv",
+          targetId: resolveFallbackTarget("vv", null, sourceRid+"::vv-review"),
+          impactType: reqSignals.verificationLike ? "verification_review" : "verification_gap",
+          severity: "medium",
+          confidence: 0.75,
+          rationale: "נדרש review של כיסוי האימות לאחר שינוי בדרישה.",
+          evidence: ["requirement="+sourceRid, "domain=vv"],
+          proposedAction: "review"
+        });
+      } else if(domain === "vcrm"){
+        addReqRec("vcrm", {
+          targetType: _impactRequirementTargetType(changeContext.sourceType),
+          targetEntityType: changeContext.sourceType,
+          targetId: sourceRid,
+          impactType: "traceability_gap",
+          severity: "medium",
+          confidence: 0.76,
+          rationale: "נדרש review של עקיבות הדרישה מול כיסוי האימות המקומי.",
+          evidence: ["requirement="+sourceRid, "domain=vcrm"],
+          proposedAction: "review"
+        });
+      } else if(domain === "risk"){
+        addReqRec("risk", {
+          targetType: "risk",
+          targetEntityType: "risk",
+          targetId: resolveFallbackTarget("risk", null, sourceRid+"::risk-review"),
+          impactType: reqSignals.safetyLike ? "stale_risk_link" : "mitigation_review",
+          severity: "medium",
+          confidence: 0.71,
+          rationale: "השינוי בדרישה מצדיק review של הסיכונים וההפחתות הקשורים.",
+          evidence: ["requirement="+sourceRid, "domain=risk"],
+          proposedAction: "review"
+        });
+      } else if(domain === "icd"){
+        addReqRec("icd", {
+          targetType: "icd",
+          targetEntityType: "icd",
+          targetId: resolveFallbackTarget("icd", null, sourceRid+"::icd-review"),
+          impactType: reqSignals.timingLike ? "protocol_review" : "endpoint_review",
+          severity: "medium",
+          confidence: 0.73,
+          rationale: "הדרישה מרמזת על התנהגות ממשק ולכן נדרש review של ICD והקצוות הרלוונטיים.",
+          evidence: ["requirement="+sourceRid, "domain=icd"],
+          proposedAction: "review"
+        });
+      } else if(domain === "architecture"){
+        addReqRec("architecture", {
+          targetType: "architecture_component",
+          targetEntityType: "architecture_component",
+          targetId: resolveFallbackTarget("architecture_component", null, sourceRid+"::architecture-review"),
+          impactType: reqSignals.interfaceLike ? "flow_review" : reqSignals.allocationLike ? "allocation_mismatch" : "architecture_gap",
+          severity: "medium",
+          confidence: 0.74,
+          rationale: "השינוי בדרישה מצדיק review של הארכיטקטורה והזרימות המקומיות.",
+          evidence: ["requirement="+sourceRid, "domain=architecture"],
+          proposedAction: "review"
+        });
+      }
+    });
     addRec({
       targetType: "consistency",
       targetEntityType: "consistency",
@@ -6036,7 +6260,7 @@ function _detectChangeImpact(changeContext){
       rationale: "מומלץ להריץ consistency review מחדש לאחר שינוי בדרישה.",
       evidence: ["sourceType="+changeContext.sourceType],
       proposedAction: "review",
-      proposal: { type: "none" }
+      proposal: { type: "review", summary: "Run a fresh consistency review after requirement change." }
     });
   }
 
@@ -6440,11 +6664,20 @@ var _impactTypeLabelMap = {
   "derived_update":      "דרישה נגזרת לבדיקה",
   "verification_gap":    "צורך ברענון V&V",
   "verification_conflict":"אי-עקביות ב-V&V",
+  "verification_review": "סקירת V&V נדרשת",
   "traceability_gap":    "צורך בבדיקת VCRM",
   "trace_break":         "פער עקיבות לאחר שינוי",
   "missing_link":        "חסר קישור מעודכן",
   "interface_mismatch":  "ממשק דורש בדיקה",
   "risk_inconsistency":  "סיכון דורש בדיקה",
+  "mitigation_review":   "הפחתת סיכון לבדיקה",
+  "stale_risk_link":     "קישור סיכון מיושן",
+  "icd_review":          "ICD דורש בדיקה",
+  "endpoint_review":     "נקודות קצה דורשות בדיקה",
+  "protocol_review":     "פרוטוקול דורש בדיקה",
+  "flow_review":         "זרימת ממשק דורשת בדיקה",
+  "performance_review":  "ביצועים דורשים בדיקה",
+  "review_required":     "סקירה נדרשת",
   "allocation_mismatch": "אי-התאמת הקצאה",
   "architecture_gap":    "השפעה על ארכיטקטורה",
   "content_stale":       "תוכן עשוי להיות מיושן"
@@ -6453,11 +6686,20 @@ var _impactTypeColorMap = {
   "derived_update":      {bg:"#fee2e2",color:"#991b1b"},
   "verification_gap":    {bg:"#fef3c7",color:"#92400e"},
   "verification_conflict":{bg:"#fde68a",color:"#92400e"},
+  "verification_review": {bg:"#fef3c7",color:"#92400e"},
   "traceability_gap":    {bg:"#fef3c7",color:"#78350f"},
   "trace_break":         {bg:"#fee2e2",color:"#991b1b"},
   "missing_link":        {bg:"#fee2e2",color:"#991b1b"},
   "interface_mismatch":  {bg:"#fee2e2",color:"#991b1b"},
   "risk_inconsistency":  {bg:"#ede9fe",color:"#5b21b6"},
+  "mitigation_review":   {bg:"#ede9fe",color:"#5b21b6"},
+  "stale_risk_link":     {bg:"#ede9fe",color:"#6d28d9"},
+  "icd_review":          {bg:"#dbeafe",color:"#1d4ed8"},
+  "endpoint_review":     {bg:"#dbeafe",color:"#1d4ed8"},
+  "protocol_review":     {bg:"#dbeafe",color:"#1d4ed8"},
+  "flow_review":         {bg:"#dbeafe",color:"#1d4ed8"},
+  "performance_review":  {bg:"#dcfce7",color:"#166534"},
+  "review_required":     {bg:"#f1f5f9",color:"#475569"},
   "allocation_mismatch": {bg:"#fef3c7",color:"#92400e"},
   "architecture_gap":    {bg:"#ede9fe",color:"#4c1d95"},
   "content_stale":       {bg:"#f1f5f9",color:"#475569"},
