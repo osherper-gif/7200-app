@@ -5888,8 +5888,8 @@ function _requirementChangeSignals(changeContext, changedTerms){
     });
   }
   return {
-    interfaceLike: hasAny(["interface","protocol","message","packet","ethernet","can","mil-std-1553","bus","link","icd","ממשק","פרוטוקול","הודעה","חבילה","איתרנט","אתרנט","קישור"]),
-    timingLike: hasAny(["timing","latency","cycle","frequency","throughput","update rate","hz","performance","זמן","קצב","תדירות","latency","throughput"]),
+    interfaceLike: hasAny(["interface","protocol","message","packet","ethernet","can","mil-std-1553","bus","link","icd","endpoint","payload","serial","command","telemetry","network","console","recorder","synchronization","sync","ממשק","פרוטוקול","הודעה","חבילה","איתרנט","אתרנט","קישור","נקודת קצה","payload","רשת","קונסול","מקליט","סנכרון"]),
+    timingLike: hasAny(["timing","latency","cycle","frequency","throughput","update rate","hz","performance","rate","זמן","קצב","תדירות","latency","throughput","מחזור"]),
     safetyLike: hasAny(["safe","safety","fail-safe","degraded","inhibit","hazard","hazards","בטיחות","בטוח","כשל","מופחת","degraded mode"]),
     monitoringLike: hasAny(["bit","bite","health","monitoring","logging","watchdog","heartbeat","log","record","bit/bite","ניטור","לוג","רישום","בריאות"]),
     allocationLike: hasAny(["allocation","allocated","subsystem","component","architecture","allocated to","הקצאה","תת מערכת","תת-מערכת","רכיב","ארכיטקטורה"]),
@@ -6430,7 +6430,7 @@ function _detectChangeImpact(changeContext){
         rationale: "לדרישה המושפעת אין כרגע כיסוי V&V מקומי ולכן נדרש review של תכנון האימות.",
         evidence: ["requirement="+reqRid, "coverage=Missing"],
         proposedAction: "review",
-        proposal: { type: "none" }
+        proposal: { type: "review", summary: "Review missing V&V coverage for the impacted requirement." }
       });
     } else {
       var methods = _impactUniqueValues(vvEntries.map(function(entry){ return entry.row && entry.row.method; }));
@@ -6446,7 +6446,7 @@ function _detectChangeImpact(changeContext){
           rationale: "נמצאו פריטי V&V עם שיטות או ארטיפקטים לא עקביים עבור אותה דרישה מושפעת.",
           evidence: ["requirement="+reqRid, "methods="+methods.join("/"), "artifacts="+artifacts.join("/")],
           proposedAction: "review",
-          proposal: { type: "none" }
+          proposal: { type: "review", summary: "Review inconsistent V&V method/artifact alignment for the impacted requirement." }
         });
       }
     }
@@ -6463,7 +6463,7 @@ function _detectChangeImpact(changeContext){
           : "מטריצת העקיבות מצביעה על כיסוי חלקי עבור הדרישה המושפעת.",
         evidence: ["requirement="+reqRid, "coverage="+vcrmRow.coverageStatus, "linkedVV="+String(vcrmRow.linkedCount || 0)],
         proposedAction: "review",
-        proposal: { type: "none" }
+        proposal: { type: "review", summary: "Review RTM/VCRM coverage for the impacted requirement." }
       });
     }
     (DB.risks || []).forEach(function(risk){
@@ -6485,7 +6485,7 @@ function _detectChangeImpact(changeContext){
           rationale: "הסיכון המקומי עשוי שלא לשקף עוד את הארכיטקטורה או הדרישה לאחר השינוי.",
           evidence: ["risk="+(risk.id||risk.desc||"-"), "requirement="+reqRid, "componentMatch="+String(riskMatch.matchedComponent)],
           proposedAction: "review",
-          proposal: { type: "none" }
+          proposal: { type: "review", summary: "Review linked risk rationale and mitigation after the requirement change." }
         });
       }
     });
