@@ -4062,6 +4062,44 @@ function _validateTrackedEngineeringSnapshot(snapshot){
   return requiredArrays.every(function(key){ return Array.isArray(snapshot[key]); });
 }
 
+function _executionCollectionCounts(source){
+  source = source || {};
+  return {
+    sysReqs: Array.isArray(source.sysReqs) ? source.sysReqs.length : 0,
+    subsysReqs: Array.isArray(source.subsysReqs) ? source.subsysReqs.length : 0,
+    swReqs: Array.isArray(source.swReqs) ? source.swReqs.length : 0,
+    meReqs: Array.isArray(source.meReqs) ? source.meReqs.length : 0,
+    vv: Array.isArray(source.vv) ? source.vv.length : 0,
+    risks: Array.isArray(source.risks) ? source.risks.length : 0,
+    arch: Array.isArray(source.arch) ? source.arch.length : 0,
+    archLinks: Array.isArray(source.archLinks) ? source.archLinks.length : 0,
+    icd: Array.isArray(source.icd) ? source.icd.length : 0
+  };
+}
+
+function _executionSnapshotSummary(source){
+  source = source || {};
+  return {
+    projectName: String(((source.project || {}).name) || source.projectName || "").trim(),
+    counts: _executionCollectionCounts(source),
+    auditEntries: Array.isArray(source.auditLog) ? source.auditLog.length : 0
+  };
+}
+
+function _mergeExecutionAuditLog(currentAudit, restoredAudit){
+  var seen = {};
+  return []
+    .concat(Array.isArray(currentAudit) ? currentAudit : [])
+    .concat(Array.isArray(restoredAudit) ? restoredAudit : [])
+    .filter(function(entry){
+      if(!entry || typeof entry !== "object") return false;
+      var key = String(entry.id || [entry.action, entry.entityType, entry.entityId, entry.timestamp].join("|"));
+      if(seen[key]) return false;
+      seen[key] = true;
+      return true;
+    });
+}
+
 function _cloneSeedItems(items){
   return JSON.parse(JSON.stringify(items||[]));
 }
@@ -5841,20 +5879,21 @@ function createProjectBackup(name, options){
 
 function restoreProjectBackup(payload){
   ensureImpactEngineStructures();
-  if(!_requireRole("approver")) return _roleNotAuthorized("approver");
   if(!payload || payload.backupType !== "7200_backup" || payload.version !== 1 || !payload.dbSnapshot || typeof payload.dbSnapshot !== "object"){
     return { ok:false, reason:"INVALID_BACKUP_PAYLOAD" };
   }
-  var snapshot = _cloneExecutionData(payload.dbSnapshot);
-  if(!Array.isArray(snapshot.sysReqs) || !Array.isArray(snapshot.vv) || !Array.isArray(snapshot.arch) || !Array.isArray(snapshot.archLinks)){
+  var nextDb = _cloneExecutionData(payload.dbSnapshot);
+  if(!_validateTrackedEngineeringSnapshot(nextDb)){
     return { ok:false, reason:"INVALID_BACKUP_PAYLOAD" };
   }
-  var before = _cloneExecutionData(DB);
+  if(!_requireRole("approver")) return _roleNotAuthorized("approver");
+  var beforeSummary = _executionSnapshotSummary(DB);
+  var preservedAuditLog = _cloneExecutionData(DB.auditLog || []);
   var actorUser = getCurrentUserName();
   var actorRole = getCurrentUserRole();
-  Object.keys(DB).forEach(function(key){
-    if(Object.prototype.hasOwnProperty.call(snapshot, key)) DB[key] = snapshot[key];
-  });
+  nextDb.auditLog = _mergeExecutionAuditLog(preservedAuditLog, nextDb.auditLog || []);
+  DB = nextDb;
+  if(typeof window !== "undefined") window.DB = DB;
   ensureImpactEngineStructures();
   DB.userRoles.currentUser = actorUser;
   DB.userRoles.currentRole = actorRole;
@@ -5864,8 +5903,8 @@ function restoreProjectBackup(payload){
     action: "restore_backup",
     entityType: "backup",
     entityId: payload.name || payload.createdAt || "backup",
-    before: before,
-    after: _cloneExecutionData(DB)
+    before: beforeSummary,
+    after: _executionSnapshotSummary(DB)
   });
   return { ok:true };
 }
@@ -5888,6 +5927,8 @@ function rollbackToBaseline(baselineId){
     action: "rollback_baseline",
     entityType: "baseline",
     entityId: baseline.id,
+    baselineId: baseline.id,
+    affectedCollections: ["sysReqs","subsysReqs","swReqs","meReqs","vv","risks","arch","archLinks","icd"],
     before: before,
     after: _cloneExecutionData({
       sysReqs: DB.sysReqs, subsysReqs: DB.subsysReqs, swReqs: DB.swReqs, meReqs: DB.meReqs,
