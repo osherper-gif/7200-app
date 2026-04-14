@@ -1067,6 +1067,16 @@ var IMPACT_PROPAGATION_TCS = [
   {id:"TC-377",title:"Impact proposals require approval",cat:"Change Impact",type:"Regression",pri:"Critical",reqs:"REQ-130",steps:"Generate impact proposals and verify they stay pending until explicit approval/apply",expected:"Proposals are mapped per recommendation and remain approval-gated",auto:"yes",fn:"checkImpactProposalsRequireApprovalRuntime"}
 ];
 
+var CHANGE_CONTROL_TCS = [
+  {id:"TC-378",title:"Requirement change propagates across engineering domains",cat:"Change Control",type:"Regression",pri:"Critical",reqs:"REQ-132",steps:"Analyze a requirement change and verify propagation to subsystem, software, VV, VCRM, risk, and interface artifacts",expected:"Requirement change creates multi-domain local review recommendations",auto:"yes",fn:"checkRequirementChangeFullPropagationRuntime"},
+  {id:"TC-379",title:"Baseline snapshot created",cat:"Change Control",type:"Regression",pri:"High",reqs:"REQ-132",steps:"Create a baseline from current local engineering data",expected:"Baseline stores a deep snapshot of the tracked engineering collections",auto:"yes",fn:"checkBaselineCreationRuntime"},
+  {id:"TC-380",title:"Baseline comparison detects changes",cat:"Change Control",type:"Regression",pri:"High",reqs:"REQ-132",steps:"Create baseline, modify local data, then compare",expected:"Baseline comparison returns added, removed, and changed deltas",auto:"yes",fn:"checkBaselineComparisonRuntime"},
+  {id:"TC-381",title:"Audit log written on apply",cat:"Change Control",type:"Regression",pri:"Critical",reqs:"REQ-132",steps:"Apply an approved proposal and inspect auditLog",expected:"apply_change is written to auditLog only on real apply",auto:"yes",fn:"checkAuditLogOnApplyRuntime"},
+  {id:"TC-382",title:"Audit not written on preview",cat:"Change Control",type:"Regression",pri:"Critical",reqs:"REQ-132",steps:"Generate recommendations and approve/reject without applying",expected:"Preview and approval-state changes do not write auditLog",auto:"yes",fn:"checkAuditLogNotWrittenOnPreviewRuntime"},
+  {id:"TC-383",title:"Change request created from impact",cat:"Change Control",type:"Regression",pri:"High",reqs:"REQ-132",steps:"Generate impact bundle and create a local change request from it",expected:"A change request is created with related IDs, impact IDs, and proposal IDs",auto:"yes",fn:"checkCreateChangeRequestFromImpactRuntime"},
+  {id:"TC-384",title:"Apply triggers new impact analysis",cat:"Change Control",type:"Regression",pri:"High",reqs:"REQ-132",steps:"Apply an approved proposal and verify follow-up impact analysis runs",expected:"Applying a proposal creates a new local follow-up impact analysis pass",auto:"yes",fn:"checkApplyTriggersReanalysisRuntime"}
+];
+
 var AI_REQUIREMENT_APPLY_TCS = [
   {id:"TC-241",title:"Requirement Assist apply action exists",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-123",steps:"בדוק שכפתור Apply Suggestion קיים ב-Requirement Assist",expected:"קיים apply control בטוח בתוך modal ההצעה",auto:"yes",fn:"checkRequirementAssistApplyActionExistsRuntime"},
   {id:"TC-242",title:"Suggestion generation does not auto-apply",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-123",steps:"בדוק שפתיחת Requirement Assist לא משנה את הדרישה אוטומטית",expected:"אין auto-apply ואין audit על פתיחת suggestion בלבד",auto:"yes",fn:"checkRequirementAssistNoAutoApplyRuntime"},
@@ -1106,6 +1116,7 @@ ensureTestCasesPresent(AI_DOCUMENT_REVIEW_TCS);
 ensureTestCasesPresent(AI_ARCHITECTURE_ASSIST_TCS);
 ensureTestCasesPresent(AI_CONSISTENCY_REVIEW_TCS);
 ensureTestCasesPresent(IMPACT_PROPAGATION_TCS);
+ensureTestCasesPresent(CHANGE_CONTROL_TCS);
 ensureTestCasesPresent(SOFTWARE_REQUIREMENTS_EXPANSION_TCS);
 ensureTestCasesPresent(AI_REQUIREMENT_APPLY_TCS);
 saveTMS();
@@ -4039,15 +4050,28 @@ var AUTOMATION = {
     return withAppWindow(function(w){
       if(typeof w.analyzeProjectImpact !== 'function') return _runtimeFail('analyzeProjectImpact missing');
       var setup = _buildImpactRuntimeChange('requirement');
-      var snapshot = JSON.stringify({ sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], vv:w.DB.vv||[], impactRecommendations:w.DB.impactRecommendations||[], updateProposals:w.DB.updateProposals||[] });
+      var snapshot = JSON.stringify({ sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], vv:w.DB.vv||[], risks:w.DB.risks||[], icd:w.DB.icd||[], archLinks:w.DB.archLinks||[], impactRecommendations:w.DB.impactRecommendations||[], updateProposals:w.DB.updateProposals||[] });
       try{
-        ['sysReqs','subsysReqs','swReqs','meReqs','vv'].forEach(function(key){ w.DB[key] = JSON.parse(JSON.stringify(setup.db[key] || [])); });
+        ['sysReqs','subsysReqs','swReqs','meReqs','vv','icd','archLinks'].forEach(function(key){ w.DB[key] = JSON.parse(JSON.stringify(setup.db[key] || [])); });
+        w.DB.risks = [
+          {id:'RISK-REQ-1',desc:'Mission Computer to Recorder synchronization risk',component:'Mission Computer',req:'SYS-410',mitigation:'Legacy recorder review',detection:'Interface test',status:'open'}
+        ];
         w.DB.impactRecommendations = [];
         w.DB.updateProposals = [];
         var bundle = w.analyzeProjectImpact(setup.ctx);
         var types = (bundle.recommendations || []).map(function(rec){ return rec.targetType; });
+        var impactTypes = (bundle.recommendations || []).map(function(rec){ return rec.impactType; });
         var structured = bundle.recommendations.every(function(rec){ return rec.id && rec.rationale && Array.isArray(rec.evidence) && rec.requiresApproval === true; });
-        var ok = structured && types.indexOf('requirement') >= 0 && types.indexOf('vv') >= 0 && types.indexOf('vcrm') >= 0 && types.indexOf('consistency') >= 0 && (bundle.proposals || []).length >= bundle.recommendations.length;
+        var ok = structured &&
+          types.indexOf('subsystem_requirement') >= 0 &&
+          types.indexOf('software_requirement') >= 0 &&
+          types.indexOf('me_requirement') >= 0 &&
+          types.indexOf('vv') >= 0 &&
+          types.indexOf('risk') >= 0 &&
+          types.indexOf('icd') >= 0 &&
+          types.indexOf('consistency') >= 0 &&
+          impactTypes.indexOf('traceability_gap') >= 0 &&
+          (bundle.proposals || []).length >= bundle.recommendations.length;
         return ok ? _runtimePass('Requirement change creates structured downstream impact recommendations and proposals') : _runtimeFail('Requirement impact recommendations are incomplete');
       } finally {
         var restored = JSON.parse(snapshot);
@@ -4189,12 +4213,13 @@ var AUTOMATION = {
     return withAppWindow(function(w){
       if(typeof w.analyzeProjectImpact !== 'function' || typeof w.approveUpdateProposals !== 'function' || typeof w.applyApprovedProposals !== 'function') return _runtimeFail('Impact engine apply functions missing');
       var setup = _buildImpactRuntimeChange('requirement');
-      var snapshot = JSON.stringify({ sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], vv:w.DB.vv||[], impactRecommendations:w.DB.impactRecommendations||[], updateProposals:w.DB.updateProposals||[], impactAudit:w.DB.impactAudit||[] });
+      var snapshot = JSON.stringify({ sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], vv:w.DB.vv||[], impactRecommendations:w.DB.impactRecommendations||[], updateProposals:w.DB.updateProposals||[], impactAudit:w.DB.impactAudit||[], auditLog:w.DB.auditLog||[] });
       try{
         ['sysReqs','subsysReqs','swReqs','meReqs','vv'].forEach(function(key){ w.DB[key] = JSON.parse(JSON.stringify(setup.db[key] || [])); });
         w.DB.impactRecommendations = [];
         w.DB.updateProposals = [];
         w.DB.impactAudit = [];
+        w.DB.auditLog = [];
         var bundle = w.analyzeProjectImpact(setup.ctx);
         var proposal = (bundle.proposals || []).find(function(p){ return p.entityType === 'subsystem_requirement' && p.changedFields && p.changedFields.indexOf('impactStatus') >= 0; });
         if(!proposal) return _runtimeFail('No concrete subsystem requirement proposal found for apply test');
@@ -4203,7 +4228,7 @@ var AUTOMATION = {
         var result = w.applyApprovedProposals([proposal.proposalId]);
         var target = (w.DB.subsysReqs || []).find(function(item){ return (item.id || item.rid) === proposal.entityId; }) || {};
         var untouchedAfter = JSON.stringify((w.DB.swReqs || [])[0] || {});
-        var auditOk = Array.isArray(w.DB.impactAudit) && w.DB.impactAudit.length === 1;
+        var auditOk = Array.isArray(w.DB.impactAudit) && w.DB.impactAudit.length === 1 && Array.isArray(w.DB.auditLog) && w.DB.auditLog.length === 1;
         var ok = result && result.applied.indexOf(proposal.proposalId) >= 0 && target.impactStatus === 'review_pending' && untouchedBefore === untouchedAfter && auditOk;
         return ok ? _runtimePass('applyApprovedProposals updates only approved targets and writes audit on real apply') : _runtimeFail('Approved proposal apply did not behave safely');
       } finally {
@@ -4375,6 +4400,181 @@ var AUTOMATION = {
         return allPending && mapped && before === after
           ? _runtimePass('Impact proposals remain approval-gated and mapped to recommendations')
           : _runtimeFail('Impact proposals are not safely approval-gated');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        Object.keys(restored).forEach(function(key){ w.DB[key] = restored[key]; });
+      }
+    });
+  },
+  checkRequirementChangeFullPropagationRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.analyzeProjectImpact !== 'function') return _runtimeFail('analyzeProjectImpact missing');
+      var setup = _buildImpactRuntimeChange('requirement');
+      var snapshot = JSON.stringify({ sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], vv:w.DB.vv||[], risks:w.DB.risks||[], icd:w.DB.icd||[], archLinks:w.DB.archLinks||[], impactRecommendations:w.DB.impactRecommendations||[], updateProposals:w.DB.updateProposals||[] });
+      try{
+        ['sysReqs','subsysReqs','swReqs','meReqs','vv','icd','archLinks'].forEach(function(key){ w.DB[key] = JSON.parse(JSON.stringify(setup.db[key] || [])); });
+        w.DB.risks = [
+          {id:'RISK-REQ-2',desc:'Mission Computer to Recorder synchronization risk',component:'Mission Computer',req:'SYS-410',mitigation:'Review recorder alignment',detection:'Integration test',status:'open'}
+        ];
+        w.DB.impactRecommendations = [];
+        w.DB.updateProposals = [];
+        var bundle = w.analyzeProjectImpact(setup.ctx);
+        var types = (bundle.recommendations || []).map(function(rec){ return rec.targetType; });
+        var impactTypes = (bundle.recommendations || []).map(function(rec){ return rec.impactType; });
+        var ok = types.indexOf('subsystem_requirement') >= 0 &&
+          types.indexOf('software_requirement') >= 0 &&
+          types.indexOf('me_requirement') >= 0 &&
+          types.indexOf('vv') >= 0 &&
+          types.indexOf('risk') >= 0 &&
+          types.indexOf('icd') >= 0 &&
+          impactTypes.indexOf('traceability_gap') >= 0;
+        return ok ? _runtimePass('Requirement change propagates across subsystem, software, VV, risk, ICD, and traceability domains') : _runtimeFail('Requirement propagation did not cover all expected domains');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        Object.keys(restored).forEach(function(key){ w.DB[key] = restored[key]; });
+      }
+    });
+  },
+  checkBaselineCreationRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.createBaseline !== 'function') return _runtimeFail('createBaseline missing');
+      var snapshot = JSON.stringify({ baselines:w.DB.baselines||[], sysReqs:w.DB.sysReqs||[], swReqs:w.DB.swReqs||[], subsysReqs:w.DB.subsysReqs||[], vv:w.DB.vv||[], risks:w.DB.risks||[], arch:w.DB.arch||[], archLinks:w.DB.archLinks||[] });
+      try{
+        var payload = _buildEngineeringDecompositionRuntimePayload();
+        ['sysReqs','swReqs','subsysReqs','vv','arch','archLinks'].forEach(function(key){ w.DB[key] = JSON.parse(JSON.stringify(payload[key] || [])); });
+        w.DB.risks = [{id:'RISK-B1',desc:'Recorder path risk',component:'Recorder',req:'SYS-410',status:'open'}];
+        w.DB.baselines = [];
+        var baseline = w.createBaseline('TC-379 baseline');
+        var ok = !!baseline &&
+          baseline.name === 'TC-379 baseline' &&
+          baseline.snapshot &&
+          Array.isArray(baseline.snapshot.sysReqs) &&
+          Array.isArray(baseline.snapshot.swReqs) &&
+          Array.isArray(baseline.snapshot.subsysReqs) &&
+          Array.isArray(baseline.snapshot.vv) &&
+          Array.isArray(baseline.snapshot.risks) &&
+          Array.isArray(baseline.snapshot.arch) &&
+          Array.isArray(baseline.snapshot.archLinks);
+        return ok ? _runtimePass('Baseline snapshot is created with the required local engineering collections') : _runtimeFail('Baseline snapshot is incomplete');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        Object.keys(restored).forEach(function(key){ w.DB[key] = restored[key]; });
+      }
+    });
+  },
+  checkBaselineComparisonRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.createBaseline !== 'function' || typeof w.compareToBaseline !== 'function') return _runtimeFail('Baseline compare functions missing');
+      var snapshot = JSON.stringify({ baselines:w.DB.baselines||[], sysReqs:w.DB.sysReqs||[], swReqs:w.DB.swReqs||[], subsysReqs:w.DB.subsysReqs||[], vv:w.DB.vv||[], risks:w.DB.risks||[], arch:w.DB.arch||[], archLinks:w.DB.archLinks||[] });
+      try{
+        var payload = _buildEngineeringDecompositionRuntimePayload();
+        ['sysReqs','swReqs','subsysReqs','vv','arch','archLinks'].forEach(function(key){ w.DB[key] = JSON.parse(JSON.stringify(payload[key] || [])); });
+        w.DB.risks = [{id:'RISK-B2',desc:'Recorder path risk',component:'Recorder',req:'SYS-410',status:'open'}];
+        w.DB.baselines = [];
+        var baseline = w.createBaseline('TC-380 baseline');
+        w.DB.sysReqs[0].desc = 'The system shall distribute synchronized mission data to the recorder.';
+        w.DB.sysReqs.push({id:'REQ-E4',rid:'SYS-440',level:'L2',domain:'ממשק',desc:'The system shall acknowledge recorder link loss.',allocation:'Mission Computer',source:'Derived',vv:'Test',status:'Draft'});
+        w.DB.swReqs = [];
+        var diff = w.compareToBaseline(baseline.id);
+        var ok = diff && Array.isArray(diff.added) && Array.isArray(diff.removed) && Array.isArray(diff.changed) &&
+          diff.added.length >= 1 && diff.removed.length >= 1 && diff.changed.length >= 1;
+        return ok ? _runtimePass('Baseline comparison detects added, removed, and changed engineering items') : _runtimeFail('Baseline comparison did not detect expected deltas');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        Object.keys(restored).forEach(function(key){ w.DB[key] = restored[key]; });
+      }
+    });
+  },
+  checkAuditLogOnApplyRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.analyzeProjectImpact !== 'function' || typeof w.approveUpdateProposals !== 'function' || typeof w.applyApprovedProposals !== 'function') return _runtimeFail('Impact apply functions missing');
+      var setup = _buildImpactRuntimeChange('requirement');
+      var snapshot = JSON.stringify({ sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], vv:w.DB.vv||[], impactRecommendations:w.DB.impactRecommendations||[], updateProposals:w.DB.updateProposals||[], impactAudit:w.DB.impactAudit||[], auditLog:w.DB.auditLog||[] });
+      try{
+        ['sysReqs','subsysReqs','swReqs','meReqs','vv'].forEach(function(key){ w.DB[key] = JSON.parse(JSON.stringify(setup.db[key] || [])); });
+        w.DB.impactRecommendations = [];
+        w.DB.updateProposals = [];
+        w.DB.impactAudit = [];
+        w.DB.auditLog = [];
+        var bundle = w.analyzeProjectImpact(setup.ctx);
+        var proposal = (bundle.proposals || []).find(function(p){ return p.entityType === 'subsystem_requirement' && p.changedFields && p.changedFields.indexOf('impactStatus') >= 0; });
+        if(!proposal) return _runtimeFail('No proposal found for audit apply test');
+        w.approveUpdateProposals([proposal.proposalId]);
+        w.applyApprovedProposals([proposal.proposalId]);
+        var ok = (w.DB.auditLog || []).some(function(entry){ return entry.action === 'apply_change' && entry.entityType === 'subsystem_requirement' && entry.entityId === proposal.entityId; });
+        return ok ? _runtimePass('Audit log is written only on real approved apply') : _runtimeFail('Expected apply audit entry was not written');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        Object.keys(restored).forEach(function(key){ w.DB[key] = restored[key]; });
+      }
+    });
+  },
+  checkAuditLogNotWrittenOnPreviewRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.analyzeProjectImpact !== 'function' || typeof w.rejectUpdateProposals !== 'function') return _runtimeFail('Impact preview functions missing');
+      var setup = _buildImpactRuntimeChange('requirement');
+      var snapshot = JSON.stringify({ sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], vv:w.DB.vv||[], impactRecommendations:w.DB.impactRecommendations||[], updateProposals:w.DB.updateProposals||[], auditLog:w.DB.auditLog||[] });
+      try{
+        ['sysReqs','subsysReqs','swReqs','meReqs','vv'].forEach(function(key){ w.DB[key] = JSON.parse(JSON.stringify(setup.db[key] || [])); });
+        w.DB.impactRecommendations = [];
+        w.DB.updateProposals = [];
+        w.DB.auditLog = [];
+        var bundle = w.analyzeProjectImpact(setup.ctx);
+        var proposalIds = (bundle.proposals || []).slice(0,2).map(function(p){ return p.proposalId; });
+        w.rejectUpdateProposals(proposalIds);
+        var ok = Array.isArray(w.DB.auditLog) && w.DB.auditLog.length === 0;
+        return ok ? _runtimePass('Preview, approval, and reject paths do not write audit entries') : _runtimeFail('Audit log was written before a real apply');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        Object.keys(restored).forEach(function(key){ w.DB[key] = restored[key]; });
+      }
+    });
+  },
+  checkCreateChangeRequestFromImpactRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.analyzeProjectImpact !== 'function' || typeof w.createChangeRequestFromImpact !== 'function') return _runtimeFail('Change request functions missing');
+      var setup = _buildImpactRuntimeChange('requirement');
+      var snapshot = JSON.stringify({ sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], vv:w.DB.vv||[], impactRecommendations:w.DB.impactRecommendations||[], updateProposals:w.DB.updateProposals||[], changeRequests:w.DB.changeRequests||[] });
+      try{
+        ['sysReqs','subsysReqs','swReqs','meReqs','vv'].forEach(function(key){ w.DB[key] = JSON.parse(JSON.stringify(setup.db[key] || [])); });
+        w.DB.impactRecommendations = [];
+        w.DB.updateProposals = [];
+        w.DB.changeRequests = [];
+        var bundle = w.analyzeProjectImpact(setup.ctx);
+        var cr = w.createChangeRequestFromImpact(bundle, 'TC-383 CR');
+        var ok = !!cr &&
+          cr.title === 'TC-383 CR' &&
+          cr.status === 'open' &&
+          Array.isArray(cr.impacts) && cr.impacts.length > 0 &&
+          Array.isArray(cr.proposals) && cr.proposals.length > 0 &&
+          Array.isArray(cr.relatedIds) && cr.relatedIds.length > 0;
+        return ok ? _runtimePass('A local change request can be created from detected impacts and proposals') : _runtimeFail('Change request creation from impact bundle failed');
+      } finally {
+        var restored = JSON.parse(snapshot);
+        Object.keys(restored).forEach(function(key){ w.DB[key] = restored[key]; });
+      }
+    });
+  },
+  checkApplyTriggersReanalysisRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.analyzeProjectImpact !== 'function' || typeof w.approveUpdateProposals !== 'function' || typeof w.applyApprovedProposals !== 'function') return _runtimeFail('Impact reanalysis functions missing');
+      var setup = _buildImpactRuntimeChange('requirement');
+      var snapshot = JSON.stringify({ sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], vv:w.DB.vv||[], impactRecommendations:w.DB.impactRecommendations||[], updateProposals:w.DB.updateProposals||[], impactAudit:w.DB.impactAudit||[], auditLog:w.DB.auditLog||[] });
+      try{
+        ['sysReqs','subsysReqs','swReqs','meReqs','vv'].forEach(function(key){ w.DB[key] = JSON.parse(JSON.stringify(setup.db[key] || [])); });
+        w.DB.impactRecommendations = [];
+        w.DB.updateProposals = [];
+        w.DB.impactAudit = [];
+        w.DB.auditLog = [];
+        var bundle = w.analyzeProjectImpact(setup.ctx);
+        var beforeCount = (w.DB.impactRecommendations || []).length;
+        var proposal = (bundle.proposals || []).find(function(p){ return p.entityType === 'subsystem_requirement' && p.changedFields && p.changedFields.indexOf('impactStatus') >= 0; });
+        if(!proposal) return _runtimeFail('No concrete proposal found for reanalysis test');
+        w.approveUpdateProposals([proposal.proposalId]);
+        var result = w.applyApprovedProposals([proposal.proposalId]);
+        var afterCount = (w.DB.impactRecommendations || []).length;
+        var ok = !!result && result.followUps >= 1 && afterCount >= beforeCount;
+        return ok ? _runtimePass('Applying an approved proposal triggers fresh local impact analysis') : _runtimeFail('Approved apply did not trigger reanalysis');
       } finally {
         var restored = JSON.parse(snapshot);
         Object.keys(restored).forEach(function(key){ w.DB[key] = restored[key]; });

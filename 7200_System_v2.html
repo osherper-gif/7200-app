@@ -3979,6 +3979,8 @@ var DB = {
   impactAudit: [],
   impactRecommendations: [],
   updateProposals: [],
+  changeRequests: [],
+  auditLog: [],
   ai: {provider:"local",apiKey:""},
   docRegistry: {}
 };
@@ -3996,6 +3998,9 @@ function ensureImpactEngineStructures(){
   if(!Array.isArray(DB.impactRecommendations)) DB.impactRecommendations = [];
   if(!Array.isArray(DB.updateProposals)) DB.updateProposals = [];
   if(!Array.isArray(DB.impactAudit)) DB.impactAudit = [];
+  if(!Array.isArray(DB.baselines)) DB.baselines = [];
+  if(!Array.isArray(DB.changeRequests)) DB.changeRequests = [];
+  if(!Array.isArray(DB.auditLog)) DB.auditLog = [];
 }
 
 function _cloneSeedItems(items){
@@ -5540,6 +5545,124 @@ function appendImpactAuditEntry(entry){
   markDirty();
 }
 
+function appendAuditLogEntry(entry){
+  ensureImpactEngineStructures();
+  DB.auditLog.push(Object.assign({
+    id: uid(),
+    timestamp: new Date().toISOString()
+  }, entry || {}));
+  markDirty();
+}
+
+function _baselineSnapshot(){
+  ensureImpactEngineStructures();
+  return {
+    sysReqs: JSON.parse(JSON.stringify(DB.sysReqs || [])),
+    swReqs: JSON.parse(JSON.stringify(DB.swReqs || [])),
+    subsysReqs: JSON.parse(JSON.stringify(DB.subsysReqs || [])),
+    vv: JSON.parse(JSON.stringify(DB.vv || [])),
+    risks: JSON.parse(JSON.stringify(DB.risks || [])),
+    arch: JSON.parse(JSON.stringify(DB.arch || [])),
+    archLinks: JSON.parse(JSON.stringify(DB.archLinks || []))
+  };
+}
+
+function createBaseline(name){
+  ensureImpactEngineStructures();
+  var baseline = {
+    id: uid(),
+    name: String(name || "Baseline").trim() || "Baseline",
+    timestamp: new Date().toISOString(),
+    snapshot: _baselineSnapshot()
+  };
+  DB.baselines.push(baseline);
+  markDirty();
+  return baseline;
+}
+
+function _compareBaselineCollection(current, baseline, entityType){
+  var currentMap = {};
+  var baselineMap = {};
+  (current || []).forEach(function(item){
+    var key = String((item && (item.id || item.rid || item.name)) || "");
+    if(key) currentMap[key] = item;
+  });
+  (baseline || []).forEach(function(item){
+    var key = String((item && (item.id || item.rid || item.name)) || "");
+    if(key) baselineMap[key] = item;
+  });
+  var added = [];
+  var removed = [];
+  var changed = [];
+  Object.keys(currentMap).forEach(function(key){
+    if(!baselineMap[key]){
+      added.push({ entityType: entityType, entityId: key, after: JSON.parse(JSON.stringify(currentMap[key])) });
+    } else if(JSON.stringify(currentMap[key]) !== JSON.stringify(baselineMap[key])){
+      changed.push({
+        entityType: entityType,
+        entityId: key,
+        before: JSON.parse(JSON.stringify(baselineMap[key])),
+        after: JSON.parse(JSON.stringify(currentMap[key]))
+      });
+    }
+  });
+  Object.keys(baselineMap).forEach(function(key){
+    if(!currentMap[key]){
+      removed.push({ entityType: entityType, entityId: key, before: JSON.parse(JSON.stringify(baselineMap[key])) });
+    }
+  });
+  return { added: added, removed: removed, changed: changed };
+}
+
+function compareToBaseline(baselineId){
+  ensureImpactEngineStructures();
+  var baseline = (DB.baselines || []).find(function(item){ return item.id === baselineId; });
+  if(!baseline || !baseline.snapshot){
+    return { added: [], removed: [], changed: [] };
+  }
+  var result = { added: [], removed: [], changed: [] };
+  [
+    ["sysReqs","requirement"],
+    ["swReqs","sw_requirement"],
+    ["subsysReqs","subsystem_requirement"],
+    ["vv","vv"],
+    ["risks","risk"],
+    ["arch","architecture_component"],
+    ["archLinks","architecture_link"]
+  ].forEach(function(pair){
+    var delta = _compareBaselineCollection(DB[pair[0]] || [], baseline.snapshot[pair[0]] || [], pair[1]);
+    result.added = result.added.concat(delta.added);
+    result.removed = result.removed.concat(delta.removed);
+    result.changed = result.changed.concat(delta.changed);
+  });
+  return result;
+}
+
+function createChangeRequest(title, source, relatedIds, impacts, proposals){
+  ensureImpactEngineStructures();
+  var item = {
+    id: uid(),
+    title: String(title || "Change Request").trim() || "Change Request",
+    source: source || "requirement",
+    relatedIds: Array.isArray(relatedIds) ? relatedIds.slice() : [],
+    impacts: Array.isArray(impacts) ? impacts.map(function(rec){ return rec.id || rec; }) : [],
+    proposals: Array.isArray(proposals) ? proposals.map(function(proposal){ return proposal.proposalId || proposal; }) : [],
+    status: "open",
+    createdAt: new Date().toISOString()
+  };
+  DB.changeRequests.push(item);
+  markDirty();
+  return item;
+}
+
+function createChangeRequestFromImpact(bundle, title){
+  bundle = bundle || {};
+  var ctx = bundle.changeContext || {};
+  var relatedIds = _impactUniqueValues([ctx.sourceId].concat((bundle.recommendations || []).map(function(rec){ return rec.targetId; })));
+  var source = ctx.sourceType === "architecture_component" || ctx.sourceType === "architecture_link" ? "architecture" : ctx.sourceType === "document" ? "document" : "requirement";
+  return createChangeRequest(title || ("CR for " + (ctx.sourceId || source)), source, relatedIds, bundle.recommendations || [], bundle.proposals || []);
+}
+
 function buildChangeContext(partial){
   partial = partial || {};
   return {
@@ -5764,7 +5887,13 @@ function _detectChangeImpact(changeContext){
   var sourceRid = after.rid || before.rid || changeContext.sourceId;
   var sourceName = after.name || before.name || sourceRid;
   var linkSignals = _impactLinkSignals(changeContext);
-  var changedTerms = _impactUniqueValues(linkSignals.terms.concat([sourceRid, sourceName]));
+  var changedTerms = _impactUniqueValues(linkSignals.terms.concat([
+    sourceRid, sourceName,
+    before.desc, after.desc,
+    before.domain, after.domain,
+    before.allocation, after.allocation,
+    before.subsystem, after.subsystem
+  ]));
   var impactedReqs = {};
   var vcrmMap = _impactVcrmMap();
   var seen = {};
@@ -5799,6 +5928,27 @@ function _detectChangeImpact(changeContext){
         proposal: { type: "patch", after: _buildImpactStatusPatch(changeContext, "Parent requirement changed") }
       });
     });
+    _impactRequirementSets().forEach(function(pair){
+      (DB[pair[0]] || []).forEach(function(req){
+        if(pair[1] === changeContext.sourceType && (req.rid === sourceRid || req.id === sourceRid || req.id === changeContext.sourceId)) return;
+        if(!_requirementMentions([req.parentRid, req.allocation, req.subsystem, req.desc, req.source, req.origin], changedTerms)) return;
+        trackReq(req, pair[1]);
+        addRec({
+          targetType: _impactRequirementTargetType(pair[1]),
+          targetEntityType: pair[1],
+          targetId: req.id || req.rid,
+          impactType: pair[1] === "sw_requirement" ? "interface_mismatch" : "trace_break",
+          severity: pair[1] === "sw_requirement" ? "high" : "medium",
+          confidence: pair[1] === "sw_requirement" ? 0.84 : 0.78,
+          rationale: pair[1] === "sw_requirement"
+            ? "דרישת התוכנה תלויה בדרישה ששונתה דרך parent, allocation או subsystem ולכן נדרש review של ההתאמה."
+            : "נמצא קישור עקיבות לדרישה שהשתנתה ולכן נדרש review של ההקשר ההנדסי.",
+          evidence: ["requirement="+(req.rid||req.id), "sourceRid="+sourceRid, "allocation="+(req.allocation||"-")],
+          proposedAction: "review",
+          proposal: { type: "patch", after: _buildImpactStatusPatch(changeContext, "Requirement changed") }
+        });
+      });
+    });
     (DB.vv || []).forEach(function(vv){
       if(_reqRefsMatch(vv.req, sourceRid)){
         addRec({
@@ -5816,7 +5966,7 @@ function _detectChangeImpact(changeContext){
       }
     });
     addRec({
-      targetType: "requirement",
+      targetType: _impactRequirementTargetType(changeContext.sourceType),
       targetEntityType: changeContext.sourceType,
       targetId: sourceRid,
       impactType: "traceability_gap",
@@ -5827,6 +5977,55 @@ function _detectChangeImpact(changeContext){
       proposedAction: "review",
       proposal: { type: "none" }
     });
+    (DB.risks || []).forEach(function(risk){
+      var riskMatch = _riskMentionsImpact(risk, linkSignals.components, [sourceRid], changedTerms);
+      if(!riskMatch.matched) return;
+      addRec({
+        targetType: "risk",
+        targetEntityType: "risk",
+        targetId: risk.id || risk.desc || sourceRid,
+        impactType: "risk_inconsistency",
+        severity: "high",
+        confidence: 0.81,
+        rationale: "נמצא סיכון המקושר לדרישה שהשתנתה ולכן נדרש review של הנחת הסיכון וההפחתה.",
+        evidence: ["risk="+(risk.id||risk.desc||"-"), "requirement="+sourceRid],
+        proposedAction: "review",
+        proposal: { type: "none" }
+      });
+    });
+    var interfaceLike = /(?:interface|ethernet|protocol|packet|message|link|icd|ממשק|פרוטוקול|הודעה|קישור)/i.test([before.desc, after.desc, before.domain, after.domain].join(" "));
+    if(interfaceLike){
+      (DB.archLinks || []).forEach(function(link){
+        if(!_requirementMentions([link.sourceComponent, link.targetComponent, link.flowName, link.protocolOrMedium, link.payloadOrMessage], changedTerms)) return;
+        addRec({
+          targetType: "architecture_link",
+          targetEntityType: "architecture_link",
+          targetId: link.id || link.flowName,
+          impactType: "interface_mismatch",
+          severity: "medium",
+          confidence: 0.77,
+          rationale: "הדרישה מתארת ממשק או קישור ולכן שינוי בה מחייב review של קישור הארכיטקטורה התואם.",
+          evidence: ["requirement="+sourceRid, "link="+(link.flowName||link.id)],
+          proposedAction: "review",
+          proposal: { type: "patch", after: _buildImpactStatusPatch(changeContext, "Interface requirement changed") }
+        });
+      });
+      (DB.icd || []).forEach(function(icd){
+        if(!_requirementMentions([icd.name, icd.a, icd.b, icd.type, icd.sourceComp, icd.targetComp], changedTerms)) return;
+        addRec({
+          targetType: "icd",
+          targetEntityType: "icd",
+          targetId: icd.id || icd.name,
+          impactType: "interface_mismatch",
+          severity: "medium",
+          confidence: 0.79,
+          rationale: "הדרישה מתארת ממשק ולכן מומלץ לבדוק אם מסמך ה-ICD המקומי עדיין עקבי לאחר השינוי.",
+          evidence: ["requirement="+sourceRid, "icd="+(icd.name||icd.id)],
+          proposedAction: "review",
+          proposal: { type: "patch", after: _buildImpactStatusPatch(changeContext, "Interface requirement changed") }
+        });
+      });
+    }
     addRec({
       targetType: "consistency",
       targetEntityType: "consistency",
@@ -6178,6 +6377,7 @@ function applyApprovedProposals(proposalIds){
   var ids = Array.isArray(proposalIds) ? proposalIds : [];
   var applied = [];
   var skipped = [];
+  var followUps = [];
   DB.updateProposals.forEach(function(proposal){
     if(ids.indexOf(proposal.proposalId) < 0 || proposal.approvalState !== "approved") return;
     var target = proposal.entityType ? _findImpactTarget(proposal.entityType, proposal.entityId) : null;
@@ -6186,6 +6386,13 @@ function applyApprovedProposals(proposalIds){
       return;
     }
     var before = JSON.parse(JSON.stringify(target.item));
+    var validationFailed = proposal.changedFields.some(function(field){
+      return !Object.prototype.hasOwnProperty.call(proposal.after || {}, field);
+    });
+    if(validationFailed){
+      skipped.push(proposal.proposalId);
+      return;
+    }
     target.item = Object.assign(target.item, JSON.parse(JSON.stringify(proposal.after)));
     DB[target.arrName][target.idx] = target.item;
     proposal.before = before;
@@ -6203,11 +6410,29 @@ function applyApprovedProposals(proposalIds){
       before: before,
       after: JSON.parse(JSON.stringify(target.item))
     });
+    appendAuditLogEntry({
+      action: "apply_change",
+      entityType: proposal.entityType,
+      entityId: proposal.entityId,
+      before: before,
+      after: JSON.parse(JSON.stringify(target.item))
+    });
+    followUps.push(buildChangeContext({
+      sourceType: proposal.entityType,
+      sourceId: proposal.entityId,
+      triggerType: "apply_change",
+      changedFields: proposal.changedFields.slice(),
+      before: before,
+      after: JSON.parse(JSON.stringify(target.item))
+    }));
     applied.push(proposal.proposalId);
+  });
+  followUps.forEach(function(ctx){
+    analyzeProjectImpact(ctx);
   });
   if(applied.length) renderPage(getCurrentPage());
   markDirty();
-  return { applied: applied, skipped: skipped };
+  return { applied: applied, skipped: skipped, followUps: followUps.length };
 }
 
 // ─── IMPACT MODAL — LABEL MAPS ────────────────────────────
@@ -6285,7 +6510,8 @@ var _impactTriggerLabelMap = {
   "manual_edit":    "עריכה ידנית",
   "document_parse": "ניתוח מסמך",
   "ai_assist":      "AI Assist",
-  "requirement_edit":"עריכת דרישה"
+  "requirement_edit":"עריכת דרישה",
+  "apply_change":   "החלת שינוי מאושר"
 };
 function _impactL(map, key, fb){ return map[key] || fb || key || ""; }
 
@@ -17941,7 +18167,18 @@ function saveAIConfig(){
 // ─── GENERIC EDIT/DELETE ──────────────────────────────────
 function deleteItem(arrName,idx){
   if(!confirm("למחוק פריט זה?"))return;
+  var sourceType = _impactSourceTypeFromArray(arrName);
+  var before = DB[arrName] && DB[arrName][idx] ? JSON.parse(JSON.stringify(DB[arrName][idx])) : null;
   DB[arrName].splice(idx,1);markDirty();
+  if(before){
+    appendAuditLogEntry({
+      action: "delete",
+      entityType: sourceType || arrName,
+      entityId: before.id || before.rid || before.name || (arrName+"_"+idx),
+      before: before,
+      after: null
+    });
+  }
   renderPage(getCurrentPage());notify("נמחק","ok");
 }
 
@@ -17966,6 +18203,13 @@ function editItem(arrName,idx){
         return JSON.stringify(updated[k]) !== JSON.stringify(beforeSnapshot[k]);
       });
       if(changedFields.length){
+        appendAuditLogEntry({
+          action: "edit",
+          entityType: sourceType,
+          entityId: updated.id || updated.rid || updated.name || (arrName+"_"+idx),
+          before: beforeSnapshot,
+          after: JSON.parse(JSON.stringify(updated))
+        });
         _runImpactAnalysisForChange(buildChangeContext({
           sourceType: sourceType,
           sourceId: updated.id || updated.rid || updated.name || (arrName+"_"+idx),
@@ -22547,6 +22791,15 @@ window.openAddArchLink = openAddArchLink;
 window.renderMEArch = renderMEArch;
 window.openAddMEArchItem = openAddMEArchItem;
 window.buildVCRMRows = buildVCRMRows;
+window.createBaseline = createBaseline;
+window.compareToBaseline = compareToBaseline;
+window.createChangeRequest = createChangeRequest;
+window.createChangeRequestFromImpact = createChangeRequestFromImpact;
+window.appendAuditLogEntry = appendAuditLogEntry;
+window.analyzeProjectImpact = analyzeProjectImpact;
+window.approveUpdateProposals = approveUpdateProposals;
+window.rejectUpdateProposals = rejectUpdateProposals;
+window.applyApprovedProposals = applyApprovedProposals;
 window.renderVCRM = renderVCRM;
 window.setVCRMFilter = setVCRMFilter;
 window.openAddRisk = openAddRisk;
