@@ -4440,9 +4440,47 @@ function handleFileLoad(e){
 var _LS_KEY = "7200_project_data";
 var _autoSaveTimer = null;
 var _resetPending = false;
+function _isReleaseLocked(){
+  try{
+    return (DB && DB.baselines || []).some(function(item){
+      return String((item && item.status) || "").toLowerCase() === "released" && !!(item && item.locked);
+    });
+  }catch(e){
+    return false;
+  }
+}
+function _releaseLockResult(action){
+  return { ok:false, reason:"RELEASE_LOCKED", action: action || "mutation_blocked" };
+}
+function _persistDBNow(){
+  syncPortfolioModelIntoDB();
+  if(_autoSaveTimer){
+    clearTimeout(_autoSaveTimer);
+    _autoSaveTimer = null;
+  }
+  try{
+    localStorage.setItem(_LS_KEY, JSON.stringify(DB));
+    var dot=document.getElementById("syncDot");
+    if(dot) dot.className="sync-dot";
+    var lbl=document.getElementById("syncLabel");
+    if(lbl) lbl.textContent="שמור";
+    return true;
+  }catch(e){
+    return false;
+  }
+}
 function markDirty(){
   if(_resetPending) return;
   syncPortfolioModelIntoDB();
+  if(_isReleaseLocked()){
+    if(_autoSaveTimer) clearTimeout(_autoSaveTimer);
+    _autoSaveTimer = null;
+    var lockedDot=document.getElementById("syncDot");
+    if(lockedDot) lockedDot.className="sync-dot";
+    var lockedLbl=document.getElementById("syncLabel");
+    if(lockedLbl) lockedLbl.textContent="שמור";
+    return;
+  }
   var dot=document.getElementById("syncDot");
   if(dot) dot.className="sync-dot dirty";
   var lbl = document.getElementById("syncLabel");
@@ -5898,6 +5936,7 @@ function releaseBaseline(baselineId){
     before: before,
     after: _cloneExecutionData(baseline)
   });
+  _persistDBNow();
   return { ok:true, baseline: _cloneExecutionData(baseline) };
 }
 
@@ -5976,6 +6015,7 @@ function createReleasePackage(baselineId, options){
     before: null,
     after: { packageType: pkg.packageType, exportedAt: pkg.exportedAt, baselineId: baseline.id }
   });
+  _persistDBNow();
   if(!options || options.download !== false){
     _downloadJsonPayload("release_package_"+(baseline.name || baseline.id)+".json", pkg);
   }
@@ -6964,9 +7004,12 @@ function _prunePendingImpactArtifacts(changeContext){
 function analyzeProjectImpact(changeContext){
   ensureImpactEngineStructures();
   changeContext = buildChangeContext(changeContext);
-  _prunePendingImpactArtifacts(changeContext);
   var recommendations = buildImpactRecommendations(changeContext);
   var proposals = buildUpdateProposals(recommendations);
+  if(_isReleaseLocked()){
+    return { changeContext: changeContext, recommendations: recommendations, proposals: proposals, locked: true, persisted: false, reason: "RELEASE_LOCKED" };
+  }
+  _prunePendingImpactArtifacts(changeContext);
   DB.impactRecommendations = (DB.impactRecommendations || []).concat(recommendations);
   DB.updateProposals = (DB.updateProposals || []).concat(proposals);
   markDirty();
@@ -6976,6 +7019,7 @@ function analyzeProjectImpact(changeContext){
 function approveUpdateProposals(proposalIds){
   ensureImpactEngineStructures();
   if(!_requireRole("approver")) return _roleNotAuthorized("approver");
+  if(_isReleaseLocked()) return _releaseLockResult("approveUpdateProposals");
   var ids = Array.isArray(proposalIds) ? proposalIds : [];
   DB.updateProposals.forEach(function(proposal){
     if(ids.indexOf(proposal.proposalId) >= 0 && proposal.approvalState === "pending"){
@@ -6990,6 +7034,7 @@ function approveUpdateProposals(proposalIds){
 
 function rejectUpdateProposals(proposalIds){
   ensureImpactEngineStructures();
+  if(_isReleaseLocked()) return _releaseLockResult("rejectUpdateProposals");
   var ids = Array.isArray(proposalIds) ? proposalIds : [];
   DB.updateProposals.forEach(function(proposal){
     if(ids.indexOf(proposal.proposalId) >= 0 && proposal.approvalState !== "applied"){
@@ -7005,6 +7050,7 @@ function rejectUpdateProposals(proposalIds){
 function applyApprovedProposals(proposalIds){
   ensureImpactEngineStructures();
   if(!_requireRole("approver")) return _roleNotAuthorized("approver");
+  if(_isReleaseLocked()) return _releaseLockResult("applyApprovedProposals");
   var ids = Array.isArray(proposalIds) ? proposalIds : [];
   var applied = [];
   var skipped = [];
@@ -8339,6 +8385,10 @@ function evaluateReleaseGate(baselineId){
 }
 
 function runReleasePreflight(baselineId){
+  return evaluateReleaseGate(baselineId);
+}
+
+function releasePreflightCheck(baselineId){
   return evaluateReleaseGate(baselineId);
 }
 
@@ -24109,6 +24159,7 @@ window.summarizeChangeRequestQuality = summarizeChangeRequestQuality;
 window.analyzeBaselineDeltaImpact = analyzeBaselineDeltaImpact;
 window.evaluateReleaseGate = evaluateReleaseGate;
 window.runReleasePreflight = runReleasePreflight;
+window.releasePreflightCheck = releasePreflightCheck;
 window.validateDBShape = validateDBShape;
 window.checkSaveLoadIntegrity = checkSaveLoadIntegrity;
 window.buildOperationalHealthSummary = buildOperationalHealthSummary;
