@@ -3987,6 +3987,18 @@ var DB = {
   ai: {provider:"local",apiKey:""},
   docRegistry: {}
 };
+var _DEFAULT_DB_TEMPLATE = JSON.parse(JSON.stringify(DB));
+
+function buildFreshDefaultDB(){
+  var fresh = JSON.parse(JSON.stringify(_DEFAULT_DB_TEMPLATE));
+  fresh._savedAt = null;
+  fresh._projectName = _DEFAULT_DB_TEMPLATE._projectName || "פרויקט 7200";
+  fresh._preserveEmptyEngineeringState = true;
+  if(!fresh.userRoles || typeof fresh.userRoles !== "object"){
+    fresh.userRoles = { currentUser:"default", currentRole:"engineer" };
+  }
+  return fresh;
+}
 
 function _ensureEngineeringStructures(){
   if(!Array.isArray(DB.subsysReqs)) DB.subsysReqs = [];
@@ -4230,6 +4242,7 @@ function _buildEngineeringSeedData(){
 }
 
 function _populateEngineeringBaselineContent(){
+  if(DB && DB._preserveEmptyEngineeringState) return;
   var seed = _buildEngineeringSeedData();
   _appendSeedItemsIfEmpty(DB.sysReqs, seed.sysReqs);
   _appendSeedItemsIfEmpty(DB.subsysReqs, seed.subsysReqs);
@@ -4373,6 +4386,7 @@ var _LS_KEY = "7200_project_data";
 var _autoSaveTimer = null;
 var _resetPending = false;
 function markDirty(){
+  if(_resetPending) return;
   syncPortfolioModelIntoDB();
   document.getElementById("syncDot").className="sync-dot dirty";
   var lbl = document.getElementById("syncLabel");
@@ -4396,11 +4410,30 @@ function resetAll(){
   if(!confirm("אתה בטוח? כל הנתונים ימחקו לחלוטין!"))return;
   _resetPending = true;
   if(typeof _hideVagueTooltip==="function") _hideVagueTooltip();
+  if(typeof closeModal==="function") closeModal();
   try{
     localStorage.removeItem(_LS_KEY);
     if(_autoSaveTimer){clearTimeout(_autoSaveTimer);_autoSaveTimer=null;}
   }catch(e){}
-  location.reload();
+  DB = buildFreshDefaultDB();
+  if(typeof window !== "undefined") window.DB = DB;
+  try{
+    var fileInput = document.getElementById("fileInput");
+    if(fileInput) fileInput.value = "";
+  }catch(e2){}
+  try{
+    var overlay = document.getElementById("analysisOverlay");
+    if(overlay) overlay.classList.remove("open");
+  }catch(e3){}
+  syncUIFromDB();
+  renderPage(getCurrentPage());
+  updateBadges();
+  var dot = document.getElementById("syncDot");
+  if(dot) dot.className = "sync-dot";
+  var lbl3 = document.getElementById("syncLabel");
+  if(lbl3) lbl3.textContent = "נקי";
+  _resetPending = false;
+  notify("הפרויקט אופס","ok");
 }
 
 // ─── VAGUE REQUIREMENTS SYSTEM ───────────────────────────────
@@ -4547,10 +4580,10 @@ function gV(id){var e=document.getElementById(id);return e?e.value:"";}
 function gChk(id){var e=document.getElementById(id);return e?e.checked:false;}
 
 function updateBadges(){
-  var openTasks=DB.tasks.filter(function(t){return t.status!=="done";}).length;
-  var openRisks=DB.risks.filter(function(r){return r.status!=="closed"&&(r.sev>=3||r.prob>=3);}).length;
-  var openNCR=DB.ncr.filter(function(n){return n.status!=="סגור";}).length;
-  var openActions=DB.actions.filter(function(a){return a.status!=="done";}).length;
+  var openTasks=(DB.tasks||[]).filter(function(t){return t.status!=="done";}).length;
+  var openRisks=(DB.risks||[]).filter(function(r){return r.status!=="closed"&&(r.sev>=3||r.prob>=3);}).length;
+  var openNCR=(DB.ncr||[]).filter(function(n){return n.status!=="סגור";}).length;
+  var openActions=(DB.actions||[]).filter(function(a){return a.status!=="done";}).length;
   function setBadge(id,n){
     var el=document.getElementById("badge-"+id);
     if(!el)return;
@@ -18677,7 +18710,8 @@ function expertTemplate(exp, q, ctx) {
 
 function updateAIProvider(){
   var p=gV("aiProvider");
-  document.getElementById("apiKeyGroup").style.display=p==="local"?"none":"block";
+  var group=document.getElementById("apiKeyGroup");
+  if(group) group.style.display=p==="local"?"none":"block";
 }
 function saveAIConfig(){
   DB.ai={provider:gV("aiProvider"),apiKey:gV("aiApiKey")};markDirty();notify("הגדרות AI נשמרו","ok");

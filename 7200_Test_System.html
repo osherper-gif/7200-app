@@ -1096,6 +1096,15 @@ var PROJECT_EXECUTION_TCS = [
   {id:"TC-400",title:"Existing save load change control impact VCRM and AI flows remain intact",cat:"Execution Readiness",type:"Regression",pri:"Critical",reqs:"REQ-133",steps:"Verify new execution readiness controls coexist with existing key flows",expected:"Save/load plus impact, VCRM, AI, and baseline helpers stay available",auto:"yes",fn:"checkExecutionReadinessCompatibilityRuntime"}
 ];
 
+var RESET_HARDENING_TCS = [
+  {id:"TC-416",title:"resetAll clears in-memory DB collections",cat:"Reset Hardening",type:"Regression",pri:"Critical",reqs:"REQ-135",steps:"Populate local engineering collections and run resetAll",expected:"Tracked and ad-hoc user collections are cleared from in-memory DB",auto:"yes",fn:"checkResetAllClearsCollectionsRuntime"},
+  {id:"TC-417",title:"resetAll clears visible runtime rows after re-render",cat:"Reset Hardening",type:"Regression",pri:"Critical",reqs:"REQ-135",steps:"Render system engineering tables, run resetAll, and inspect DOM",expected:"Requirement and architecture rows disappear from the visible UI after reset",auto:"yes",fn:"checkResetAllClearsVisibleRowsRuntime"},
+  {id:"TC-418",title:"resetAll does not immediately re-save stale data",cat:"Reset Hardening",type:"Regression",pri:"Critical",reqs:"REQ-135",steps:"Queue autosave, run resetAll, then wait for the old timer window",expected:"localStorage stays cleared and stale autosave data does not come back",auto:"yes",fn:"checkResetAllBlocksStaleAutosaveRuntime"},
+  {id:"TC-419",title:"resetAll clears execution and change-control collections",cat:"Reset Hardening",type:"Regression",pri:"Critical",reqs:"REQ-135",steps:"Populate impact, baseline, backup, and release collections and run resetAll",expected:"Execution-readiness and change-control collections are reset to empty arrays",auto:"yes",fn:"checkResetAllClearsExecutionCollectionsRuntime"},
+  {id:"TC-420",title:"resetAll leaves a clean usable default state",cat:"Reset Hardening",type:"Regression",pri:"High",reqs:"REQ-135",steps:"Run resetAll and verify the app remains usable",expected:"Default DB state is restored, reset completes, and core rendering remains usable",auto:"yes",fn:"checkResetAllLeavesUsableDefaultRuntime"},
+  {id:"TC-421",title:"Critical control coverage audit source runtime check",cat:"Reset Hardening",type:"Regression",pri:"Critical",reqs:"REQ-135",steps:"Audit source tokens and active runtime registry for reset hardening coverage",expected:"TC-416..TC-421 and ensureResetHardeningHarnessWiring are present and active in Full Run",auto:"yes",fn:"checkResetHardeningHarnessWiringRuntime"}
+];
+
 var AI_REQUIREMENT_APPLY_TCS = [
   {id:"TC-241",title:"Requirement Assist apply action exists",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-123",steps:"בדוק שכפתור Apply Suggestion קיים ב-Requirement Assist",expected:"קיים apply control בטוח בתוך modal ההצעה",auto:"yes",fn:"checkRequirementAssistApplyActionExistsRuntime"},
   {id:"TC-242",title:"Suggestion generation does not auto-apply",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-123",steps:"בדוק שפתיחת Requirement Assist לא משנה את הדרישה אוטומטית",expected:"אין auto-apply ואין audit על פתיחת suggestion בלבד",auto:"yes",fn:"checkRequirementAssistNoAutoApplyRuntime"},
@@ -1137,6 +1146,7 @@ ensureTestCasesPresent(AI_CONSISTENCY_REVIEW_TCS);
 ensureTestCasesPresent(IMPACT_PROPAGATION_TCS);
 ensureTestCasesPresent(CHANGE_CONTROL_TCS);
 ensureTestCasesPresent(PROJECT_EXECUTION_TCS);
+ensureTestCasesPresent(RESET_HARDENING_TCS);
 ensureTestCasesPresent(SOFTWARE_REQUIREMENTS_EXPANSION_TCS);
 ensureTestCasesPresent(AI_REQUIREMENT_APPLY_TCS);
 saveTMS();
@@ -1418,6 +1428,81 @@ function _setRuntimeRole(w, roleName, userName){
   if(!w || typeof w.setCurrentUserRole !== 'function') return false;
   w.setCurrentUserRole(userName || 'runtime-user', roleName);
   return true;
+}
+
+function _setRuntimeDBSnapshot(w, nextDb){
+  if(!w) return;
+  w.__codexRuntimeDB = JSON.parse(JSON.stringify(nextDb || {}));
+  w.eval('DB = window.__codexRuntimeDB; window.DB = DB;');
+}
+
+function _buildResetRuntimeDirtyState(w){
+  var base = (w && typeof w.buildFreshDefaultDB === 'function') ? w.buildFreshDefaultDB() : {};
+  var dirty = Object.assign({}, base, {
+    _v: 99,
+    _savedAt: "2026-04-15T10:00:00.000Z",
+    _projectName: "Reset Dirty Project",
+    _preserveEmptyEngineeringState: false,
+    project: Object.assign({}, (base.project || {}), { name:"Reset Dirty Project", num:"RST-001", customer:"Test Customer", pm:"PM", tm:"TM", se:"SE", qa:"QA", safety:"SAFE", start:"2026-01-01", delivery:"2026-12-31", desc:"dirty before reset" }),
+    milestones: [{id:'MS-RST',name:'Dirty milestone',status:'open'}],
+    tasks: [{id:'TASK-RST',title:'Dirty task',status:'open'}],
+    actions: [{id:'ACT-RST',title:'Dirty action',status:'open'}],
+    customerReqs: [{id:'CUST-RST',rid:'CUST-1',desc:'Legacy customer requirement'}],
+    subsystemReqs: [{id:'SUBSYS-LEGACY',rid:'SUB-L-1',desc:'Legacy subsystem alias'}],
+    subsysReqs: [{id:'SUBSYS-RST',rid:'SUB-001',parentRid:'SYS-001',subsystem:'Recorder',domain:'Interface',desc:'Subsystem dirty requirement',status:'open'}],
+    sysReqs: [{id:'SYS-RST',rid:'SYS-001',domain:'Interface',desc:'System dirty requirement',status:'open'}],
+    swReqs: [{id:'SW-RST',rid:'SW-001',parentRid:'SYS-001',swCategory:'Interface',desc:'Software dirty requirement',status:'open'}],
+    meReqs: [{id:'ME-RST',rid:'ME-001',parentRid:'SYS-001',desc:'Mechanical dirty requirement',status:'open'}],
+    vv: [{id:'VV-RST',req:'SYS-001',method:'Test',status:'open'}],
+    risks: [{id:'RISK-RST',req:'SYS-001',desc:'Dirty risk',status:'open'}],
+    residualRisks: [{id:'RR-RST',origRiskId:'RISK-RST',desc:'Dirty residual risk',status:'open'}],
+    arch: [{id:'ARCH-RST',name:'Mission Computer',type:'Component',subsystem:'Core',interfaces:'Ethernet',connections:'Recorder',flowDesc:'Dirty flow',status:'Draft'}],
+    archLinks: [{id:'LINK-RST',sourceComponent:'Mission Computer',targetComponent:'Recorder',flowName:'Dirty Link',flowType:'Data',protocolOrMedium:'Ethernet',status:'Draft'}],
+    icd: [{id:'ICD-RST',name:'Dirty ICD',a:'Mission Computer',b:'Recorder',type:'Data',status:'Draft'}],
+    impactRecommendations: [{id:'IMP-RST',status:'proposed'}],
+    updateProposals: [{proposalId:'PROP-RST',approvalState:'pending'}],
+    baselines: [{id:'BASE-RST',name:'Dirty baseline'}],
+    changeRequests: [{id:'CR-RST',title:'Dirty CR',status:'open'}],
+    auditLog: [{id:'AUD-RST',action:'edit',entityType:'requirement',entityId:'SYS-001'}],
+    projectBackups: [{name:'Dirty backup',backupType:'7200_backup',version:1}],
+    releasePackages: [{packageType:'7200_release_package',version:1}],
+    impactAudit: [{id:'IMPAUD-RST'}],
+    docRegistry: { SRS:{status:'dirty'} },
+    discussions: [{id:'DISC-RST',title:'Dirty discussion'}],
+    versions: [{id:'VER-RST',tag:'v-dirty'}],
+    tests: [{id:'TEST-RST',name:'Dirty test'}],
+    userRoles: { currentUser:'dirty-user', currentRole:'approver' },
+    ai: { provider:'local', apiKey:'' }
+  });
+  return dirty;
+}
+
+function ensureResetHardeningHarnessWiring(){
+  var required = [
+    { id:'TC-416', fn:'checkResetAllClearsCollectionsRuntime' },
+    { id:'TC-417', fn:'checkResetAllClearsVisibleRowsRuntime' },
+    { id:'TC-418', fn:'checkResetAllBlocksStaleAutosaveRuntime' },
+    { id:'TC-419', fn:'checkResetAllClearsExecutionCollectionsRuntime' },
+    { id:'TC-420', fn:'checkResetAllLeavesUsableDefaultRuntime' },
+    { id:'TC-421', fn:'checkResetHardeningHarnessWiringRuntime' }
+  ];
+  var testPageSrc = document.documentElement ? document.documentElement.outerHTML : '';
+  var missingCases = required.filter(function(item){
+    return !TMS.testCases.some(function(tc){ return tc.id === item.id; });
+  }).map(function(item){ return item.id; });
+  var missingFns = required.filter(function(item){
+    return !AUTOMATION[item.fn];
+  }).map(function(item){ return item.fn; });
+  var missingTestSourceTokens = ['TC-416','TC-421','ensureResetHardeningHarnessWiring'].filter(function(token){
+    return testPageSrc.indexOf(token) < 0;
+  });
+  return {
+    pass: missingCases.length === 0 && missingFns.length === 0 && missingTestSourceTokens.length === 0,
+    missingCases: missingCases,
+    missingFns: missingFns,
+    missingTestSourceTokens: missingTestSourceTokens,
+    totalResetCases: required.length
+  };
 }
 
 // ── Automation test functions ─────────────────────────────────
@@ -5090,6 +5175,136 @@ var AUTOMATION = {
       });
     });
   },
+  checkResetAllClearsCollectionsRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.resetAll !== 'function' || typeof w.buildFreshDefaultDB !== 'function') return _runtimeFail('resetAll or buildFreshDefaultDB missing');
+      var snapshot = JSON.stringify(w.DB || {});
+      var stored = w.localStorage.getItem('7200_project_data');
+      var oldConfirm = w.confirm;
+      try{
+        _setRuntimeDBSnapshot(w, _buildResetRuntimeDirtyState(w));
+        w.window.DB = w.DB;
+        w.localStorage.setItem('7200_project_data', JSON.stringify(w.DB));
+        w.confirm = function(){ return true; };
+        w.resetAll();
+        var emptyArrays = ['subsysReqs','sysReqs','swReqs','meReqs','vv','risks','residualRisks','arch','archLinks','icd','impactRecommendations','updateProposals','baselines','changeRequests','auditLog','projectBackups','releasePackages'];
+        var arraysCleared = emptyArrays.every(function(key){ return Array.isArray(w.DB[key]) && w.DB[key].length === 0; });
+        var extraCleared = !Object.prototype.hasOwnProperty.call(w.DB,'customerReqs') && !Object.prototype.hasOwnProperty.call(w.DB,'subsystemReqs');
+        var ok = arraysCleared && extraCleared && w.localStorage.getItem('7200_project_data') === null;
+        return ok ? _runtimePass('resetAll clears tracked and ad-hoc in-memory collections') : _runtimeFail('resetAll left stale collections or persisted project data behind');
+      } finally {
+        w.confirm = oldConfirm;
+        _setRuntimeDBSnapshot(w, JSON.parse(snapshot));
+        if(stored === null) w.localStorage.removeItem('7200_project_data');
+        else w.localStorage.setItem('7200_project_data', stored);
+      }
+    });
+  },
+  checkResetAllClearsVisibleRowsRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.resetAll !== 'function' || typeof w.navigateTo !== 'function') return _runtimeFail('resetAll or navigateTo missing');
+      var snapshot = JSON.stringify(w.DB || {});
+      var oldConfirm = w.confirm;
+      try{
+        _setRuntimeDBSnapshot(w, _buildResetRuntimeDirtyState(w));
+        w.confirm = function(){ return true; };
+        w.navigateTo('syseng');
+        var beforeReqHtml = (w.document.getElementById('sysReqsBody') || {}).innerHTML || '';
+        var beforeArchHtml = (w.document.getElementById('archBody') || {}).innerHTML || '';
+        w.resetAll();
+        w.navigateTo('syseng');
+        var afterReqHtml = (w.document.getElementById('sysReqsBody') || {}).innerHTML || '';
+        var afterArchHtml = (w.document.getElementById('archBody') || {}).innerHTML || '';
+        var ok = beforeReqHtml.indexOf('System dirty requirement') >= 0 &&
+          beforeArchHtml.indexOf('Mission Computer') >= 0 &&
+          afterReqHtml.indexOf('System dirty requirement') < 0 &&
+          afterArchHtml.indexOf('Mission Computer') < 0 &&
+          afterReqHtml.indexOf('אין נתונים') >= 0 &&
+          afterArchHtml.indexOf('אין נתונים') >= 0;
+        return ok ? _runtimePass('resetAll clears visible requirement and architecture rows after re-render') : _runtimeFail('Visible requirement or architecture rows remained after reset');
+      } finally {
+        w.confirm = oldConfirm;
+        _setRuntimeDBSnapshot(w, JSON.parse(snapshot));
+        if(typeof w.renderPage === 'function') w.renderPage('syseng');
+      }
+    });
+  },
+  checkResetAllBlocksStaleAutosaveRuntime: async function(){
+    return withAppWindow(async function(w){
+      if(typeof w.resetAll !== 'function' || typeof w.markDirty !== 'function') return _runtimeFail('resetAll or markDirty missing');
+      var snapshot = JSON.stringify(w.DB || {});
+      var stored = w.localStorage.getItem('7200_project_data');
+      var oldConfirm = w.confirm;
+      try{
+        _setRuntimeDBSnapshot(w, _buildResetRuntimeDirtyState(w));
+        w.confirm = function(){ return true; };
+        w.markDirty();
+        w.resetAll();
+        await new Promise(function(resolve){ w.setTimeout(resolve, 1100); });
+        var persisted = w.localStorage.getItem('7200_project_data');
+        var ok = persisted === null;
+        return ok ? _runtimePass('resetAll clears pending autosave so stale data does not reappear') : _runtimeFail('Stale project data was re-saved after reset');
+      } finally {
+        w.confirm = oldConfirm;
+        _setRuntimeDBSnapshot(w, JSON.parse(snapshot));
+        if(stored === null) w.localStorage.removeItem('7200_project_data');
+        else w.localStorage.setItem('7200_project_data', stored);
+      }
+    });
+  },
+  checkResetAllClearsExecutionCollectionsRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.resetAll !== 'function') return _runtimeFail('resetAll missing');
+      var snapshot = JSON.stringify(w.DB || {});
+      var oldConfirm = w.confirm;
+      try{
+        _setRuntimeDBSnapshot(w, _buildResetRuntimeDirtyState(w));
+        w.confirm = function(){ return true; };
+        w.resetAll();
+        var keys = ['impactRecommendations','updateProposals','baselines','changeRequests','auditLog','projectBackups','releasePackages','impactAudit'];
+        var ok = keys.every(function(key){ return Array.isArray(w.DB[key]) && w.DB[key].length === 0; });
+        return ok ? _runtimePass('resetAll clears execution-readiness and change-control collections') : _runtimeFail('Execution-readiness collections survived reset');
+      } finally {
+        w.confirm = oldConfirm;
+        _setRuntimeDBSnapshot(w, JSON.parse(snapshot));
+      }
+    });
+  },
+  checkResetAllLeavesUsableDefaultRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.resetAll !== 'function' || typeof w.renderDashboard !== 'function' || typeof w.renderPage !== 'function') return _runtimeFail('resetAll or core renderers missing');
+      var snapshot = JSON.stringify(w.DB || {});
+      var oldConfirm = w.confirm;
+      try{
+        _setRuntimeDBSnapshot(w, _buildResetRuntimeDirtyState(w));
+        w.confirm = function(){ return true; };
+        w.resetAll();
+        w.renderDashboard();
+        w.renderPage('settings');
+        var ok = w.DB &&
+          w.DB.project && w.DB.project.name === 'פרויקט 7200' &&
+          Array.isArray(w.DB.sysReqs) && w.DB.sysReqs.length === 0 &&
+          w.DB._preserveEmptyEngineeringState === true &&
+          w._resetPending === false &&
+          typeof w.manualSave === 'function' &&
+          typeof w.loadFromFile === 'function';
+        return ok ? _runtimePass('resetAll leaves a clean default DB and the app remains usable') : _runtimeFail('App did not return to a clean usable default state after reset');
+      } finally {
+        w.confirm = oldConfirm;
+        _setRuntimeDBSnapshot(w, JSON.parse(snapshot));
+      }
+    });
+  },
+  checkResetHardeningHarnessWiringRuntime: async function(){
+    var source = await loadAppSource();
+    var audit = ensureResetHardeningHarnessWiring();
+    var prodTokens = ['buildFreshDefaultDB','function resetAll(){'];
+    var missingProdTokens = prodTokens.filter(function(token){ return source.indexOf(token) < 0; });
+    var pass = audit.pass && missingProdTokens.length === 0;
+    return pass
+      ? _runtimePass('Reset hardening tests are present in source, registered in TMS, and wired into active automation handlers')
+      : _runtimeFail('Reset harness wiring is incomplete: cases=' + audit.missingCases.join(',') + ' fns=' + audit.missingFns.join(',') + ' testTokens=' + audit.missingTestSourceTokens.join(',') + ' prodTokens=' + missingProdTokens.join(','));
+  },
   checkAIFoundationOfflineStubSource: async function(){
     var src = await loadAppSource();
     var start = src.indexOf('window.AIFacade');
@@ -6979,6 +7194,21 @@ function generateRunPDF(runIdx){
 
 // ── INIT ─────────────────────────────────────────────────────
 renderDashboard();
+(function(){
+  try{
+    var params = new URLSearchParams(location.search || "");
+    if(params.get("autorun") !== "1") return;
+    setTimeout(function(){
+      startRun(params.get("filter") || undefined).then(function(){
+        document.body.setAttribute("data-autorun-done","true");
+        if(_currentRun){
+          document.body.setAttribute("data-autorun-total", String(_currentRun.totalTests || 0));
+          document.body.setAttribute("data-autorun-runid", _currentRun.id || "");
+        }
+      });
+    }, 150);
+  }catch(e){}
+})();
 </script>
 </body>
 </html>
