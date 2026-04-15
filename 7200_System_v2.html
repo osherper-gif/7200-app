@@ -4045,7 +4045,15 @@ function adoptLoadedDBState(rawDb, options){
     });
   }
   normalizeLegacyDbAliases(next);
-  if(!rawDb || !Object.prototype.hasOwnProperty.call(rawDb, "_preserveEmptyEngineeringState")){
+  var carriesMeaningfulState = [
+    "customerReqs","sysReqs","subsysReqs","swReqs","meReqs","vv","risks","arch","archLinks","icd",
+    "impactRecommendations","updateProposals","baselines","changeRequests","auditLog","projectBackups","releasePackages"
+  ].some(function(key){
+    return rawDb && Array.isArray(rawDb[key]) && rawDb[key].length > 0;
+  });
+  if(carriesMeaningfulState){
+    next._preserveEmptyEngineeringState = false;
+  } else if(!rawDb || !Object.prototype.hasOwnProperty.call(rawDb, "_preserveEmptyEngineeringState")){
     next._preserveEmptyEngineeringState = false;
   }
   DB = next;
@@ -4459,7 +4467,9 @@ function _persistDBNow(){
     _autoSaveTimer = null;
   }
   try{
-    localStorage.setItem(_LS_KEY, JSON.stringify(DB));
+    var snapshot = JSON.parse(JSON.stringify(DB));
+    snapshot._preserveEmptyEngineeringState = false;
+    localStorage.setItem(_LS_KEY, JSON.stringify(snapshot));
     var dot=document.getElementById("syncDot");
     if(dot) dot.className="sync-dot";
     var lbl=document.getElementById("syncLabel");
