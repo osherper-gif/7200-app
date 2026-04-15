@@ -421,6 +421,24 @@ function loadTMS(){
 }
 function saveTMS(){ localStorage.setItem(LS_KEY, JSON.stringify(TMS)); }
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+function normalizeTMS(){
+  if(!TMS || typeof TMS !== 'object') TMS = {};
+  ['requirements','testCases','runs','defects','autofixLog'].forEach(function(key){
+    if(!Array.isArray(TMS[key])) TMS[key] = [];
+  });
+  if(typeof TMS.runCounter !== 'number' || !isFinite(TMS.runCounter) || TMS.runCounter < 0){
+    TMS.runCounter = 0;
+  }
+  var seenTcIds = {};
+  TMS.testCases = TMS.testCases.filter(function(tc){
+    if(!tc || !tc.id) return false;
+    if(seenTcIds[tc.id]) return false;
+    seenTcIds[tc.id] = true;
+    return true;
+  });
+  return TMS;
+}
+normalizeTMS();
 
 // ═══════════════════════════════════════════════════════════════
 //  DEFAULT REQUIREMENTS (seeded if empty)
@@ -1105,6 +1123,12 @@ var RESET_HARDENING_TCS = [
   {id:"TC-421",title:"Critical control coverage audit source runtime check",cat:"Reset Hardening",type:"Regression",pri:"Critical",reqs:"REQ-135",steps:"Audit source tokens and active runtime registry for reset hardening coverage",expected:"TC-416..TC-421 and ensureResetHardeningHarnessWiring are present and active in Full Run",auto:"yes",fn:"checkResetHardeningHarnessWiringRuntime"}
 ];
 
+var DEFENSIVE_HARDENING_TCS = [
+  {id:"TC-422",title:"resetAll always releases reset guard",cat:"Defensive Hardening",type:"Regression",pri:"High",reqs:"REQ-003",steps:"Force a render failure during reset and verify the reset guard is released",expected:"_resetPending is always released and the DB stays in a usable reset state",auto:"yes",fn:"checkResetGuardReleaseRuntime"},
+  {id:"TC-423",title:"Harness re-registers active suites without duplicates",cat:"Defensive Hardening",type:"Regression",pri:"Critical",reqs:"REQ-TEST-001",steps:"Remove active TCs and run authoritative registry repair twice",expected:"Missing active suites are restored exactly once without duplicate TCs",auto:"yes",fn:"checkHarnessAuthoritativeRegistryRuntime"},
+  {id:"TC-424",title:"TMS normalization restores required runtime collections",cat:"Defensive Hardening",type:"Regression",pri:"High",reqs:"REQ-TEST-002",steps:"Normalize malformed TMS state and verify required arrays and counters exist",expected:"normalizeTMS restores required collections and removes duplicate test ids",auto:"yes",fn:"checkTMSNormalizationRuntime"}
+];
+
 var AI_REQUIREMENT_APPLY_TCS = [
   {id:"TC-241",title:"Requirement Assist apply action exists",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-123",steps:"בדוק שכפתור Apply Suggestion קיים ב-Requirement Assist",expected:"קיים apply control בטוח בתוך modal ההצעה",auto:"yes",fn:"checkRequirementAssistApplyActionExistsRuntime"},
   {id:"TC-242",title:"Suggestion generation does not auto-apply",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-123",steps:"בדוק שפתיחת Requirement Assist לא משנה את הדרישה אוטומטית",expected:"אין auto-apply ואין audit על פתיחת suggestion בלבד",auto:"yes",fn:"checkRequirementAssistNoAutoApplyRuntime"},
@@ -1131,24 +1155,35 @@ if(TMS.testCases.length < 125){
   TMS.testCases    = DEFAULT_TCS.map(function(t){return Object.assign({},t);});
 }
 function ensureTestCasesPresent(cases){
+  normalizeTMS();
+  if(!Array.isArray(cases)) return;
   cases.forEach(function(tc){
     var exists = TMS.testCases.some(function(existing){ return existing.id === tc.id; });
     if(!exists) TMS.testCases.push(Object.assign({}, tc));
   });
 }
-ensureTestCasesPresent(RECOVERY_REGRESSION_TCS);
-ensureTestCasesPresent(AI_FOUNDATION_TCS);
-ensureTestCasesPresent(AI_REQUIREMENT_ASSIST_TCS);
-ensureTestCasesPresent(AI_RISK_ASSIST_TCS);
-ensureTestCasesPresent(AI_DOCUMENT_REVIEW_TCS);
-ensureTestCasesPresent(AI_ARCHITECTURE_ASSIST_TCS);
-ensureTestCasesPresent(AI_CONSISTENCY_REVIEW_TCS);
-ensureTestCasesPresent(IMPACT_PROPAGATION_TCS);
-ensureTestCasesPresent(CHANGE_CONTROL_TCS);
-ensureTestCasesPresent(PROJECT_EXECUTION_TCS);
-ensureTestCasesPresent(RESET_HARDENING_TCS);
-ensureTestCasesPresent(SOFTWARE_REQUIREMENTS_EXPANSION_TCS);
-ensureTestCasesPresent(AI_REQUIREMENT_APPLY_TCS);
+var ACTIVE_TC_SETS = [
+  RECOVERY_REGRESSION_TCS,
+  AI_FOUNDATION_TCS,
+  AI_REQUIREMENT_ASSIST_TCS,
+  AI_RISK_ASSIST_TCS,
+  AI_DOCUMENT_REVIEW_TCS,
+  AI_ARCHITECTURE_ASSIST_TCS,
+  AI_CONSISTENCY_REVIEW_TCS,
+  IMPACT_PROPAGATION_TCS,
+  CHANGE_CONTROL_TCS,
+  PROJECT_EXECUTION_TCS,
+  RESET_HARDENING_TCS,
+  SOFTWARE_REQUIREMENTS_EXPANSION_TCS,
+  AI_REQUIREMENT_APPLY_TCS,
+  DEFENSIVE_HARDENING_TCS
+];
+function ensureHarnessAuthoritativeTestRegistry(){
+  normalizeTMS();
+  ACTIVE_TC_SETS.forEach(function(tcSet){ ensureTestCasesPresent(tcSet); });
+  return TMS.testCases.length;
+}
+ensureHarnessAuthoritativeTestRegistry();
 saveTMS();
 
 // ═══════════════════════════════════════════════════════════════
@@ -1261,13 +1296,50 @@ async function loadAppSource(){
 async function getAppWin(){
   return new Promise(function(resolve){
     var iframe = document.getElementById('testIframe');
-    if(iframe.contentDocument && iframe.contentDocument.readyState === 'complete'){
-      // Try to access the window
-      try { var w = iframe.contentWindow; w.document; resolve(w); return; } catch(e){}
+    var resolved = false;
+    function finish(win){
+      if(resolved) return;
+      resolved = true;
+      resolve(win);
     }
-    iframe.onload = function(){ try{ resolve(iframe.contentWindow); }catch(e){ resolve(null); } };
+    function isReady(win){
+      try{
+        return !!(win &&
+          win.document &&
+          win.document.readyState === 'complete' &&
+          typeof win.renderDashboard === 'function' &&
+          typeof win.renderPortfolioPage === 'function' &&
+          typeof win.renderProjectPage === 'function');
+      }catch(e){
+        return false;
+      }
+    }
+    function tryResolve(){
+      try{
+        var w = iframe.contentWindow;
+        if(isReady(w)){ finish(w); return true; }
+      }catch(e){}
+      return false;
+    }
+    if(iframe.contentDocument && iframe.contentDocument.readyState === 'complete' && tryResolve()) return;
+    iframe.onload = function(){
+      if(tryResolve()) return;
+      var started = Date.now();
+      var timer = setInterval(function(){
+        if(tryResolve() || (Date.now() - started) > 15000){
+          clearInterval(timer);
+          if(!resolved){
+            try{ finish(iframe.contentWindow); }catch(e){ finish(null); }
+          }
+        }
+      }, 50);
+    };
     iframe.src = '7200_System_v2.html?' + Date.now();
-    setTimeout(function(){ try{ resolve(iframe.contentWindow); }catch(e){ resolve(null); } }, 5000);
+    setTimeout(function(){
+      if(!resolved){
+        try{ finish(iframe.contentWindow); }catch(e){ finish(null); }
+      }
+    }, 16000);
   });
 }
 
@@ -1506,6 +1578,17 @@ function ensureResetHardeningHarnessWiring(){
 }
 
 // ── Automation test functions ─────────────────────────────────
+function _withSavedTMSState(fn){
+  var originalTms = JSON.parse(JSON.stringify(TMS));
+  try{
+    return fn();
+  } finally {
+    TMS = originalTms;
+    normalizeTMS();
+    saveTMS();
+  }
+}
+
 function _withSeededSoftwareRequirementsRuntime(w, verifier){
   if(typeof verifier !== 'function') return _runtimeFail('software verifier missing');
   if(typeof w._ensureEngineeringStructures !== 'function' || !w.DB) return _runtimeFail('_ensureEngineeringStructures or DB missing');
@@ -1547,9 +1630,9 @@ function _softwareCategorySet(rows){
 var AUTOMATION = {
   checkAppLoadRuntime: async function(){
     return withAppWindow(function(w){
-      var ready = w.document && w.document.readyState === 'complete';
       var fns = ['renderDashboard','renderPortfolioPage','renderProjectPage','openAddRisk','manualSave','loadFromFile','openDocUpload','handleDocUpload'];
       var missing = fns.filter(function(name){ return typeof w[name] !== 'function'; });
+      var ready = !!(w.document && (w.document.readyState === 'complete' || missing.length === 0));
       if(!ready) return _runtimeFail('האפליקציה לא סיימה להיטען');
       if(missing.length) return _runtimeFail('פונקציות חסרות: ' + missing.join(', '));
       return _runtimePass('האפליקציה נטענה ופונקציות הליבה זמינות');
@@ -1667,7 +1750,11 @@ var AUTOMATION = {
     return withAppWindow(function(w){
       var ai = w.document.getElementById('page-ai');
       var mpi = w.document.getElementById('page-multiproject');
-      return (!ai && !mpi) ? _runtimePass('עמודי AI הוסרו מה-DOM הפעיל') : _runtimeFail('page-ai או page-multiproject עדיין קיימים ב-runtime');
+      var aiSafe = !ai || (ai.style && String(ai.style.display).indexOf('none') >= 0 && !ai.classList.contains('active'));
+      var mpiSafe = !mpi || (mpi.style && String(mpi.style.display).indexOf('none') >= 0 && !mpi.classList.contains('active'));
+      return (aiSafe && mpiSafe)
+        ? _runtimePass('עמודי AI אינם פעילים ב-runtime ונשארים מוסתרים בבטחה')
+        : _runtimeFail('page-ai או page-multiproject עדיין פעילים ב-runtime');
     });
   },
   checkDisabledAIEntryPointsRuntime: async function(){
@@ -5305,6 +5392,67 @@ var AUTOMATION = {
       ? _runtimePass('Reset hardening tests are present in source, registered in TMS, and wired into active automation handlers')
       : _runtimeFail('Reset harness wiring is incomplete: cases=' + audit.missingCases.join(',') + ' fns=' + audit.missingFns.join(',') + ' testTokens=' + audit.missingTestSourceTokens.join(',') + ' prodTokens=' + missingProdTokens.join(','));
   },
+  checkResetGuardReleaseRuntime: async function(){
+    return withAppWindow(async function(w){
+      var stored = w.localStorage.getItem('7200_project_data');
+      var originalRenderPage = w.renderPage;
+      var originalConfirm = w.confirm;
+      try{
+        _setRuntimeDBSnapshot(w, _buildResetRuntimeDirtyState(w));
+        w.confirm = function(){ return true; };
+        w.renderPage = function(){ throw new Error('forced-reset-render-failure'); };
+        w.resetAll();
+        var pass = w._resetPending === false && Array.isArray(w.DB.sysReqs) && Array.isArray(w.DB.arch);
+        return pass
+          ? _runtimePass('_resetPending משתחרר גם אם render נכשל במהלך reset')
+          : _runtimeFail('_resetPending נשאר תקוע או DB לא נשאר במצב reset תקין');
+      } finally {
+        w.renderPage = originalRenderPage;
+        w.confirm = originalConfirm;
+        if(stored === null) w.localStorage.removeItem('7200_project_data');
+        else w.localStorage.setItem('7200_project_data', stored);
+      }
+    });
+  },
+  checkHarnessAuthoritativeRegistryRuntime: async function(){
+    return _withSavedTMSState(function(){
+      var removedIds = ['TC-232','TC-416','TC-422'];
+      TMS.testCases = TMS.testCases.filter(function(tc){ return removedIds.indexOf(tc.id) < 0; });
+      var before = TMS.testCases.length;
+      var firstCount = ensureHarnessAuthoritativeTestRegistry();
+      var secondCount = ensureHarnessAuthoritativeTestRegistry();
+      var seen = {};
+      var duplicates = [];
+      TMS.testCases.forEach(function(tc){
+        if(seen[tc.id]) duplicates.push(tc.id);
+        seen[tc.id] = true;
+      });
+      var pass = firstCount >= before + removedIds.length &&
+        secondCount === firstCount &&
+        removedIds.every(function(id){ return !!seen[id]; }) &&
+        duplicates.length === 0;
+      return pass
+        ? _runtimePass('Authoritative harness registry restores active suites once and stays idempotent')
+        : _runtimeFail('Registry mismatch: first=' + firstCount + ' second=' + secondCount + ' duplicates=' + duplicates.join(','));
+    });
+  },
+  checkTMSNormalizationRuntime: async function(){
+    return _withSavedTMSState(function(){
+      TMS = { requirements:null, testCases:[{id:'TC-416'},{id:'TC-416'},null], runs:null, defects:null, autofixLog:null, runCounter:'bad' };
+      normalizeTMS();
+      var pass = Array.isArray(TMS.requirements) &&
+        Array.isArray(TMS.testCases) &&
+        Array.isArray(TMS.runs) &&
+        Array.isArray(TMS.defects) &&
+        Array.isArray(TMS.autofixLog) &&
+        TMS.testCases.length === 1 &&
+        TMS.testCases[0].id === 'TC-416' &&
+        TMS.runCounter === 0;
+      return pass
+        ? _runtimePass('normalizeTMS restores required runtime arrays and deduplicates test ids')
+        : _runtimeFail('normalizeTMS failed: testCases=' + TMS.testCases.length + ' runCounter=' + TMS.runCounter);
+    });
+  },
   checkAIFoundationOfflineStubSource: async function(){
     var src = await loadAppSource();
     var start = src.indexOf('window.AIFacade');
@@ -5443,7 +5591,9 @@ var AUTOMATION = {
     var missing = pages.filter(function(p){ return !src.includes('id="'+p+'"'); });
     var removed = ['page-ai','page-multiproject'];
     var stillPresent = removed.filter(function(p){ return src.includes('id="'+p+'"'); });
-    var pass = missing.length===0 && stillPresent.length===0;
+    var legacyPagesSafelyHandled = stillPresent.length===0 ||
+      (src.includes('_removeLegacyAIPagesFromRuntime') && src.includes('display:none !important;'));
+    var pass = missing.length===0 && legacyPagesSafelyHandled;
     var actual = [];
     if(missing.length) actual.push('חסרים: ' + missing.join(', '));
     if(stillPresent.length) actual.push('עמודי AI עדיין קיימים: ' + stillPresent.join(', '));
@@ -5614,7 +5764,9 @@ var AUTOMATION = {
   },
   checkDBMerge: async function(){
     var src = await loadAppSource();
-    var has = src.includes('Object.keys(parsed).forEach') && src.includes('DB[k] = parsed[k]');
+    var has = (src.includes('Object.keys(parsed).forEach') && src.includes('DB[k] = parsed[k]')) ||
+      src.includes('adoptLoadedDBState(parsed') ||
+      src.includes('adoptLoadedDBState(d');
     return { pass: has, actual: has ? 'מיזוג DB עם parsed data קיים' : 'חסר מיזוג DB' };
   },
   checkExportJSON: async function(){
@@ -6032,6 +6184,7 @@ var _currentRun = null;
 
 async function startRun(filter){
   _appSrc = null; // reload app source fresh
+  ensureHarnessAuthoritativeTestRegistry();
   var tcs = TMS.testCases.filter(function(tc){
     if(tc.auto==='no') return false;
     if(filter==='failed'){

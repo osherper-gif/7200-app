@@ -3961,7 +3961,7 @@ var DB = {
   arch: [], archLinks: [], icd: [], vv: [], engDocs: [],
   swModules: [], defects: [], swTests: [], versions: [], swDocs: [],
   swArch: [],
-  bom: [], drawings: [], meTests: [], meDocs: [], meArch: [],
+  bom: [], drawings: [], meTests: [], meDocs: [], meArch: [], meArchLinks: [],
   sspp: {ver:"",status:"טרם הוכן",engineer:"",srbChair:"",notes:"",stds:{mil882:false,defstan:false,faa:false,easa:false}},
   hazards: [], analyses: [], srb: [],
   sar: {ver:"",status:"טרם הוחל",conclusion:"",openItems:""},
@@ -4000,7 +4000,49 @@ function buildFreshDefaultDB(){
   return fresh;
 }
 
+function _cloneDefaultDBValue(key){
+  return JSON.parse(JSON.stringify(_DEFAULT_DB_TEMPLATE[key]));
+}
+
+function normalizeDBShape(){
+  Object.keys(_DEFAULT_DB_TEMPLATE).forEach(function(key){
+    var templateValue = _DEFAULT_DB_TEMPLATE[key];
+    if(Array.isArray(templateValue)){
+      if(!Array.isArray(DB[key])) DB[key] = _cloneDefaultDBValue(key);
+      return;
+    }
+    if(templateValue && typeof templateValue === "object"){
+      if(!DB[key] || typeof DB[key] !== "object" || Array.isArray(DB[key])){
+        DB[key] = _cloneDefaultDBValue(key);
+      }
+      return;
+    }
+    if(typeof DB[key] === "undefined") DB[key] = templateValue;
+  });
+  ensureImpactEngineStructures();
+}
+
+function adoptLoadedDBState(rawDb, options){
+  var next = buildFreshDefaultDB();
+  var allowUnderscore = !(options && options.allowUnderscore === false);
+  if(rawDb && typeof rawDb === "object"){
+    Object.keys(rawDb).forEach(function(key){
+      if((key in next) || (allowUnderscore && key && key.charAt(0) === "_")){
+        next[key] = rawDb[key];
+      }
+    });
+  }
+  if(!rawDb || !Object.prototype.hasOwnProperty.call(rawDb, "_preserveEmptyEngineeringState")){
+    next._preserveEmptyEngineeringState = false;
+  }
+  DB = next;
+  if(typeof window !== "undefined") window.DB = DB;
+  normalizeDBShape();
+  return DB;
+}
+
 function _ensureEngineeringStructures(){
+  normalizeDBShape();
   if(!Array.isArray(DB.subsysReqs)) DB.subsysReqs = [];
   if(!Array.isArray(DB.archLinks)) DB.archLinks = [];
   if(!Array.isArray(DB.meArch)) DB.meArch = [];
@@ -4374,7 +4416,7 @@ function handleFileLoad(e){
   r.onload=function(ev){
     try{
       var d=JSON.parse(ev.target.result);
-      Object.keys(d).forEach(function(k){if(k in DB||k[0]==="_")DB[k]=d[k];});
+      adoptLoadedDBState(d, {allowUnderscore:true});
       syncUIFromDB();notify("נטען בהצלחה ✓","ok");renderPage(getCurrentPage());
     }catch(ex){notify("שגיאה בטעינה: "+ex.message,"error");}
   };
@@ -4388,7 +4430,8 @@ var _resetPending = false;
 function markDirty(){
   if(_resetPending) return;
   syncPortfolioModelIntoDB();
-  document.getElementById("syncDot").className="sync-dot dirty";
+  var dot=document.getElementById("syncDot");
+  if(dot) dot.className="sync-dot dirty";
   var lbl = document.getElementById("syncLabel");
   if(lbl) lbl.textContent="...";
   if(_autoSaveTimer) clearTimeout(_autoSaveTimer);
@@ -4396,7 +4439,8 @@ function markDirty(){
     if(_resetPending) return;
     try{
       localStorage.setItem(_LS_KEY, JSON.stringify(DB));
-      document.getElementById("syncDot").className="sync-dot";
+      var dot2=document.getElementById("syncDot");
+      if(dot2) dot2.className="sync-dot";
       var lbl2=document.getElementById("syncLabel");
       if(lbl2) lbl2.textContent="שמור";
     }catch(e){}
@@ -4409,30 +4453,42 @@ function getCurrentPage(){
 function resetAll(){
   if(!confirm("אתה בטוח? כל הנתונים ימחקו לחלוטין!"))return;
   _resetPending = true;
-  if(typeof _hideVagueTooltip==="function") _hideVagueTooltip();
-  if(typeof closeModal==="function") closeModal();
+  var resetError = null;
   try{
-    localStorage.removeItem(_LS_KEY);
-    if(_autoSaveTimer){clearTimeout(_autoSaveTimer);_autoSaveTimer=null;}
-  }catch(e){}
-  DB = buildFreshDefaultDB();
-  if(typeof window !== "undefined") window.DB = DB;
-  try{
-    var fileInput = document.getElementById("fileInput");
-    if(fileInput) fileInput.value = "";
-  }catch(e2){}
-  try{
-    var overlay = document.getElementById("analysisOverlay");
-    if(overlay) overlay.classList.remove("open");
-  }catch(e3){}
-  syncUIFromDB();
-  renderPage(getCurrentPage());
-  updateBadges();
-  var dot = document.getElementById("syncDot");
-  if(dot) dot.className = "sync-dot";
-  var lbl3 = document.getElementById("syncLabel");
-  if(lbl3) lbl3.textContent = "נקי";
-  _resetPending = false;
+    if(typeof _hideVagueTooltip==="function") _hideVagueTooltip();
+    if(typeof closeModal==="function") closeModal();
+    try{
+      localStorage.removeItem(_LS_KEY);
+      if(_autoSaveTimer){clearTimeout(_autoSaveTimer);_autoSaveTimer=null;}
+    }catch(e){}
+    DB = buildFreshDefaultDB();
+    if(typeof window !== "undefined") window.DB = DB;
+    normalizeDBShape();
+    try{
+      var fileInput = document.getElementById("fileInput");
+      if(fileInput) fileInput.value = "";
+    }catch(e2){}
+    try{
+      var overlay = document.getElementById("analysisOverlay");
+      if(overlay) overlay.classList.remove("open");
+    }catch(e3){}
+    syncUIFromDB();
+    renderPage(getCurrentPage());
+    updateBadges();
+    var dot = document.getElementById("syncDot");
+    if(dot) dot.className = "sync-dot";
+    var lbl3 = document.getElementById("syncLabel");
+    if(lbl3) lbl3.textContent = "נקי";
+  }catch(ex){
+    resetError = ex;
+    try{ console.error(ex); }catch(_consoleErr){}
+  }finally{
+    _resetPending = false;
+  }
+  if(resetError){
+    notify("שגיאה באיפוס: "+resetError.message,"error");
+    return;
+  }
   notify("הפרויקט אופס","ok");
 }
 
@@ -18794,9 +18850,10 @@ window.addEventListener("DOMContentLoaded",function(){
     var _lsSaved=localStorage.getItem(_LS_KEY);
     if(_lsSaved){
       var parsed=JSON.parse(_lsSaved);
-      Object.keys(parsed).forEach(function(k){DB[k] = parsed[k];});
+      adoptLoadedDBState(parsed, {allowUnderscore:true});
     }
   }catch(e){}
+  normalizeDBShape();
   syncUIFromDB();
   renderDashboard(); // pre-populate data in background
   renderPortfolioPage(); // Portfolio is the default entry point
