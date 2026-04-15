@@ -1129,6 +1129,20 @@ var DEFENSIVE_HARDENING_TCS = [
   {id:"TC-424",title:"TMS normalization restores required runtime collections",cat:"Defensive Hardening",type:"Regression",pri:"High",reqs:"REQ-TEST-002",steps:"Normalize malformed TMS state and verify required arrays and counters exist",expected:"normalizeTMS restores required collections and removes duplicate test ids",auto:"yes",fn:"checkTMSNormalizationRuntime"}
 ];
 
+var CAPABILITY_EXPANSION_TCS = [
+  {id:"TC-425",title:"Requirement origin typing and classification helpers stay deterministic",cat:"Capability Expansion",type:"Regression",pri:"High",reqs:"REQ-136",steps:"Inspect richer requirement origin and classification helpers on local seeded requirements",expected:"Origin typing and classification tags stay deterministic and local-only",auto:"yes",fn:"checkRequirementOriginClassificationRuntime"},
+  {id:"TC-426",title:"Requirement lineage helpers expose upstream and downstream chains",cat:"Capability Expansion",type:"Regression",pri:"High",reqs:"REQ-136",steps:"Build a seeded requirement hierarchy and inspect lineage helpers",expected:"Lineage helpers return stable upstream/downstream relationships and summaries",auto:"yes",fn:"checkRequirementLineageRuntime"},
+  {id:"TC-427",title:"Requirement readiness scoring and decomposition gaps are available",cat:"Capability Expansion",type:"Regression",pri:"High",reqs:"REQ-136",steps:"Score requirement readiness and inspect decomposition gap findings",expected:"Readiness scoring is structured and decomposition gaps are detectable without mutation",auto:"yes",fn:"checkRequirementReadinessRuntime"},
+  {id:"TC-428",title:"Traceability rows are normalized across engineering layers",cat:"Capability Expansion",type:"Regression",pri:"High",reqs:"REQ-137",steps:"Build local traceability rows across customer, system, subsystem, software, mechanical, VV, risk, architecture, and ICD data",expected:"Normalized traceability rows are produced with layer and linkage metadata",auto:"yes",fn:"checkTraceabilityRowsRuntime"},
+  {id:"TC-429",title:"Traceability findings detect orphan and missing linkage conditions",cat:"Capability Expansion",type:"Regression",pri:"High",reqs:"REQ-137",steps:"Inspect traceability findings for missing verification, ICD, architecture, and downstream evidence",expected:"Structured traceability findings are generated deterministically",auto:"yes",fn:"checkTraceabilityFindingsRuntime"},
+  {id:"TC-430",title:"Baseline delta impact preview remains structured and read-only",cat:"Capability Expansion",type:"Regression",pri:"High",reqs:"REQ-138",steps:"Compare a baseline delta and inspect preview recommendations and proposals",expected:"Baseline delta impact returns structured preview-only recommendations without mutating DB recommendations",auto:"yes",fn:"checkBaselineDeltaImpactPreviewRuntime"},
+  {id:"TC-431",title:"Change request quality summary reports priority readiness and review roles",cat:"Capability Expansion",type:"Regression",pri:"High",reqs:"REQ-139",steps:"Summarize a seeded local change request with impacts and proposals",expected:"Change request quality helper returns priority, affected domains, required roles, and readiness status",auto:"yes",fn:"checkChangeRequestQualityRuntime"},
+  {id:"TC-432",title:"Release gate and preflight helpers produce deterministic local assessments",cat:"Capability Expansion",type:"Regression",pri:"Critical",reqs:"REQ-140",steps:"Evaluate release readiness against seeded governance, traceability, and risk state",expected:"Release gate returns GO/HOLD/NO_GO deterministically with structured findings",auto:"yes",fn:"checkReleaseGateRuntime"},
+  {id:"TC-433",title:"Release package includes enriched summary and readiness content",cat:"Capability Expansion",type:"Regression",pri:"High",reqs:"REQ-140",steps:"Create a local release package from a frozen baseline and inspect summary fields",expected:"Release package contains additive summary counts and releaseReadiness content",auto:"yes",fn:"checkReleasePackageEnhancedSummaryRuntime"},
+  {id:"TC-434",title:"DB adoption integrity helper normalizes aliases and rejects malformed shapes",cat:"Capability Expansion",type:"Regression",pri:"Critical",reqs:"REQ-141",steps:"Run save/load integrity checks on valid legacy-alias input and malformed candidate DB data",expected:"Integrity helper normalizes legacy aliases and fails safely on malformed tracked collections",auto:"yes",fn:"checkSaveLoadIntegrityCapabilityRuntime"},
+  {id:"TC-435",title:"Operational health summary exposes local readiness counters",cat:"Capability Expansion",type:"Regression",pri:"High",reqs:"REQ-142",steps:"Inspect operational health summary on seeded local project data",expected:"Health summary exposes DB shape, requirement layer counts, traceability, and governance counters",auto:"yes",fn:"checkOperationalHealthSummaryRuntime"}
+];
+
 var AI_REQUIREMENT_APPLY_TCS = [
   {id:"TC-241",title:"Requirement Assist apply action exists",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-123",steps:"בדוק שכפתור Apply Suggestion קיים ב-Requirement Assist",expected:"קיים apply control בטוח בתוך modal ההצעה",auto:"yes",fn:"checkRequirementAssistApplyActionExistsRuntime"},
   {id:"TC-242",title:"Suggestion generation does not auto-apply",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-123",steps:"בדוק שפתיחת Requirement Assist לא משנה את הדרישה אוטומטית",expected:"אין auto-apply ואין audit על פתיחת suggestion בלבד",auto:"yes",fn:"checkRequirementAssistNoAutoApplyRuntime"},
@@ -1176,7 +1190,8 @@ var ACTIVE_TC_SETS = [
   RESET_HARDENING_TCS,
   SOFTWARE_REQUIREMENTS_EXPANSION_TCS,
   AI_REQUIREMENT_APPLY_TCS,
-  DEFENSIVE_HARDENING_TCS
+  DEFENSIVE_HARDENING_TCS,
+  CAPABILITY_EXPANSION_TCS
 ];
 function ensureHarnessAuthoritativeTestRegistry(){
   normalizeTMS();
@@ -1577,6 +1592,88 @@ function ensureResetHardeningHarnessWiring(){
   };
 }
 
+function _buildCapabilityExpansionRuntimePayload(){
+  var base = _buildEngineeringDecompositionRuntimePayload();
+  return {
+    customerReqs: [
+      {id:'CUST-500',rid:'CUST-500',desc:'The customer shall receive recorder telemetry and console status over a deterministic interface.',status:'Draft',originType:'customer'}
+    ],
+    sysReqs: [
+      {id:'SYS-500',rid:'SYS-500',parentRid:'CUST-500',domain:'Interface',allocation:'Mission Computer',subsystem:'Signal Processing',desc:'The system shall transmit recorder telemetry packets to the operator console over deterministic Ethernet with a 100 ms update rate and bounded response latency.',vv:'Test',status:'Draft',originType:'system'},
+      {id:'SYS-598',rid:'SYS-598',domain:'Safety',allocation:'Battery Monitor',subsystem:'Power',desc:'The system shall inhibit unsafe battery restart commands during degraded mode startup.',status:'Draft',originType:'system'},
+      {id:'SYS-501',rid:'SYS-501',domain:'Safety',allocation:'Power Supply',subsystem:'Power',desc:'The system shall enter a fail-safe degraded mode when primary power drops below 24 VDC.',vv:'Analysis',status:'Draft',originType:'system'},
+      {id:'SYS-599',rid:'SYS-599',domain:'Interface',allocation:'Operator Console',subsystem:'Mission Ops',desc:'The system shall provide a CAN maintenance interface for console diagnostics and packet review.',status:'Draft',source:'document analysis'}
+    ],
+    subsystemReqs: [
+      {id:'SUBSYS-500',rid:'SUBSYS-500',parentRid:'SYS-500',subsystem:'Recorder',domain:'Interface',desc:'The recorder subsystem shall publish mission telemetry packets to the mission computer.',status:'Draft',origin:'derived decomposition'}
+    ],
+    subsysReqs: [
+      {id:'SUBSYS-500',rid:'SUBSYS-500',parentRid:'SYS-500',subsystem:'Recorder',domain:'Interface',desc:'The recorder subsystem shall publish mission telemetry packets to the mission computer.',status:'Draft',origin:'derived decomposition'}
+    ],
+    swReqs: [
+      {id:'SW-500',rid:'SW-500',parentRid:'SUBSYS-500',subsystem:'Mission Computer',allocation:'Mission Computer',swCategory:'Message/Protocol',desc:'The software shall validate mission telemetry packet headers and reject malformed payloads within 50 ms.',status:'Draft',origin:'derived',isDerived:true,vv:'Test'},
+      {id:'SW-599',rid:'SW-599',parentRid:'SYS-599',subsystem:'Operator Console',allocation:'Operator Console',swCategory:'UI/HMI',desc:'The software shall display CAN maintenance interface diagnostic alerts to the operator.',status:'Draft',origin:'impact propagation'}
+    ],
+    meReqs: [
+      {id:'ME-500',rid:'ME-500',parentRid:'SYS-501',subsystem:'Power Assembly',allocation:'Power Supply',domain:'Mechanical',desc:'The mechanical assembly shall maintain connector retention during degraded power vibration events.',status:'Draft',originType:'mechanical',vv:'Inspection'},
+      {id:'ME-599',rid:'ME-599',subsystem:'Cabinet',domain:'Mechanical',desc:'Provide a simple bracket.',status:'Draft'}
+    ],
+    vv: [
+      {id:'VV-500',req:'SYS-500, SW-500',method:'Test',artifact:'ATP-500',phase:'Integration',owner:'V&V',status:'Planned'},
+      {id:'VV-501',req:'ME-500',method:'Inspection',artifact:'ITP-500',phase:'Qualification',owner:'ME',status:'Planned'}
+    ],
+    risks: [
+      {id:'RISK-500',req:'SYS-501',component:'Power Supply',desc:'Power drop may cause unsafe recorder shutdown',sev:5,prob:3,status:'open'},
+      {id:'RISK-501',req:'SYS-500',component:'Mission Computer',desc:'Telemetry interface mismatch could corrupt recorder data',sev:3,prob:3,status:'open'}
+    ],
+    residualRisks: [],
+    arch: [
+      {id:'ARCH-500',name:'Mission Computer',type:'SW',subsystem:'Signal Processing',desc:'Main mission compute node',interfaces:'Ethernet telemetry',connections:'Recorder, Operator Console',flowDesc:'Mission telemetry routing path',status:'Draft'},
+      {id:'ARCH-501',name:'Recorder',type:'HW',subsystem:'Recorder',desc:'Telemetry recorder unit',interfaces:'Ethernet telemetry',connections:'Mission Computer',flowDesc:'Mission telemetry source',status:'Draft'},
+      {id:'ARCH-502',name:'Power Supply',type:'HW',subsystem:'Power',desc:'Primary power regulation assembly',interfaces:'28VDC',connections:'Mission Computer',flowDesc:'Primary power feed',status:'Draft'}
+    ],
+    archLinks: [
+      {id:'AL-500',sourceComponent:'Recorder',targetComponent:'Mission Computer',flowName:'Telemetry Packets',flowType:'data',payloadOrMessage:'Mission telemetry packets',frequencyOrRate:'10 Hz',protocolOrMedium:'Deterministic Ethernet',voltageOrPower:'-',notes:'Primary telemetry path',status:'Draft'},
+      {id:'AL-501',sourceComponent:'Power Supply',targetComponent:'Mission Computer',flowName:'Primary Power',flowType:'power',payloadOrMessage:'28VDC',frequencyOrRate:'continuous',protocolOrMedium:'Power harness',voltageOrPower:'28VDC',notes:'Nominal power feed',status:'Draft'}
+    ],
+    icd: [
+      {id:'ICD-500',name:'Recorder Telemetry Ethernet',a:'Recorder',b:'Mission Computer',type:'Ethernet',protocol:'Deterministic Ethernet',notes:'Mission telemetry packets',ver:'A',status:'Draft'}
+    ],
+    impactRecommendations: [],
+    updateProposals: [],
+    baselines: [],
+    changeRequests: [],
+    auditLog: [{id:'AUD-500',action:'edit',entityType:'requirement',entityId:'SYS-500',actorRole:'engineer'}],
+    projectBackups: [],
+    releasePackages: []
+  };
+}
+
+function _withCapabilityExpansionRuntimeState(w, extraKeys, fn){
+  var keys = [
+    'customerReqs','subsystemReqs','subsysReqs','sysReqs','swReqs','meReqs','vv','risks','residualRisks',
+    'arch','archLinks','icd','impactRecommendations','updateProposals','baselines','changeRequests',
+    'auditLog','projectBackups','releasePackages','userRoles'
+  ].concat(extraKeys || []);
+  var uniqueKeys = Array.from(new Set(keys));
+  var snapshot = JSON.stringify(uniqueKeys.reduce(function(acc, key){
+    acc[key] = w.DB[key];
+    return acc;
+  }, {}));
+  try{
+    var payload = _buildCapabilityExpansionRuntimePayload();
+    Object.keys(payload).forEach(function(key){
+      w.DB[key] = JSON.parse(JSON.stringify(payload[key]));
+    });
+    if(typeof w.normalizeLegacyDbAliases === 'function') w.normalizeLegacyDbAliases(w.DB);
+    if(typeof w._ensureEngineeringStructures === 'function') w._ensureEngineeringStructures();
+    return fn(payload);
+  } finally {
+    var restored = JSON.parse(snapshot);
+    Object.keys(restored).forEach(function(key){ w.DB[key] = restored[key]; });
+  }
+}
+
 // ── Automation test functions ─────────────────────────────────
 function _withSavedTMSState(fn){
   var originalTms = JSON.parse(JSON.stringify(TMS));
@@ -1629,13 +1726,258 @@ function _softwareCategorySet(rows){
 
 var AUTOMATION = {
   checkAppLoadRuntime: async function(){
-    return withAppWindow(function(w){
+    return withAppWindow(async function(w){
       var fns = ['renderDashboard','renderPortfolioPage','renderProjectPage','openAddRisk','manualSave','loadFromFile','openDocUpload','handleDocUpload'];
-      var missing = fns.filter(function(name){ return typeof w[name] !== 'function'; });
-      var ready = !!(w.document && (w.document.readyState === 'complete' || missing.length === 0));
-      if(!ready) return _runtimeFail('האפליקציה לא סיימה להיטען');
+      var started = Date.now();
+      var missing = [];
+      var ready = false;
+      do {
+        missing = fns.filter(function(name){ return typeof w[name] !== 'function'; });
+        ready = !!(w.document && w.document.readyState === 'complete' && missing.length === 0);
+        if(ready) break;
+        await new Promise(function(resolve){ w.setTimeout(resolve, 100); });
+      } while(Date.now() - started < 4000);
+      if(!ready && (!w.document || w.document.readyState !== 'complete')) return _runtimeFail('האפליקציה לא סיימה להיטען');
       if(missing.length) return _runtimeFail('פונקציות חסרות: ' + missing.join(', '));
       return _runtimePass('האפליקציה נטענה ופונקציות הליבה זמינות');
+    });
+  },
+  checkRequirementOriginClassificationRuntime: async function(){
+    return withAppWindow(function(w){
+      var missing = ['getRequirementOriginType','classifyRequirementSignals'].filter(function(name){ return typeof w[name] !== 'function'; });
+      if(missing.length) return _runtimeFail('Missing requirement intelligence helpers: ' + missing.join(', '));
+      return _withCapabilityExpansionRuntimeState(w, [], function(){
+        var sysReq = w.DB.sysReqs[0];
+        var swReq = w.DB.swReqs[1];
+        var sysOrigin = w.getRequirementOriginType(sysReq, 'requirement');
+        var swOrigin = w.getRequirementOriginType(swReq, 'software_requirement');
+        var sysSignals = w.classifyRequirementSignals(sysReq, 'requirement');
+        var swSignals = w.classifyRequirementSignals(swReq, 'software_requirement');
+        var ok = sysOrigin === 'system' &&
+          swOrigin === 'impact-derived' &&
+          sysSignals.interface === true &&
+          sysSignals.performance === true &&
+          swSignals.uiHmi === true &&
+          Array.isArray(swSignals.tags) && swSignals.tags.indexOf('derived') >= 0;
+        return ok ? _runtimePass('Requirement origin typing and classification helpers return deterministic local tags') : _runtimeFail('Requirement origin typing or classification helpers returned unexpected results');
+      });
+    });
+  },
+  checkRequirementLineageRuntime: async function(){
+    return withAppWindow(function(w){
+      var missing = ['getRequirementLineage','summarizeRequirementLineage'].filter(function(name){ return typeof w[name] !== 'function'; });
+      if(missing.length) return _runtimeFail('Missing requirement lineage helpers: ' + missing.join(', '));
+      return _withCapabilityExpansionRuntimeState(w, [], function(){
+        var lineage = w.getRequirementLineage('SW-500');
+        var summary = w.summarizeRequirementLineage('SW-500');
+        var ok = lineage &&
+          Array.isArray(lineage.upstream) && lineage.upstream.length === 3 &&
+          Array.isArray(lineage.downstream) && lineage.downstream.length === 0 &&
+          summary && summary.upstreamCount === 3 && /SUBSYS-500/.test(summary.upstreamChain) && /SYS-500/.test(summary.upstreamChain) && /CUST-500/.test(summary.upstreamChain);
+        return ok ? _runtimePass('Requirement lineage helpers expose stable upstream and downstream chains') : _runtimeFail('Requirement lineage helpers did not return the expected hierarchy');
+      });
+    });
+  },
+  checkRequirementReadinessRuntime: async function(){
+    return withAppWindow(function(w){
+      var missing = ['scoreRequirementReadiness','detectRequirementDecompositionGaps'].filter(function(name){ return typeof w[name] !== 'function'; });
+      if(missing.length) return _runtimeFail('Missing readiness helpers: ' + missing.join(', '));
+      return _withCapabilityExpansionRuntimeState(w, [], function(){
+        var strong = w.scoreRequirementReadiness(w.DB.sysReqs[0], 'requirement');
+        var weak = w.scoreRequirementReadiness(w.DB.meReqs[1], 'mechanical_requirement');
+        var gaps = w.detectRequirementDecompositionGaps();
+        var ok = strong && weak &&
+          strong.readinessScore > weak.readinessScore &&
+          strong.verified === true &&
+          weak.orphan === true &&
+          Array.isArray(gaps) &&
+          gaps.some(function(item){ return item.requirementId === 'SYS-598'; });
+        return ok ? _runtimePass('Requirement readiness scoring and decomposition gap detection are available without mutation') : _runtimeFail('Requirement readiness scoring or decomposition gap detection is incomplete');
+      });
+    });
+  },
+  checkTraceabilityRowsRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.buildTraceabilityRows !== 'function') return _runtimeFail('buildTraceabilityRows missing');
+      return _withCapabilityExpansionRuntimeState(w, [], function(){
+        var rows = w.buildTraceabilityRows();
+        var row = (rows || []).find(function(item){ return item.requirementId === 'SYS-500'; });
+        var ok = Array.isArray(rows) &&
+          rows.length >= 6 &&
+          row &&
+          row.layer === 'system' &&
+          row.coverageStatus === 'Covered' &&
+          row.linkCounts &&
+          typeof row.linkCounts.vv === 'number' &&
+          Array.isArray(row.classificationTags);
+        return ok ? _runtimePass('Traceability rows are normalized across engineering requirement layers') : _runtimeFail('Traceability rows are missing normalized linkage metadata');
+      });
+    });
+  },
+  checkTraceabilityFindingsRuntime: async function(){
+    return withAppWindow(function(w){
+      var missing = ['buildTraceabilityRows','findTraceabilityFindings'].filter(function(name){ return typeof w[name] !== 'function'; });
+      if(missing.length) return _runtimeFail('Missing traceability helpers: ' + missing.join(', '));
+      return _withCapabilityExpansionRuntimeState(w, [], function(){
+        var findings = w.findTraceabilityFindings(w.buildTraceabilityRows());
+        var ok = Array.isArray(findings) &&
+          findings.some(function(item){ return item.type === 'missing_icd_linkage' && item.requirementId === 'SYS-599'; }) &&
+          findings.some(function(item){
+            return (item.type === 'missing_risk_linkage' && item.requirementId === 'SYS-598') ||
+              (item.type === 'orphan_requirement' && item.requirementId === 'ME-599') ||
+              (item.type === 'missing_downstream_implementation_evidence' && item.requirementId === 'SYS-598');
+          });
+        return ok ? _runtimePass('Traceability findings detect orphan and missing-linkage conditions deterministically') : _runtimeFail('Traceability findings did not expose the expected orphan or missing-linkage issues');
+      });
+    });
+  },
+  checkBaselineDeltaImpactPreviewRuntime: async function(){
+    return withAppWindow(function(w){
+      var missing = ['createBaseline','analyzeBaselineDeltaImpact'].filter(function(name){ return typeof w[name] !== 'function'; });
+      if(missing.length) return _runtimeFail('Missing baseline delta helpers: ' + missing.join(', '));
+      return _withCapabilityExpansionRuntimeState(w, [], function(){
+        w.DB.baselines = [];
+        w.DB.impactRecommendations = [];
+        w.DB.updateProposals = [];
+        _setRuntimeRole(w, 'engineer', 'capability-engineer');
+        var baseline = w.createBaseline('TC-430 baseline');
+        w.DB.sysReqs[0].desc = 'Changed after baseline';
+        var preview = w.analyzeBaselineDeltaImpact(baseline.id);
+        var ok = preview &&
+          preview.ok === true &&
+          preview.previewOnly === true &&
+          Array.isArray(preview.recommendations) && preview.recommendations.length >= 1 &&
+          Array.isArray(preview.proposals) && preview.proposals.length >= 1 &&
+          (w.DB.impactRecommendations || []).length === 0 &&
+          (w.DB.updateProposals || []).length === 0;
+        return ok ? _runtimePass('Baseline delta impact stays structured and preview-only') : _runtimeFail('Baseline delta impact is not structured or mutated DB state');
+      });
+    });
+  },
+  checkChangeRequestQualityRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.summarizeChangeRequestQuality !== 'function') return _runtimeFail('summarizeChangeRequestQuality missing');
+      return _withCapabilityExpansionRuntimeState(w, [], function(){
+        w.DB.impactRecommendations = [
+          {id:'IMP-431-A',targetType:'risk',severity:'high'},
+          {id:'IMP-431-B',targetType:'architecture_component',severity:'medium'}
+        ];
+        w.DB.updateProposals = [
+          {proposalId:'PROP-431-A',recommendationId:'IMP-431-A',approvalState:'pending'},
+          {proposalId:'PROP-431-B',recommendationId:'IMP-431-B',approvalState:'pending'}
+        ];
+        w.DB.changeRequests = [{
+          id:'CR-431',
+          title:'Cross-domain review',
+          impacts:['IMP-431-A','IMP-431-B'],
+          proposals:['PROP-431-A','PROP-431-B']
+        }];
+        var summary = w.summarizeChangeRequestQuality('CR-431');
+        var ok = summary &&
+          summary.priority === 'high' &&
+          Array.isArray(summary.affectedDomains) && summary.affectedDomains.indexOf('risk') >= 0 &&
+          Array.isArray(summary.requiredReviewRoles) && summary.requiredReviewRoles.indexOf('approver') >= 0 &&
+          summary.impactCountSummary && summary.impactCountSummary.total === 2 &&
+          summary.approvalReadinessStatus === 'needs-approver-review';
+        return ok ? _runtimePass('Change request quality helper reports priority, domains, roles, and readiness') : _runtimeFail('Change request quality summary is incomplete');
+      });
+    });
+  },
+  checkReleaseGateRuntime: async function(){
+    return withAppWindow(function(w){
+      var missing = ['createBaseline','freezeBaseline','evaluateReleaseGate','runReleasePreflight'].filter(function(name){ return typeof w[name] !== 'function'; });
+      if(missing.length) return _runtimeFail('Missing release gate helpers: ' + missing.join(', '));
+      return _withCapabilityExpansionRuntimeState(w, [], function(){
+        w.DB.baselines = [];
+        w.DB.projectBackups = [];
+        w.DB.impactRecommendations = [{id:'IMP-432',severity:'high',status:'proposed'}];
+        _setRuntimeRole(w, 'engineer', 'baseline-author');
+        var baseline = w.createBaseline('TC-432 baseline');
+        _setRuntimeRole(w, 'approver', 'release-approver');
+        w.freezeBaseline(baseline.id);
+        var gate = w.evaluateReleaseGate(baseline.id);
+        var preflight = w.runReleasePreflight(baseline.id);
+        var ok = gate &&
+          gate.assessment === 'NO_GO' &&
+          Array.isArray(gate.findings) &&
+          gate.findings.some(function(item){ return item.code === 'missing_backup'; }) &&
+          gate.findings.some(function(item){ return item.code === 'unresolved_high_impacts'; }) &&
+          preflight && preflight.assessment === gate.assessment;
+        return ok ? _runtimePass('Release gate and preflight helpers produce deterministic local GO/HOLD/NO_GO assessments') : _runtimeFail('Release gate or preflight helper returned an unexpected assessment');
+      });
+    });
+  },
+  checkReleasePackageEnhancedSummaryRuntime: async function(){
+    return withAppWindow(function(w){
+      var missing = ['createBaseline','freezeBaseline','createReleasePackage'].filter(function(name){ return typeof w[name] !== 'function'; });
+      if(missing.length) return _runtimeFail('Missing release package helpers: ' + missing.join(', '));
+      return _withCapabilityExpansionRuntimeState(w, [], function(){
+        w.DB.baselines = [];
+        w.DB.releasePackages = [];
+        w.DB.projectBackups = [{backupType:'7200_backup',version:1,name:'seeded backup'}];
+        _setRuntimeRole(w, 'engineer', 'baseline-author');
+        var baseline = w.createBaseline('TC-433 baseline');
+        _setRuntimeRole(w, 'approver', 'release-approver');
+        w.freezeBaseline(baseline.id);
+        var pkg = w.createReleasePackage(baseline.id, { download:false });
+        var ok = pkg &&
+          pkg.summary &&
+          pkg.summary.requirementLayerCounts &&
+          typeof pkg.summary.requirementLayerCounts.system === 'number' &&
+          pkg.summary.verificationCoverageCounts &&
+          typeof pkg.summary.verificationCoverageCounts.covered === 'number' &&
+          pkg.summary.impactChangeControlCounts &&
+          pkg.summary.unresolvedWarnings &&
+          typeof pkg.summary.unresolvedWarnings.releaseGate === 'number' &&
+          pkg.contents &&
+          pkg.contents.releaseReadiness &&
+          pkg.contents.releaseReadiness.assessment;
+        return ok ? _runtimePass('Release package includes enriched summary counts and readiness content') : _runtimeFail('Release package summary enrichment is missing');
+      });
+    });
+  },
+  checkSaveLoadIntegrityCapabilityRuntime: async function(){
+    return withAppWindow(function(w){
+      var missing = ['buildFreshDefaultDB','checkSaveLoadIntegrity','validateDBShape'].filter(function(name){ return typeof w[name] !== 'function'; });
+      if(missing.length) return _runtimeFail('Missing save/load integrity helpers: ' + missing.join(', '));
+      var candidate = w.buildFreshDefaultDB();
+      candidate.subsystemReqs = [{id:'SUBSYS-A',rid:'SUBSYS-A',parentRid:'SYS-A',desc:'Legacy alias requirement'}];
+      candidate.subsysReqs = null;
+      var good = w.checkSaveLoadIntegrity(candidate);
+      var malformed = w.buildFreshDefaultDB();
+      malformed.archLinks = null;
+      var bad = w.checkSaveLoadIntegrity(malformed);
+      var ok = good &&
+        good.ok === true &&
+        good.normalized &&
+        Array.isArray(good.normalized.subsystemReqs) &&
+        Array.isArray(good.normalized.subsysReqs) &&
+        good.shape && good.shape.aliasStatus && good.shape.aliasStatus.subsystemReqs === true && good.shape.aliasStatus.subsysReqs === true &&
+        bad && bad.ok === false &&
+        bad.shape && bad.shape.malformedArrays.indexOf('archLinks') >= 0;
+      return ok ? _runtimePass('Save/load integrity helper normalizes legacy aliases and rejects malformed tracked collections') : _runtimeFail('Save/load integrity helper did not normalize or reject shapes as expected');
+    });
+  },
+  checkOperationalHealthSummaryRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.buildOperationalHealthSummary !== 'function') return _runtimeFail('buildOperationalHealthSummary missing');
+      return _withCapabilityExpansionRuntimeState(w, [], function(){
+        w.DB.projectBackups = [{backupType:'7200_backup',version:1,name:'health backup'}];
+        w.DB.changeRequests = [{id:'CR-435',title:'Health change request'}];
+        w.DB.releasePackages = [{packageType:'7200_release_package',version:1}];
+        var summary = w.buildOperationalHealthSummary();
+        var ok = summary &&
+          typeof summary.dbShapeOk === 'boolean' &&
+          summary.requirementLayers &&
+          summary.requirementLayers.system === w.DB.sysReqs.length &&
+          summary.traceability &&
+          typeof summary.traceability.rows === 'number' &&
+          summary.governance &&
+          summary.governance.backups === 1 &&
+          summary.governance.changeRequests === 1 &&
+          summary.governance.releasePackages === 1;
+        return ok ? _runtimePass('Operational health summary exposes local readiness counters') : _runtimeFail('Operational health summary is incomplete');
+      });
     });
   },
   checkPortfolioOverviewRuntime: async function(){
@@ -5274,10 +5616,9 @@ var AUTOMATION = {
         w.localStorage.setItem('7200_project_data', JSON.stringify(w.DB));
         w.confirm = function(){ return true; };
         w.resetAll();
-        var emptyArrays = ['subsysReqs','sysReqs','swReqs','meReqs','vv','risks','residualRisks','arch','archLinks','icd','impactRecommendations','updateProposals','baselines','changeRequests','auditLog','projectBackups','releasePackages'];
+        var emptyArrays = ['customerReqs','subsystemReqs','subsysReqs','sysReqs','swReqs','meReqs','vv','risks','residualRisks','arch','archLinks','icd','impactRecommendations','updateProposals','baselines','changeRequests','auditLog','projectBackups','releasePackages'];
         var arraysCleared = emptyArrays.every(function(key){ return Array.isArray(w.DB[key]) && w.DB[key].length === 0; });
-        var extraCleared = !Object.prototype.hasOwnProperty.call(w.DB,'customerReqs') && !Object.prototype.hasOwnProperty.call(w.DB,'subsystemReqs');
-        var ok = arraysCleared && extraCleared && w.localStorage.getItem('7200_project_data') === null;
+        var ok = arraysCleared && w.localStorage.getItem('7200_project_data') === null;
         return ok ? _runtimePass('resetAll clears tracked and ad-hoc in-memory collections') : _runtimeFail('resetAll left stale collections or persisted project data behind');
       } finally {
         w.confirm = oldConfirm;

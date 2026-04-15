@@ -3957,7 +3957,7 @@ var DB = {
     {t:"תחקיר ניסויים",proc:"Op300-D002-SIG",d:false},{t:"תיעוד מסירה מלא",proc:"Q902",d:false},
     {t:"מוכנות למסירה",proc:"P400-ESG",d:false}
   ],
-  sysReqs: [], subsysReqs: [], swReqs: [], meReqs: [],
+  customerReqs: [], subsystemReqs: [], sysReqs: [], subsysReqs: [], swReqs: [], meReqs: [],
   arch: [], archLinks: [], icd: [], vv: [], engDocs: [],
   swModules: [], defects: [], swTests: [], versions: [], swDocs: [],
   swArch: [],
@@ -4004,7 +4004,19 @@ function _cloneDefaultDBValue(key){
   return JSON.parse(JSON.stringify(_DEFAULT_DB_TEMPLATE[key]));
 }
 
+function normalizeLegacyDbAliases(target){
+  if(!target || typeof target !== "object") return target;
+  if(!Array.isArray(target.subsysReqs) && Array.isArray(target.subsystemReqs)){
+    target.subsysReqs = JSON.parse(JSON.stringify(target.subsystemReqs));
+  }
+  if(!Array.isArray(target.subsystemReqs) && Array.isArray(target.subsysReqs)){
+    target.subsystemReqs = JSON.parse(JSON.stringify(target.subsysReqs));
+  }
+  return target;
+}
+
 function normalizeDBShape(){
+  normalizeLegacyDbAliases(DB);
   Object.keys(_DEFAULT_DB_TEMPLATE).forEach(function(key){
     var templateValue = _DEFAULT_DB_TEMPLATE[key];
     if(Array.isArray(templateValue)){
@@ -4032,6 +4044,7 @@ function adoptLoadedDBState(rawDb, options){
       }
     });
   }
+  normalizeLegacyDbAliases(next);
   if(!rawDb || !Object.prototype.hasOwnProperty.call(rawDb, "_preserveEmptyEngineeringState")){
     next._preserveEmptyEngineeringState = false;
   }
@@ -5902,12 +5915,38 @@ function createReleasePackage(baselineId, options){
   var baseline = (DB.baselines || []).find(function(item){ return item.id === baselineId; });
   if(!baseline || !_validateTrackedEngineeringSnapshot(baseline.snapshot)) return { ok:false, reason:"BASELINE_NOT_FOUND" };
   if(baseline.status === "draft") return { ok:false, reason:"BASELINE_NOT_FROZEN" };
+  var vcrmRows = typeof buildVCRMRows === "function" ? buildVCRMRows() : [];
+  var releaseGate = evaluateReleaseGate(baselineId);
   var pkg = {
     packageType: "7200_release_package",
     version: 1,
     project: _cloneExecutionData(DB.project || {}),
     baseline: _cloneExecutionData(baseline),
     exportedAt: new Date().toISOString(),
+    summary: {
+      requirementLayerCounts: {
+        customer: (DB.customerReqs || []).length,
+        system: (baseline.snapshot.sysReqs || []).length,
+        subsystem: (baseline.snapshot.subsysReqs || []).length,
+        software: (baseline.snapshot.swReqs || []).length,
+        mechanical: (baseline.snapshot.meReqs || []).length
+      },
+      verificationCoverageCounts: {
+        covered: vcrmRows.filter(function(row){ return row.coverageStatus === "Covered"; }).length,
+        partial: vcrmRows.filter(function(row){ return row.coverageStatus === "Partial"; }).length,
+        missing: vcrmRows.filter(function(row){ return row.coverageStatus === "Missing"; }).length
+      },
+      impactChangeControlCounts: {
+        impactRecommendations: (DB.impactRecommendations || []).length,
+        pendingProposals: (DB.updateProposals || []).filter(function(item){ return String(item.approvalState || "pending") === "pending"; }).length,
+        changeRequests: (DB.changeRequests || []).length
+      },
+      unresolvedWarnings: {
+        releaseGate: (releaseGate.findings || []).length,
+        traceability: releaseGate.summary ? releaseGate.summary.highTraceabilityFindings : 0,
+        criticalRisks: releaseGate.summary ? releaseGate.summary.criticalRisks : 0
+      }
+    },
     contents: {
       requirements: _cloneExecutionData(baseline.snapshot.sysReqs || []),
       subsystemRequirements: _cloneExecutionData(baseline.snapshot.subsysReqs || []),
@@ -5918,7 +5957,8 @@ function createReleasePackage(baselineId, options){
       architecture: _cloneExecutionData(baseline.snapshot.arch || []),
       architectureLinks: _cloneExecutionData(baseline.snapshot.archLinks || []),
       icd: _cloneExecutionData(baseline.snapshot.icd || []),
-      vcrmSnapshot: typeof buildVCRMRows === "function" ? _cloneExecutionData(buildVCRMRows()) : [],
+      vcrmSnapshot: _cloneExecutionData(vcrmRows),
+      releaseReadiness: _cloneExecutionData(releaseGate),
       auditSummary: {
         totalAuditEntries: (DB.auditLog || []).length,
         lastAuditAction: (DB.auditLog || []).length ? DB.auditLog[DB.auditLog.length - 1].action : ""
@@ -5972,6 +6012,7 @@ function restoreProjectBackup(payload){
     return { ok:false, reason:"INVALID_BACKUP_PAYLOAD" };
   }
   var nextDb = _cloneExecutionData(payload.dbSnapshot);
+  normalizeLegacyDbAliases(nextDb);
   if(!_validateTrackedEngineeringSnapshot(nextDb)){
     return { ok:false, reason:"INVALID_BACKUP_PAYLOAD" };
   }
@@ -7690,6 +7731,643 @@ function buildVCRMRows(){
   });
 
   return matrixRows;
+}
+
+function _requirementLayerDefinitions(){
+  return [
+    { arrName:"customerReqs", entityType:"customer_requirement", layer:"customer", discipline:"Customer" },
+    { arrName:"sysReqs", entityType:"requirement", layer:"system", discipline:"SYS" },
+    { arrName:"subsysReqs", entityType:"subsystem_requirement", layer:"subsystem", discipline:"SUBSYS" },
+    { arrName:"swReqs", entityType:"software_requirement", layer:"software", discipline:"SW" },
+    { arrName:"meReqs", entityType:"mechanical_requirement", layer:"mechanical", discipline:"ME" }
+  ];
+}
+
+function _allRequirementRecords(){
+  var rows = [];
+  _requirementLayerDefinitions().forEach(function(def){
+    (DB[def.arrName] || []).forEach(function(req){
+      rows.push({
+        arrName: def.arrName,
+        entityType: def.entityType,
+        layer: def.layer,
+        discipline: def.discipline,
+        req: req
+      });
+    });
+  });
+  return rows;
+}
+
+function findRequirementRecord(requirementId){
+  var wanted = String(requirementId || "").trim();
+  if(!wanted) return null;
+  wanted = wanted.toLowerCase();
+  var hit = null;
+  _allRequirementRecords().some(function(entry){
+    var rid = String((entry.req && (entry.req.rid || entry.req.id)) || "").trim().toLowerCase();
+    if(rid && rid === wanted){
+      hit = entry;
+      return true;
+    }
+    return false;
+  });
+  return hit;
+}
+
+function getRequirementOriginType(req, entityType){
+  req = req || {};
+  var direct = String(req.originType || "").trim().toLowerCase();
+  if(["customer","system","subsystem","software","mechanical","derived","document-derived","impact-derived"].indexOf(direct) >= 0){
+    return direct;
+  }
+  var sourceText = [req.source, req.origin, req.allocation, req.subsystem, req.domain, req.swCategory].join(" ").toLowerCase();
+  if(/impact|change impact|propagation/.test(sourceText)) return "impact-derived";
+  if(/document|import|analysis|ocr|parsed/.test(sourceText)) return "document-derived";
+  if(req.isDerived || /derived|decomposition/.test(sourceText)) return "derived";
+  return {
+    customer_requirement: "customer",
+    requirement: "system",
+    subsystem_requirement: "subsystem",
+    software_requirement: "software",
+    mechanical_requirement: "mechanical"
+  }[entityType || ""] || "system";
+}
+
+function classifyRequirementSignals(req, entityType){
+  req = req || {};
+  var text = [
+    req.rid, req.desc, req.statement, req.domain, req.cat,
+    req.swCategory, req.source, req.origin, req.allocation, req.subsystem,
+    getRequirementOriginType(req, entityType)
+  ].join(" ");
+  var norm = _normalizeImpactText(text);
+  function hasAny(words){
+    return words.some(function(word){
+      return word && norm.indexOf(_normalizeImpactText(word)) >= 0;
+    });
+  }
+  var flags = {
+    interface: hasAny(["interface","protocol","message","packet","ethernet","can","mil-std-1553","bus","link","icd","endpoint","payload","serial","telemetry","ממשק","פרוטוקול","הודעה","חבילה","קישור","רשת"]),
+    performance: hasAny(["performance","latency","cycle","frequency","throughput","update rate","response","hz","timing","ביצועים","תדירות","קצב","זמן תגובה","שהייה"]),
+    safety: hasAny(["safe","safety","fail-safe","hazard","degraded","inhibit","בטיחות","בטוח","כשל","מופחת","חסם"]),
+    cybersecurity: hasAny(["cyber","security","integrity","authorization","trusted source","encryption","auth","סייבר","אבטחה","שלמות","הרשאה"]),
+    bitBite: hasAny(["bit","bite","health","self-test","built-in test","bit/bite","בדיקה עצמית","בריאות"]),
+    uiHmi: hasAny(["ui","hmi","operator","console","display","screen","alert","user interface","מפעיל","קונסול","תצוגה","מסך","התראה"]),
+    monitoring: hasAny(["monitoring","health","heartbeat","watchdog","status","telemetry","ניטור","סטטוס","watchdog"]),
+    logging: hasAny(["log","logging","record","recorder","maintenance log","audit","לוג","רישום","תיעוד"]),
+    degradedMode: hasAny(["degraded","fallback","partial functionality","degraded mode","מופחת","מצב מופחת","גיבוי"]),
+    startupShutdown: hasAny(["startup","shutdown","boot","initialization","power-up","power down","אתחול","כיבוי","הפעלה","השבתה"]),
+    allocationSpecific: !!String(req.allocation || req.subsystem || "").trim(),
+    verificationCritical: hasAny(["verification","vv","test","inspection","analysis","acceptance","אימות","בדיקה","קבלה"]) || !!String(req.vv || req.verificationMethod || "").trim()
+  };
+  flags.originType = getRequirementOriginType(req, entityType);
+  flags.derived = flags.originType === "derived" || flags.originType === "document-derived" || flags.originType === "impact-derived";
+  flags.tags = Object.keys(flags).filter(function(key){
+    return key !== "originType" && key !== "tags" && flags[key] === true;
+  });
+  return flags;
+}
+
+function _traceabilityTermsForRequirement(req, signals){
+  var terms = _impactUniqueValues([
+    req && req.rid,
+    req && req.id,
+    req && req.allocation,
+    req && req.subsystem,
+    req && req.domain,
+    req && req.swCategory
+  ].concat((signals && signals.tags) || []));
+  return terms;
+}
+
+function getRequirementLineage(requirementId){
+  var current = findRequirementRecord(requirementId);
+  if(!current) return null;
+  var upstream = [];
+  var downstream = [];
+  var seenUp = {};
+  var seenDown = {};
+  var node = current.req;
+  while(node && node.parentRid){
+    var next = findRequirementRecord(node.parentRid);
+    if(!next) break;
+    var upKey = String((next.req.rid || next.req.id || next.entityType) || "");
+    if(!upKey || seenUp[upKey]) break;
+    seenUp[upKey] = true;
+    upstream.push(_cloneExecutionData({
+      requirementId: next.req.rid || next.req.id,
+      entityType: next.entityType,
+      originType: getRequirementOriginType(next.req, next.entityType),
+      desc: next.req.desc || ""
+    }));
+    node = next.req;
+  }
+  (function collectChildren(sourceRid){
+    _allRequirementRecords().forEach(function(entry){
+      var child = entry.req || {};
+      var childId = String((child.rid || child.id || "")).trim();
+      if(!childId || !child.parentRid || child.parentRid !== sourceRid || seenDown[childId]) return;
+      seenDown[childId] = true;
+      downstream.push(_cloneExecutionData({
+        requirementId: childId,
+        entityType: entry.entityType,
+        parentRid: child.parentRid,
+        originType: getRequirementOriginType(child, entry.entityType),
+        desc: child.desc || ""
+      }));
+      collectChildren(childId);
+    });
+  })(current.req.rid || current.req.id);
+  return {
+    requirementId: current.req.rid || current.req.id,
+    entityType: current.entityType,
+    originType: getRequirementOriginType(current.req, current.entityType),
+    upstream: upstream,
+    downstream: downstream
+  };
+}
+
+function summarizeRequirementLineage(requirementId){
+  var lineage = getRequirementLineage(requirementId);
+  if(!lineage){
+    return {
+      requirementId: String(requirementId || ""),
+      upstreamCount: 0,
+      downstreamCount: 0,
+      summary: "Requirement not found"
+    };
+  }
+  var upstreamChain = lineage.upstream.map(function(item){ return item.requirementId; }).join(" <- ");
+  var downstreamChain = lineage.downstream.map(function(item){ return item.requirementId; }).join(", ");
+  return {
+    requirementId: lineage.requirementId,
+    originType: lineage.originType,
+    upstreamCount: lineage.upstream.length,
+    downstreamCount: lineage.downstream.length,
+    upstreamChain: upstreamChain,
+    downstreamChain: downstreamChain,
+    summary: "Upstream: " + (upstreamChain || "root") + " | Downstream: " + (downstreamChain || "none")
+  };
+}
+
+function scoreRequirementReadiness(req, entityType){
+  req = req || {};
+  var desc = String(req.desc || req.statement || "").trim();
+  var rid = String(req.rid || req.id || "").trim();
+  var signals = classifyRequirementSignals(req, entityType);
+  var lineage = rid ? getRequirementLineage(rid) : { upstream:[], downstream:[] };
+  var vcrmRow = (rid && ["requirement","software_requirement","mechanical_requirement"].indexOf(entityType || "") >= 0)
+    ? buildVCRMRows().find(function(row){ return row.requirementId === rid; }) : null;
+  var terms = _traceabilityTermsForRequirement(req, signals);
+  var vvLinks = rid ? _vvEntriesForRequirement(rid) : [];
+  var architectureLinks = (DB.arch || []).filter(function(item){
+    return _requirementMentions([item.name, item.subsystem, item.interfaces, item.connections, item.flowDesc], terms);
+  });
+  var interfaceLinks = (DB.archLinks || []).filter(function(item){
+    return _requirementMentions([item.sourceComponent, item.targetComponent, item.flowName, item.flowType, item.protocolOrMedium, item.payloadOrMessage], terms);
+  });
+  var icdLinks = (DB.icd || []).filter(function(item){
+    return _requirementMentions([item.name, item.a, item.b, item.type, item.protocol, item.notes], terms);
+  });
+  var riskLinks = (DB.risks || []).filter(function(item){
+    return _riskMentionsImpact(item, [req.allocation, req.subsystem], [rid], terms).matched;
+  });
+  var measurable = isRequirementMeasurable(desc);
+  var verified = vvLinks.length > 0 || (vcrmRow && vcrmRow.coverageStatus === "Covered");
+  var linked = verified || architectureLinks.length > 0 || interfaceLinks.length > 0 || icdLinks.length > 0 || riskLinks.length > 0 || (lineage && (lineage.upstream.length || lineage.downstream.length));
+  var allocated = !!String(req.allocation || req.subsystem || "").trim() || architectureLinks.length > 0 || interfaceLinks.length > 0;
+  var orphan = !verified && architectureLinks.length === 0 && interfaceLinks.length === 0 && icdLinks.length === 0 && riskLinks.length === 0 && (!lineage || (!lineage.upstream.length && !lineage.downstream.length));
+  var qualityScore = scoreRequirementQuality(desc, { verificationMethod: req.vv || req.verificationMethod, measurable: measurable });
+  var readinessScore = Math.max(0, Math.min(100,
+    (qualityScore * 7) +
+    (measurable ? 12 : 0) +
+    (verified ? 18 : 0) +
+    (allocated ? 12 : 0) +
+    (linked ? 10 : 0) +
+    (orphan ? -20 : 0) +
+    (signals.safety ? 6 : 0) +
+    (signals.interface ? 5 : 0)
+  ));
+  return {
+    requirementId: rid,
+    entityType: entityType,
+    originType: signals.originType,
+    measurable: measurable,
+    linked: linked,
+    verified: verified,
+    allocated: allocated,
+    orphan: orphan,
+    safetyCritical: !!signals.safety,
+    interfaceCritical: !!signals.interface,
+    verificationCritical: !!signals.verificationCritical || !!signals.safety || !!signals.interface,
+    qualityScore: qualityScore,
+    readinessScore: readinessScore,
+    lineage: lineage || { upstream:[], downstream:[] },
+    linkCounts: {
+      vv: vvLinks.length,
+      architecture: architectureLinks.length,
+      architectureLinks: interfaceLinks.length,
+      icd: icdLinks.length,
+      risks: riskLinks.length
+    },
+    signals: signals
+  };
+}
+
+function detectRequirementDecompositionGaps(){
+  var gaps = [];
+  _allRequirementRecords().forEach(function(entry){
+    var req = entry.req || {};
+    var reqId = String(req.rid || req.id || "").trim();
+    if(!reqId) return;
+    var readiness = scoreRequirementReadiness(req, entry.entityType);
+    var wordCount = String(req.desc || "").trim().split(/\s+/).filter(Boolean).length;
+    var needsDecomposition = entry.entityType === "customer_requirement" || entry.entityType === "requirement" || readiness.signals.interface || readiness.signals.performance || readiness.signals.safety || readiness.signals.allocationSpecific;
+    if(needsDecomposition && (!readiness.lineage || !readiness.lineage.downstream.length)){
+      gaps.push({
+        requirementId: reqId,
+        entityType: entry.entityType,
+        gapType: "missing_downstream_decomposition",
+        severity: entry.entityType === "customer_requirement" || entry.entityType === "requirement" ? "high" : "medium",
+        rationale: "Requirement implies downstream engineering decomposition but no children were found.",
+        recommendation: "Create controlled downstream review proposals before implementation."
+      });
+    }
+    if(wordCount >= 28 && (!readiness.lineage || !readiness.lineage.downstream.length)){
+      gaps.push({
+        requirementId: reqId,
+        entityType: entry.entityType,
+        gapType: "overloaded_parent_requirement",
+        severity: "medium",
+        rationale: "Requirement statement is long and likely combines multiple implementation concerns without decomposition.",
+        recommendation: "Review for split into subsystem/software/mechanical child requirements."
+      });
+    }
+  });
+  return gaps;
+}
+
+function buildTraceabilityRows(){
+  var vcrmMap = buildVCRMRows().reduce(function(acc, row){
+    acc[row.requirementId] = row;
+    return acc;
+  }, {});
+  return _allRequirementRecords().map(function(entry){
+    var req = entry.req || {};
+    var rid = String(req.rid || req.id || "").trim();
+    var readiness = scoreRequirementReadiness(req, entry.entityType);
+    var vcrmRow = vcrmMap[rid] || null;
+    return {
+      requirementId: rid || "—",
+      entityType: entry.entityType,
+      layer: entry.layer,
+      discipline: entry.discipline,
+      originType: readiness.originType,
+      parentRid: req.parentRid || "",
+      allocation: req.allocation || req.subsystem || "",
+      status: req.status || "",
+      measurable: readiness.measurable,
+      linked: readiness.linked,
+      verified: readiness.verified,
+      allocated: readiness.allocated,
+      orphan: readiness.orphan,
+      readinessScore: readiness.readinessScore,
+      qualityScore: readiness.qualityScore,
+      safetyCritical: readiness.safetyCritical,
+      interfaceCritical: readiness.interfaceCritical,
+      verificationCritical: readiness.verificationCritical,
+      classificationTags: readiness.signals.tags.slice(),
+      upstreamCount: (readiness.lineage.upstream || []).length,
+      downstreamCount: (readiness.lineage.downstream || []).length,
+      linkCounts: _cloneExecutionData(readiness.linkCounts),
+      coverageStatus: vcrmRow ? vcrmRow.coverageStatus : (readiness.verified ? "Covered" : "Missing"),
+      notes: []
+        .concat(readiness.orphan ? ["Orphan requirement"] : [])
+        .concat(!readiness.allocated ? ["No explicit allocation"] : [])
+        .concat(!readiness.verified ? ["No verification linkage"] : [])
+        .concat(readiness.interfaceCritical && readiness.linkCounts.icd === 0 ? ["No ICD linkage"] : [])
+        .concat(readiness.safetyCritical && readiness.linkCounts.risks === 0 ? ["No risk linkage"] : []),
+      sourceRequirement: req
+    };
+  });
+}
+
+function findTraceabilityFindings(rows){
+  rows = Array.isArray(rows) ? rows : buildTraceabilityRows();
+  var findings = [];
+  rows.forEach(function(row){
+    if(row.coverageStatus === "Missing"){
+      findings.push({
+        id: uid(),
+        type: "missing_verification_linkage",
+        severity: row.verificationCritical ? "high" : "medium",
+        requirementId: row.requirementId,
+        message: "Requirement lacks verification linkage.",
+        evidence: ["coverageStatus=" + row.coverageStatus, "verified=" + row.verified],
+        recommendation: "Review VV linkage and verification allocation."
+      });
+    }
+    if(row.interfaceCritical && row.linkCounts.icd === 0){
+      findings.push({
+        id: uid(),
+        type: "missing_icd_linkage",
+        severity: "high",
+        requirementId: row.requirementId,
+        message: "Interface-critical requirement lacks ICD linkage.",
+        evidence: ["interfaceCritical=true", "icdLinks=0"],
+        recommendation: "Review ICD ownership and endpoint coverage."
+      });
+    }
+    if((row.interfaceCritical || row.layer === "system" || row.layer === "subsystem") && (row.linkCounts.architecture + row.linkCounts.architectureLinks) === 0){
+      findings.push({
+        id: uid(),
+        type: "missing_architecture_linkage",
+        severity: row.layer === "system" ? "high" : "medium",
+        requirementId: row.requirementId,
+        message: "Requirement lacks architecture or interface evidence.",
+        evidence: ["architectureLinks=" + row.linkCounts.architectureLinks, "architectureItems=" + row.linkCounts.architecture],
+        recommendation: "Review architecture allocation and interface modeling."
+      });
+    }
+    if(row.safetyCritical && row.linkCounts.risks === 0){
+      findings.push({
+        id: uid(),
+        type: "missing_risk_linkage",
+        severity: "high",
+        requirementId: row.requirementId,
+        message: "Safety-critical requirement lacks explicit risk linkage.",
+        evidence: ["safetyCritical=true", "riskLinks=0"],
+        recommendation: "Review hazard/risk traceability."
+      });
+    }
+    if((row.layer === "software" || row.layer === "mechanical") && row.orphan){
+      findings.push({
+        id: uid(),
+        type: "orphan_requirement",
+        severity: "medium",
+        requirementId: row.requirementId,
+        message: "Discipline requirement is orphaned from parent and downstream traceability.",
+        evidence: ["layer=" + row.layer, "orphan=true"],
+        recommendation: "Review parent linkage, allocation, and verification evidence."
+      });
+    }
+    if((row.layer === "customer" || row.layer === "system") && row.downstreamCount === 0 && (row.interfaceCritical || row.safetyCritical || row.classificationTags.indexOf("allocationSpecific") >= 0)){
+      findings.push({
+        id: uid(),
+        type: "missing_downstream_implementation_evidence",
+        severity: "high",
+        requirementId: row.requirementId,
+        message: "Parent requirement has no downstream implementation evidence.",
+        evidence: ["downstreamCount=0", "layer=" + row.layer],
+        recommendation: "Review decomposition into subsystem/software/mechanical requirements."
+      });
+    }
+  });
+  return findings;
+}
+
+function summarizeChangeRequestQuality(changeRequest){
+  ensureImpactEngineStructures();
+  var cr = typeof changeRequest === "string"
+    ? (DB.changeRequests || []).find(function(item){ return item.id === changeRequest; })
+    : changeRequest;
+  if(!cr) return null;
+  var impactMap = {};
+  (DB.impactRecommendations || []).forEach(function(item){ impactMap[item.id] = item; });
+  var proposalMap = {};
+  (DB.updateProposals || []).forEach(function(item){ proposalMap[item.proposalId] = item; });
+  var impacts = (cr.impacts || []).map(function(id){ return impactMap[id]; }).filter(Boolean);
+  var proposals = (cr.proposals || []).map(function(id){ return proposalMap[id]; }).filter(Boolean);
+  var affectedDomains = _impactUniqueValues(impacts.map(function(item){ return item.targetType || item.targetEntityType || item.sourceType; }));
+  var severityCounts = { high:0, medium:0, low:0 };
+  impacts.forEach(function(item){
+    var sev = String(item.severity || "medium").toLowerCase();
+    if(!Object.prototype.hasOwnProperty.call(severityCounts, sev)) sev = "medium";
+    severityCounts[sev] += 1;
+  });
+  var requiredReviewRoles = ["engineer"];
+  if(severityCounts.high > 0 || affectedDomains.some(function(domain){ return /risk|verification|traceability|architecture|icd/.test(String(domain || "")); })){
+    requiredReviewRoles.push("approver");
+  }
+  if(affectedDomains.some(function(domain){ return /risk|verification/.test(String(domain || "")); })){
+    requiredReviewRoles.push("qa");
+  }
+  if(affectedDomains.some(function(domain){ return /architecture|icd|requirement/.test(String(domain || "")); })){
+    requiredReviewRoles.push("se");
+  }
+  requiredReviewRoles = _impactUniqueValues(requiredReviewRoles);
+  var approvalReadinessStatus = impacts.length === 0 ? "needs-impact-analysis" : proposals.length === 0 ? "needs-proposals" : severityCounts.high > 0 ? "needs-approver-review" : "ready";
+  var priority = severityCounts.high > 0 ? "high" : impacts.length > 3 ? "medium" : "low";
+  return {
+    id: cr.id,
+    priority: priority,
+    affectedDomains: affectedDomains,
+    requiredReviewRoles: requiredReviewRoles,
+    impactCountSummary: {
+      total: impacts.length,
+      high: severityCounts.high,
+      medium: severityCounts.medium,
+      low: severityCounts.low,
+      proposals: proposals.length
+    },
+    approvalReadinessStatus: approvalReadinessStatus
+  };
+}
+
+function analyzeBaselineDeltaImpact(baselineId){
+  var delta = compareToBaseline(baselineId);
+  var recs = [];
+  var proposals = [];
+  var sourceId = String(baselineId || "baseline");
+  function pushDelta(items, action){
+    items.forEach(function(item){
+      var impactType = /requirement/.test(item.entityType) ? "stale_linkage" : item.entityType === "architecture_link" ? "interface_mismatch" : item.entityType === "vv" ? "verification_gap" : "release_readiness_review";
+      var severity = /requirement|architecture_link|vv/.test(item.entityType) ? "high" : "medium";
+      var rec = {
+        id: uid(),
+        sourceType: "baseline",
+        sourceId: sourceId,
+        sourceField: action,
+        triggerType: "baseline_compare",
+        targetType: item.entityType,
+        targetId: item.entityId,
+        impactType: impactType,
+        severity: severity,
+        confidence: severity === "high" ? 0.8 : 0.65,
+        rationale: "Baseline delta detected for " + item.entityType + " during " + action + ".",
+        evidence: ["entityType=" + item.entityType, "entityId=" + item.entityId, "deltaAction=" + action],
+        proposedAction: "review",
+        proposal: {
+          type: "review",
+          before: _cloneExecutionData(item.before || null),
+          after: _cloneExecutionData(item.after || null),
+          summary: "Review " + item.entityType + " delta before release propagation."
+        }
+      };
+      recs.push(rec);
+      proposals.push({
+        proposalId: uid(),
+        recommendationId: rec.id,
+        entityType: item.entityType,
+        entityId: item.entityId,
+        action: "review",
+        before: _cloneExecutionData(item.before || null),
+        after: _cloneExecutionData(item.after || null),
+        changedFields: Object.keys(item.after || item.before || {}),
+        summary: rec.proposal.summary,
+        approvalState: "pending",
+        localOnly: true,
+        createdAt: new Date().toISOString()
+      });
+    });
+  }
+  pushDelta(delta.added || [], "added");
+  pushDelta(delta.changed || [], "changed");
+  pushDelta(delta.removed || [], "removed");
+  return {
+    ok: true,
+    mode: "offline",
+    baselineId: baselineId,
+    recommendations: recs,
+    proposals: proposals,
+    previewOnly: true,
+    summary: {
+      added: (delta.added || []).length,
+      changed: (delta.changed || []).length,
+      removed: (delta.removed || []).length
+    }
+  };
+}
+
+function validateDBShape(source){
+  var target = source || DB;
+  var clone = _cloneExecutionData(target || {});
+  normalizeLegacyDbAliases(clone);
+  var missingArrays = [];
+  var malformedArrays = [];
+  var missingObjects = [];
+  Object.keys(_DEFAULT_DB_TEMPLATE).forEach(function(key){
+    var templateValue = _DEFAULT_DB_TEMPLATE[key];
+    if(Array.isArray(templateValue)){
+      if(typeof clone[key] === "undefined") missingArrays.push(key);
+      else if(!Array.isArray(clone[key])) malformedArrays.push(key);
+    } else if(templateValue && typeof templateValue === "object"){
+      if(typeof clone[key] === "undefined" || !clone[key] || typeof clone[key] !== "object" || Array.isArray(clone[key])){
+        missingObjects.push(key);
+      }
+    }
+  });
+  return {
+    ok: missingArrays.length === 0 && malformedArrays.length === 0 && missingObjects.length === 0,
+    missingArrays: missingArrays,
+    malformedArrays: malformedArrays,
+    missingObjects: missingObjects,
+    aliasStatus: {
+      subsystemReqs: Array.isArray(clone.subsystemReqs),
+      subsysReqs: Array.isArray(clone.subsysReqs)
+    },
+    counts: _executionCollectionCounts(clone)
+  };
+}
+
+function checkSaveLoadIntegrity(candidateDb){
+  var clone = _cloneExecutionData(candidateDb || DB || {});
+  normalizeLegacyDbAliases(clone);
+  var shape = validateDBShape(clone);
+  return {
+    ok: shape.ok && _validateTrackedEngineeringSnapshot(clone),
+    normalized: clone,
+    shape: shape
+  };
+}
+
+function evaluateReleaseGate(baselineId){
+  ensureImpactEngineStructures();
+  var baseline = baselineId ? (DB.baselines || []).find(function(item){ return item.id === baselineId; }) : null;
+  var traceRows = buildTraceabilityRows();
+  var traceFindings = findTraceabilityFindings(traceRows);
+  var vcrmRows = buildVCRMRows();
+  var missingCoverage = vcrmRows.filter(function(row){ return row.coverageStatus === "Missing"; }).length;
+  var unresolvedHighImpacts = (DB.impactRecommendations || []).filter(function(item){
+    return String(item.status || "proposed") !== "applied" && String(item.severity || "").toLowerCase() === "high";
+  }).length;
+  var criticalRisks = (DB.risks || []).filter(function(risk){
+    return String(risk.status || "").toLowerCase() !== "closed" && ((Number(risk.sev) || 0) >= 4 || ((Number(risk.sev) || 0) * (Number(risk.prob) || 0)) >= 12);
+  }).length;
+  var findings = [];
+  if(!baseline){
+    findings.push({ severity:"high", code:"missing_baseline", message:"No baseline selected for release gating." });
+  } else if(String(baseline.status || "draft") === "draft"){
+    findings.push({ severity:"high", code:"baseline_not_frozen", message:"Baseline is still draft." });
+  }
+  if((DB.projectBackups || []).length === 0){
+    findings.push({ severity:"medium", code:"missing_backup", message:"No local backup exists." });
+  }
+  if((DB.auditLog || []).length === 0){
+    findings.push({ severity:"medium", code:"missing_audit", message:"No audit evidence exists." });
+  }
+  if(missingCoverage > 0){
+    findings.push({ severity:"medium", code:"missing_verification_coverage", message:"Missing VV coverage exists.", count: missingCoverage });
+  }
+  if(unresolvedHighImpacts > 0){
+    findings.push({ severity:"high", code:"unresolved_high_impacts", message:"High-severity impact recommendations remain unresolved.", count: unresolvedHighImpacts });
+  }
+  if(criticalRisks > 0){
+    findings.push({ severity:"high", code:"critical_risks", message:"Critical or high-exposure risks remain open.", count: criticalRisks });
+  }
+  if(traceFindings.some(function(item){ return item.severity === "high"; })){
+    findings.push({ severity:"medium", code:"orphan_traceability", message:"High-severity traceability findings remain open.", count: traceFindings.filter(function(item){ return item.severity === "high"; }).length });
+  }
+  var assessment = findings.some(function(item){ return item.severity === "high"; }) ? "NO_GO" : findings.length ? "HOLD" : "GO";
+  return {
+    ok: true,
+    mode: "offline",
+    baselineId: baseline ? baseline.id : "",
+    assessment: assessment,
+    findings: findings,
+    summary: {
+      baselines: (DB.baselines || []).length,
+      backups: (DB.projectBackups || []).length,
+      auditEntries: (DB.auditLog || []).length,
+      missingCoverage: missingCoverage,
+      unresolvedHighImpacts: unresolvedHighImpacts,
+      criticalRisks: criticalRisks,
+      highTraceabilityFindings: traceFindings.filter(function(item){ return item.severity === "high"; }).length
+    }
+  };
+}
+
+function runReleasePreflight(baselineId){
+  return evaluateReleaseGate(baselineId);
+}
+
+function buildOperationalHealthSummary(){
+  var shape = validateDBShape(DB);
+  var traceRows = buildTraceabilityRows();
+  var traceFindings = findTraceabilityFindings(traceRows);
+  return {
+    dbShapeOk: shape.ok,
+    collectionCounts: _executionCollectionCounts(DB),
+    requirementLayers: {
+      customer: (DB.customerReqs || []).length,
+      system: (DB.sysReqs || []).length,
+      subsystem: (DB.subsysReqs || []).length,
+      software: (DB.swReqs || []).length,
+      mechanical: (DB.meReqs || []).length
+    },
+    traceability: {
+      rows: traceRows.length,
+      findings: traceFindings.length,
+      orphanRows: traceRows.filter(function(row){ return row.orphan; }).length
+    },
+    governance: {
+      baselines: (DB.baselines || []).length,
+      changeRequests: (DB.changeRequests || []).length,
+      backups: (DB.projectBackups || []).length,
+      releasePackages: (DB.releasePackages || []).length
+    }
+  };
 }
 
 function setVCRMFilter(key, value){
@@ -23418,6 +24096,22 @@ window.analyzeProjectImpact = analyzeProjectImpact;
 window.approveUpdateProposals = approveUpdateProposals;
 window.rejectUpdateProposals = rejectUpdateProposals;
 window.applyApprovedProposals = applyApprovedProposals;
+window.getRequirementOriginType = getRequirementOriginType;
+window.classifyRequirementSignals = classifyRequirementSignals;
+window.findRequirementRecord = findRequirementRecord;
+window.getRequirementLineage = getRequirementLineage;
+window.summarizeRequirementLineage = summarizeRequirementLineage;
+window.scoreRequirementReadiness = scoreRequirementReadiness;
+window.detectRequirementDecompositionGaps = detectRequirementDecompositionGaps;
+window.buildTraceabilityRows = buildTraceabilityRows;
+window.findTraceabilityFindings = findTraceabilityFindings;
+window.summarizeChangeRequestQuality = summarizeChangeRequestQuality;
+window.analyzeBaselineDeltaImpact = analyzeBaselineDeltaImpact;
+window.evaluateReleaseGate = evaluateReleaseGate;
+window.runReleasePreflight = runReleasePreflight;
+window.validateDBShape = validateDBShape;
+window.checkSaveLoadIntegrity = checkSaveLoadIntegrity;
+window.buildOperationalHealthSummary = buildOperationalHealthSummary;
 window.renderVCRM = renderVCRM;
 window.setVCRMFilter = setVCRMFilter;
 window.openAddRisk = openAddRisk;
