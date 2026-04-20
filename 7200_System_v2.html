@@ -3810,6 +3810,10 @@ tbody tr:hover { background: #f0f6ff; }
         <button class="btn btn-primary" onclick="manualSave()">💾 שמור עכשיו</button>
         <button class="btn btn-outline" onclick="loadFromFile()">📂 טען קובץ</button>
         <button class="btn btn-outline" onclick="exportJSON()">⬇️ ייצא JSON</button>
+        <button class="btn btn-outline" onclick="exportEngineeringReportPDF()">📄 Export PDF</button>
+        <button class="btn btn-outline" onclick="exportEngineeringReportDOCX()">📄 Export Word</button>
+        <button class="btn btn-outline" onclick="exportEngineeringReportExcel()">📊 Export Excel</button>
+        <button class="btn btn-outline" onclick="exportEngineeringReportJSON()">🧾 Export JSON</button>
         <button class="btn btn-danger" onclick="resetAll()">🗑️ אפס הכל</button>
       </div>
       <div style="margin-top:14px;font-size:13px;color:var(--g600);" id="settingsInfo"></div>
@@ -4430,6 +4434,1049 @@ function manualSave(){
   notify("קובץ נשמר ✓","ok");
 }
 function exportJSON(){manualSave();}
+function _downloadBlob(filename, blob){
+  var a = document.createElement("a");
+  var url = URL.createObjectURL(blob);
+  a.href = url;
+  a.download = filename;
+  a.click();
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+}
+function _reportBaseFilename(){
+  var base = String(DB._projectName || "engineering_report").trim().replace(/[^\w\-]+/g, "_");
+  return base || "engineering_report";
+}
+function _reportRequiredSwCategories(){
+  return ["Interface","BIT/BITE","UI/HMI","Message/Protocol","Fault Handling","Monitoring","Logging","Safety","Cybersecurity","Performance","Startup/Shutdown","Degraded Mode","Derived"];
+}
+function _reportString(value){
+  if(value === null || typeof value === "undefined") return "";
+  if(Array.isArray(value)) return value.join(", ");
+  if(typeof value === "object") return JSON.stringify(value);
+  return String(value);
+}
+function _xmlEsc(value){
+  return _reportString(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+function _pdfEsc(value){
+  return _reportString(value).replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)").replace(/[^\x20-\x7E]/g, "?");
+}
+function _crc32(bytes){
+  if(!_crc32._table){
+    var table = new Uint32Array(256);
+    for(var i=0;i<256;i++){
+      var c = i;
+      for(var j=0;j<8;j++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+      table[i] = c >>> 0;
+    }
+    _crc32._table = table;
+  }
+  var crc = 0xFFFFFFFF;
+  for(var k=0;k<bytes.length;k++) crc = _crc32._table[(crc ^ bytes[k]) & 0xFF] ^ (crc >>> 8);
+  return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+function _u16LE(value){
+  return new Uint8Array([value & 0xFF, (value >>> 8) & 0xFF]);
+}
+function _u32LE(value){
+  return new Uint8Array([value & 0xFF, (value >>> 8) & 0xFF, (value >>> 16) & 0xFF, (value >>> 24) & 0xFF]);
+}
+function _concatBytes(parts){
+  var total = parts.reduce(function(sum, part){ return sum + part.length; }, 0);
+  var out = new Uint8Array(total);
+  var offset = 0;
+  parts.forEach(function(part){
+    out.set(part, offset);
+    offset += part.length;
+  });
+  return out;
+}
+function _zipStore(entries){
+  var encoder = new TextEncoder();
+  var localParts = [];
+  var centralParts = [];
+  var offset = 0;
+  entries.forEach(function(entry){
+    var nameBytes = encoder.encode(entry.name);
+    var dataBytes = encoder.encode(entry.content);
+    var crc = _crc32(dataBytes);
+    var localHeader = _concatBytes([
+      _u32LE(0x04034b50), _u16LE(20), _u16LE(0), _u16LE(0),
+      _u16LE(0), _u16LE(0), _u32LE(crc), _u32LE(dataBytes.length), _u32LE(dataBytes.length),
+      _u16LE(nameBytes.length), _u16LE(0), nameBytes
+    ]);
+    localParts.push(localHeader, dataBytes);
+    var centralHeader = _concatBytes([
+      _u32LE(0x02014b50), _u16LE(20), _u16LE(20), _u16LE(0), _u16LE(0),
+      _u16LE(0), _u16LE(0), _u32LE(crc), _u32LE(dataBytes.length), _u32LE(dataBytes.length),
+      _u16LE(nameBytes.length), _u16LE(0), _u16LE(0), _u16LE(0), _u16LE(0), _u32LE(0), _u32LE(offset),
+      nameBytes
+    ]);
+    centralParts.push(centralHeader);
+    offset += localHeader.length + dataBytes.length;
+  });
+  var localBytes = _concatBytes(localParts);
+  var centralBytes = _concatBytes(centralParts);
+  var endRecord = _concatBytes([
+    _u32LE(0x06054b50), _u16LE(0), _u16LE(0),
+    _u16LE(entries.length), _u16LE(entries.length),
+    _u32LE(centralBytes.length), _u32LE(localBytes.length), _u16LE(0)
+  ]);
+  return _concatBytes([localBytes, centralBytes, endRecord]);
+}
+function _reportRequirementRows(report){
+  return []
+    .concat((report.requirements.customer || []).map(function(req){ return Object.assign({layer:"Customer"}, _cloneExecutionData(req)); }))
+    .concat((report.requirements.system || []).map(function(req){ return Object.assign({layer:"System"}, _cloneExecutionData(req)); }))
+    .concat((report.requirements.subsystem || []).map(function(req){ return Object.assign({layer:"Subsystem"}, _cloneExecutionData(req)); }))
+    .concat((report.requirements.software || []).map(function(req){ return Object.assign({layer:"Software"}, _cloneExecutionData(req)); }))
+    .concat((report.requirements.mechanical || []).map(function(req){ return Object.assign({layer:"Mechanical"}, _cloneExecutionData(req)); }));
+}
+function _reportFlattenRow(row, prefix, target){
+  target = target || {};
+  Object.keys(row || {}).forEach(function(key){
+    var value = row[key];
+    var flatKey = prefix ? (prefix + "." + key) : key;
+    if(value === null || typeof value === "undefined"){
+      target[flatKey] = "";
+    } else if(Array.isArray(value)){
+      target[flatKey] = value.map(function(item){
+        return typeof item === "object" ? JSON.stringify(item) : _reportString(item);
+      }).join(" | ");
+    } else if(typeof value === "object"){
+      _reportFlattenRow(value, flatKey, target);
+    } else {
+      target[flatKey] = value;
+    }
+  });
+  return target;
+}
+function _reportNormalizeRows(rows, defaults){
+  return (rows || []).map(function(row){
+    return _reportFlattenRow(Object.assign({}, defaults || {}, _cloneExecutionData(row || {})));
+  });
+}
+function _reportArchitectureComponentRows(report){
+  return _reportNormalizeRows(report.architecture.components || [], {rowType:"Component"});
+}
+function _reportArchitectureLinkRows(report){
+  return _reportNormalizeRows(report.architecture.links || [], {rowType:"Link"});
+}
+function _reportArchitectureRows(report){
+  return [].concat(_reportArchitectureComponentRows(report), _reportArchitectureLinkRows(report));
+}
+function _reportTraceabilityRows(report){
+  return (report.traceability.rows || []).map(function(row){
+    return _reportFlattenRow({
+      requirementId: row.requirementId || "",
+      layer: row.layer || "",
+      discipline: row.discipline || "",
+      originType: row.originType || "",
+      parentRid: row.parentRid || "",
+      allocation: row.allocation || "",
+      coverageStatus: row.coverageStatus || "",
+      vvLinks: row.linkCounts ? row.linkCounts.vv || 0 : 0,
+      architectureItems: row.linkCounts ? row.linkCounts.architecture || 0 : 0,
+      architectureLinks: row.linkCounts ? row.linkCounts.architectureLinks || 0 : 0,
+      riskLinks: row.linkCounts ? row.linkCounts.risks || 0 : 0,
+      icdLinks: row.linkCounts ? row.linkCounts.icd || 0 : 0,
+      readinessScore: row.readinessScore || 0,
+      qualityScore: row.qualityScore || 0,
+      orphan: !!row.orphan,
+      classificationTags: (row.classificationTags || []).join(", ")
+    });
+  });
+}
+function _reportFindingRows(report){
+  return (report.findings.items || []).map(function(item){
+    return _reportFlattenRow({
+      id: item.id || "",
+      type: item.type || "",
+      severity: item.severity || "",
+      domain: item.domain || "",
+      targetId: item.targetId || "",
+      message: item.message || "",
+      recommendation: item.recommendation || "",
+      evidence: (item.evidence || []).join(" | ")
+    });
+  });
+}
+function _reportGovernanceSummaryRows(report){
+  var summary = (report.governance && report.governance.summary) || {};
+  return [
+    {metric:"Baselines", value: summary.baselines || 0},
+    {metric:"Released baselines", value: summary.releasedBaselines || 0},
+    {metric:"Frozen baselines", value: summary.frozenBaselines || 0},
+    {metric:"Impact recommendations", value: summary.impactRecommendations || 0},
+    {metric:"Update proposals", value: summary.updateProposals || 0},
+    {metric:"Change requests", value: summary.changeRequests || 0},
+    {metric:"Release packages", value: summary.releasePackages || 0},
+    {metric:"Project backups", value: summary.projectBackups || 0},
+    {metric:"Audit entries", value: summary.auditEntries || 0}
+  ];
+}
+function _reportRowsToLines(rows){
+  return (rows || []).map(function(row){
+    var flat = _reportFlattenRow(row);
+    return Object.keys(flat).map(function(key){
+      return key + "=" + _reportString(flat[key]);
+    }).join(" | ");
+  });
+}
+function _buildEngineeringReportSections(report){
+  var summary = report.summary || {};
+  var project = report.project || {};
+  var release = report.release || {};
+  return [
+    {
+      title: "Cover / Summary",
+      lines: [
+        "Project: " + _reportString(project.name || report.projectName || "7200 Engineering Report"),
+        "Project ID: " + _reportString(project.id || ""),
+        "Export timestamp: " + _reportString(report.generatedAt || ""),
+        "Release status: " + _reportString(release.status || "draft"),
+        "Baseline status: " + _reportString(release.baselineStatus || ""),
+        "Customer requirements: " + (summary.customerRequirements || 0),
+        "System requirements: " + (summary.systemRequirements || 0),
+        "Subsystem requirements: " + (summary.subsystemRequirements || 0),
+        "Software requirements: " + (summary.softwareRequirements || 0),
+        "Mechanical requirements: " + (summary.mechanicalRequirements || 0),
+        "Architecture components: " + (summary.architectureComponents || 0),
+        "Architecture links: " + (summary.architectureLinks || 0),
+        "ICD rows: " + (summary.icd || 0),
+        "Risks: " + (summary.risks || 0),
+        "Residual risks: " + (summary.residualRisks || 0),
+        "Hazards: " + (summary.hazards || 0),
+        "V&V items: " + (summary.vv || 0),
+        "Traceability rows: " + (summary.traceabilityRows || 0),
+        "Findings: " + (summary.findings || 0),
+        "Impact recommendations: " + (summary.impactRecommendations || 0),
+        "Update proposals: " + (summary.updateProposals || 0),
+        "Change requests: " + (summary.changeRequests || 0),
+        "Release packages: " + (summary.releasePackages || 0),
+        "Project backups: " + (summary.projectBackups || 0),
+        "Audit entries: " + (summary.auditEntries || 0)
+      ]
+    },
+    {
+      title: "Customer Requirements",
+      lines: _reportRowsToLines(_reportNormalizeRows(report.requirements.customer || [], {layer:"Customer"}))
+    },
+    {
+      title: "System Requirements",
+      lines: _reportRowsToLines(_reportNormalizeRows(report.requirements.system || [], {layer:"System"}))
+    },
+    {
+      title: "Subsystem Requirements",
+      lines: _reportRowsToLines(_reportNormalizeRows(report.requirements.subsystem || [], {layer:"Subsystem"}))
+    },
+    {
+      title: "Software Requirements",
+      lines: _reportRowsToLines(_reportNormalizeRows(report.requirements.software || [], {layer:"Software"}))
+    },
+    {
+      title: "Mechanical Requirements",
+      lines: _reportRowsToLines(_reportNormalizeRows(report.requirements.mechanical || [], {layer:"Mechanical"}))
+    },
+    {
+      title: "Architecture Components",
+      lines: _reportRowsToLines(_reportArchitectureComponentRows(report))
+    },
+    {
+      title: "Architecture Links",
+      lines: _reportRowsToLines(_reportArchitectureLinkRows(report))
+    },
+    {
+      title: "ICD / Interfaces",
+      lines: _reportRowsToLines(_reportNormalizeRows(report.icd || []))
+    },
+    {
+      title: "Risks",
+      lines: _reportRowsToLines(_reportNormalizeRows(report.risks || []))
+    },
+    {
+      title: "Residual Risks",
+      lines: _reportRowsToLines(_reportNormalizeRows(report.residualRisks || []))
+    },
+    {
+      title: "Hazards",
+      lines: _reportRowsToLines(_reportNormalizeRows(report.hazards || []))
+    },
+    {
+      title: "V&V",
+      lines: _reportRowsToLines(_reportNormalizeRows(report.vv || []))
+    },
+    {
+      title: "Traceability",
+      lines: _reportRowsToLines(_reportTraceabilityRows(report))
+    },
+    {
+      title: "Findings",
+      lines: _reportRowsToLines(_reportFindingRows(report))
+    },
+    {
+      title: "Impact Recommendations",
+      lines: _reportRowsToLines(_reportNormalizeRows(report.impact || []))
+    },
+    {
+      title: "Update Proposals",
+      lines: _reportRowsToLines(_reportNormalizeRows(report.governance && report.governance.updateProposals || []))
+    },
+    {
+      title: "Governance Summary",
+      lines: _reportRowsToLines(_reportGovernanceSummaryRows(report))
+    },
+    {
+      title: "Baselines",
+      lines: _reportRowsToLines(_reportNormalizeRows(report.governance && report.governance.baselines || []))
+    },
+    {
+      title: "Change Requests",
+      lines: _reportRowsToLines(_reportNormalizeRows(report.governance && report.governance.changeRequests || []))
+    },
+    {
+      title: "Release Packages",
+      lines: _reportRowsToLines(_reportNormalizeRows(report.governance && report.governance.releasePackages || []))
+    },
+    {
+      title: "Project Backups",
+      lines: _reportRowsToLines(_reportNormalizeRows(report.governance && report.governance.projectBackups || []))
+    },
+    {
+      title: "Audit Summary",
+      lines: _reportRowsToLines(_reportNormalizeRows(report.governance && report.governance.auditSummaryRows || []))
+    }
+  ];
+}
+function _buildEngineeringReportText(report){
+  return _buildEngineeringReportSections(report).map(function(section){
+    return [section.title].concat(section.lines && section.lines.length ? section.lines : ["No data"]).join("\n");
+  }).join("\n\n");
+}
+function _xlsxColumnName(index){
+  var name = "";
+  var current = index + 1;
+  while(current > 0){
+    var remainder = (current - 1) % 26;
+    name = String.fromCharCode(65 + remainder) + name;
+    current = Math.floor((current - 1) / 26);
+  }
+  return name;
+}
+function _xlsxCellXml(ref, value){
+  if(value === null || typeof value === "undefined" || value === "") return '<c r="' + ref + '"/>';
+  if(typeof value === "number" && isFinite(value)) return '<c r="' + ref + '"><v>' + value + '</v></c>';
+  if(typeof value === "boolean") return '<c r="' + ref + '" t="b"><v>' + (value ? 1 : 0) + '</v></c>';
+  return '<c r="' + ref + '" t="inlineStr"><is><t xml:space="preserve">' + _xmlEsc(value) + '</t></is></c>';
+}
+function _xlsxWorksheetXml(rows){
+  var normalizedRows = Array.isArray(rows) ? rows : [];
+  var headers = normalizedRows.reduce(function(acc, row){
+    Object.keys(row || {}).forEach(function(key){
+      if(acc.indexOf(key) < 0) acc.push(key);
+    });
+    return acc;
+  }, []);
+  var allRows = [];
+  if(headers.length){
+    allRows.push(headers.reduce(function(acc, key){ acc[key] = key; return acc; }, {}));
+    normalizedRows.forEach(function(row){ allRows.push(row); });
+  } else {
+    allRows.push({note:"No data"});
+    headers = ["note"];
+  }
+  var rowXml = allRows.map(function(row, rowIndex){
+    var cells = headers.map(function(header, colIndex){
+      var ref = _xlsxColumnName(colIndex) + String(rowIndex + 1);
+      return _xlsxCellXml(ref, row[header]);
+    }).join("");
+    return '<row r="' + (rowIndex + 1) + '">' + cells + '</row>';
+  }).join("");
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>' + rowXml + '</sheetData></worksheet>';
+}
+function _xlsxWorkbookBytes(sheets){
+  var workbookSheetsXml = sheets.map(function(sheet, index){
+    return '<sheet name="' + _xmlEsc(sheet.name) + '" sheetId="' + (index + 1) + '" r:id="rId' + (index + 1) + '"/>';
+  }).join("");
+  var workbookRelsXml = sheets.map(function(sheet, index){
+    return '<Relationship Id="rId' + (index + 1) + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet' + (index + 1) + '.xml"/>';
+  }).join("");
+  var workbookEntries = [
+    {
+      name: "[Content_Types].xml",
+      content: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>' + sheets.map(function(sheet, index){ return '<Override PartName="/xl/worksheets/sheet' + (index + 1) + '.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'; }).join("") + '</Types>'
+    },
+    {
+      name: "_rels/.rels",
+      content: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/></Relationships>'
+    },
+    {
+      name: "docProps/core.xml",
+      content: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>7200 Engineering Report</dc:title><dc:creator>7200 Offline System</dc:creator></cp:coreProperties>'
+    },
+    {
+      name: "docProps/app.xml",
+      content: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><Application>7200 Offline System</Application><TitlesOfParts><vt:vector size="' + sheets.length + '" baseType="lpstr">' + sheets.map(function(sheet){ return '<vt:lpstr>' + _xmlEsc(sheet.name) + '</vt:lpstr>'; }).join("") + '</vt:vector></TitlesOfParts></Properties>'
+    },
+    {
+      name: "xl/workbook.xml",
+      content: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>' + workbookSheetsXml + '</sheets></workbook>'
+    },
+    {
+      name: "xl/_rels/workbook.xml.rels",
+      content: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' + workbookRelsXml + '</Relationships>'
+    }
+  ];
+  sheets.forEach(function(sheet, index){
+    workbookEntries.push({
+      name: "xl/worksheets/sheet" + (index + 1) + ".xml",
+      content: _xlsxWorksheetXml(sheet.rows)
+    });
+  });
+  return _zipStore(workbookEntries);
+}
+function _normalizeExportFinding(item, defaultDomain){
+  return {
+    id: item.id || uid(),
+    type: item.type || "finding",
+    severity: item.severity || "medium",
+    domain: item.domain || defaultDomain || "engineering",
+    targetId: item.targetId || item.requirementId || item.subsystem || item.linkId || item.category || "",
+    message: item.message || "",
+    evidence: Array.isArray(item.evidence) ? item.evidence.slice() : [],
+    recommendation: item.recommendation || ""
+  };
+}
+function _hasNonEmptyEngineeringCollections(){
+  return ["sysReqs","subsysReqs","swReqs","meReqs","arch","archLinks","risks","vv"].some(function(key){
+    return Array.isArray(DB[key]) && DB[key].length > 0;
+  });
+}
+function _reportSwCategoryFromAutonomous(req){
+  var text = String((req && (req.statement || req.title || "")) || "");
+  if(/(?:bit|bite|built[- ]?in test|self[- ]?test|health check|heartbeat)/i.test(text)) return "BIT/BITE";
+  if(/(?:ui|hmi|operator|display|screen|console|gui)/i.test(text)) return "UI/HMI";
+  if(/(?:message|packet|protocol|ethernet|udp|tcp|api|interface|can|1553|spi|i2c)/i.test(text)) return "Message/Protocol";
+  if(/(?:fault|invalid|timeout|retry|fallback|loss)/i.test(text)) return "Fault Handling";
+  if(/(?:monitor|watchdog|health|status)/i.test(text)) return "Monitoring";
+  if(/(?:log|record|trace|history)/i.test(text)) return "Logging";
+  if(/(?:safety|safe|fail-safe|inhibit|hazard)/i.test(text)) return "Safety";
+  if(/(?:cyber|security|integrity|trusted|authorization|auth)/i.test(text)) return "Cybersecurity";
+  if(/(?:latency|throughput|performance|timing|rate|cycle|response)/i.test(text)) return "Performance";
+  if(/(?:startup|shutdown|boot|initialize|stop)/i.test(text)) return "Startup/Shutdown";
+  if(/(?:degraded|fallback|reduced mode|partial)/i.test(text)) return "Degraded Mode";
+  if(req && req.classification === "interface") return "Interface";
+  return "Derived";
+}
+function _reportAutonomousRequirementToDb(req, layer){
+  var base = {
+    id: req.id || uid(),
+    rid: req.id || "",
+    level: layer === "software" || layer === "mechanical" ? "L2" : "L1",
+    domain: req.classification || req.domain || "",
+    desc: req.statement || req.title || "",
+    parentRid: req.sourceRequirement || req.parentRid || "",
+    allocation: req.domain || "",
+    subsystem: req.domain || "",
+    source: req.sourceCategory || "document-derived",
+    origin: "document-derived",
+    vv: req.verificationMethod || "",
+    status: "Draft"
+  };
+  if(layer === "software"){
+    base.swCategory = _reportSwCategoryFromAutonomous(req);
+    base.isDerived = true;
+  }
+  return base;
+}
+function _reportPreviewSuggestionData(category){
+  return (_analysisRecs || []).filter(function(rec){ return rec && rec.category === category && rec.data; }).map(function(rec){
+    return _cloneExecutionData(rec.data);
+  });
+}
+function _buildPreviewEngineeringReportSource(){
+  var auto = _lastAutonomousProjectResult ? _cloneExecutionData(_lastAutonomousProjectResult) : null;
+  var preview = {
+    requirements: {
+      system: _reportPreviewSuggestionData("sysReqs"),
+      subsystem: [].concat(_reportPreviewSuggestionData("subsysReqs"), _reportPreviewSuggestionData("subsystemReqs")),
+      software: _reportPreviewSuggestionData("swReqs"),
+      mechanical: _reportPreviewSuggestionData("meReqs")
+    },
+    architecture: {
+      components: _reportPreviewSuggestionData("arch"),
+      links: _reportPreviewSuggestionData("archLinks")
+    },
+    risks: _reportPreviewSuggestionData("risks"),
+    vv: _reportPreviewSuggestionData("vv"),
+    impact: [],
+    traceabilityRows: [],
+    findings: []
+  };
+  if(auto){
+    if(!preview.requirements.system.length){
+      preview.requirements.system = (auto.requirements || []).filter(function(req){ return req.domain !== "software" && req.domain !== "hardware"; }).map(function(req){
+        return _reportAutonomousRequirementToDb(req, "system");
+      });
+    }
+    if(!preview.requirements.software.length){
+      preview.requirements.software = (auto.requirements || []).filter(function(req){ return req.domain === "software"; }).map(function(req){
+        return _reportAutonomousRequirementToDb(req, "software");
+      });
+    }
+    if(!preview.requirements.mechanical.length){
+      preview.requirements.mechanical = (auto.requirements || []).filter(function(req){ return req.domain === "hardware"; }).map(function(req){
+        return _reportAutonomousRequirementToDb(req, "mechanical");
+      });
+    }
+    if(!preview.architecture.components.length){
+      preview.architecture.components = ((auto.architecture || {}).components || []).map(function(component){
+        return {
+          id: component.id || uid(),
+          name: component.name || "",
+          type: component.domain || "System",
+          subsystem: component.domain || "",
+          desc: (component.drivers || []).join(", "),
+          interfaces: "",
+          connections: "",
+          flowDesc: "",
+          status: "Preview"
+        };
+      });
+    }
+    if(!preview.architecture.links.length){
+      preview.architecture.links = ((auto.architecture || {}).dataFlows || []).map(function(flow){
+        return {
+          id: flow.id || uid(),
+          sourceComponent: flow.from || "",
+          targetComponent: flow.to || "",
+          flowName: flow.id || flow.description || "",
+          flowType: "data",
+          payloadOrMessage: flow.description || "",
+          frequencyOrRate: "",
+          protocolOrMedium: "",
+          voltageOrPower: "",
+          notes: "Preview flow derived from engineering ingestion",
+          status: "Preview"
+        };
+      });
+    }
+    if(!preview.risks.length){
+      preview.risks = (auto.risks || []).map(function(risk){
+        return {
+          id: risk.id || uid(),
+          desc: risk.description || "",
+          cat: risk.category || "document-derived",
+          impact: risk.impact || "",
+          sev: risk.severity === "high" ? 4 : risk.severity === "medium" ? 3 : 2,
+          prob: 3,
+          mitigation: risk.mitigation || "",
+          owner: risk.owner || "",
+          status: "open"
+        };
+      });
+    }
+    if(!preview.vv.length){
+      preview.vv = [].concat((auto.rtm || []).map(function(row){
+        return {
+          id: row.testId || uid(),
+          req: row.requirementId || "",
+          method: row.verificationMethod || "Analysis",
+          artifact: row.testId || "",
+          phase: "Preview",
+          owner: row.owner || "",
+          status: row.status || "Planned",
+          desc: "Preview verification candidate"
+        };
+      }), (((auto.testPlan || {}).testCases) || []).map(function(tc){
+        return {
+          id: tc.id || uid(),
+          req: tc.requirementId || "",
+          method: tc.verificationMethod || "Analysis",
+          artifact: tc.testId || tc.id || "",
+          phase: "Preview",
+          owner: tc.owner || "",
+          status: tc.status || "Planned",
+          desc: tc.name || tc.description || "Preview test case"
+        };
+      }));
+    }
+    preview.traceabilityRows = (auto.rtm || []).map(function(row){
+      var req = (auto.requirements || []).find(function(item){ return item.id === row.requirementId; }) || {};
+      var coverageStatus = row.coverage === "covered" ? "Covered" : row.coverage === "candidate" ? "Partial" : "Missing";
+      return {
+        requirementId: row.requirementId || "",
+        layer: req.domain === "software" ? "software" : req.domain === "hardware" ? "mechanical" : "system",
+        discipline: req.domain || "system",
+        originType: "document-derived",
+        parentRid: "",
+        allocation: req.domain || "",
+        status: req.priority || "",
+        measurable: !!req.measurable,
+        linked: coverageStatus !== "Missing",
+        verified: coverageStatus !== "Missing",
+        allocated: true,
+        orphan: false,
+        readinessScore: Number(req.confidenceScore || 0.6),
+        qualityScore: Number(req.confidenceScore || 0.6),
+        safetyCritical: req.classification === "safety",
+        interfaceCritical: req.classification === "interface",
+        verificationCritical: true,
+        classificationTags: req.classification ? [req.classification] : [],
+        upstreamCount: 0,
+        downstreamCount: 0,
+        linkCounts: {
+          vv: coverageStatus !== "Missing" ? 1 : 0,
+          architecture: ((auto.architecture || {}).components || []).length ? 1 : 0,
+          architectureLinks: ((auto.architecture || {}).dataFlows || []).length ? 1 : 0,
+          risks: (auto.risks || []).length ? 1 : 0,
+          icd: ((auto.architecture || {}).interfaces || []).length ? 1 : 0
+        },
+        coverageStatus: coverageStatus,
+        notes: [],
+        sourceRequirement: req
+      };
+    });
+    preview.findings = (auto.gaps || []).map(function(gap){
+      return _normalizeExportFinding({
+        id: gap.id,
+        type: gap.category || "preview_gap",
+        severity: gap.severity || "medium",
+        domain: "ingestion_preview",
+        targetId: (gap.relatedRequirementIds || [])[0] || "",
+        message: gap.description || "",
+        evidence: gap.relatedRequirementIds || [],
+        recommendation: gap.suggestedAction || ""
+      }, "ingestion_preview");
+    });
+  }
+  return preview;
+}
+var _lastEngineeringExportSnapshot = null;
+function captureEngineeringDBSnapshot(label, options){
+  options = options || {};
+  var counts = {
+    customerReqs: (DB.customerReqs || []).length,
+    sysReqs: (DB.sysReqs || []).length,
+    subsysReqs: (DB.subsysReqs || []).length,
+    swReqs: (DB.swReqs || []).length,
+    meReqs: (DB.meReqs || []).length,
+    arch: (DB.arch || []).length,
+    archLinks: (DB.archLinks || []).length,
+    risks: (DB.risks || []).length,
+    vv: (DB.vv || []).length
+  };
+  var snapshot = {
+    label: label || "engineering_snapshot",
+    timestamp: options.timestamp || new Date().toISOString(),
+    sourceMode: options.sourceMode || "db",
+    counts: counts,
+    sampleIds: {
+      customerReqs: (DB.customerReqs || []).slice(0, 3).map(function(item){ return item.rid || item.id || ""; }),
+      sysReqs: (DB.sysReqs || []).slice(0, 3).map(function(item){ return item.rid || item.id || ""; }),
+      subsysReqs: (DB.subsysReqs || []).slice(0, 3).map(function(item){ return item.rid || item.id || ""; }),
+      swReqs: (DB.swReqs || []).slice(0, 3).map(function(item){ return item.rid || item.id || ""; }),
+      meReqs: (DB.meReqs || []).slice(0, 3).map(function(item){ return item.rid || item.id || ""; }),
+      arch: (DB.arch || []).slice(0, 3).map(function(item){ return item.name || item.id || ""; }),
+      archLinks: (DB.archLinks || []).slice(0, 3).map(function(item){ return item.id || ((item.sourceComponent || "") + "->" + (item.targetComponent || "")); }),
+      risks: (DB.risks || []).slice(0, 3).map(function(item){ return item.id || item.req || item.desc || ""; }),
+      vv: (DB.vv || []).slice(0, 3).map(function(item){ return item.id || item.req || item.artifact || ""; })
+    },
+    reportSummary: null
+  };
+  _lastEngineeringExportSnapshot = snapshot;
+  return _cloneExecutionData(snapshot);
+}
+function getEngineeringDBSnapshot(){
+  return _cloneExecutionData(_lastEngineeringExportSnapshot);
+}
+function _reportReleaseState(){
+  var baselines = DB.baselines || [];
+  var released = baselines.filter(function(item){ return item && item.status === "released"; });
+  var frozen = baselines.filter(function(item){ return item && item.status === "frozen"; });
+  var latest = baselines.slice().sort(function(a, b){
+    return String((b && b.timestamp) || "").localeCompare(String((a && a.timestamp) || ""));
+  })[0] || null;
+  return {
+    status: released.length ? "released" : frozen.length ? "frozen" : latest ? (latest.status || "draft") : "draft",
+    baselineStatus: latest ? (latest.status || "draft") : "",
+    baselineId: latest ? (latest.id || "") : "",
+    baselineName: latest ? (latest.name || "") : "",
+    approvedBy: latest ? (latest.approvedBy || "") : ""
+  };
+}
+function _reportAuditSummaryRows(){
+  var counts = {};
+  (DB.auditLog || []).forEach(function(entry){
+    var action = String((entry && entry.action) || "unknown");
+    counts[action] = (counts[action] || 0) + 1;
+  });
+  return Object.keys(counts).sort().map(function(action){
+    return {action: action, count: counts[action]};
+  });
+}
+function _buildPdfBytesFromLines(lines){
+  var pageHeight = 792;
+  var pageWidth = 612;
+  var linesPerPage = 46;
+  var pageLines = [];
+  var allLines = lines && lines.length ? lines.slice() : ["No data"];
+  while(allLines.length) pageLines.push(allLines.splice(0, linesPerPage));
+  if(!pageLines.length) pageLines = [["No data"]];
+  var objects = [];
+  var fontId = 3 + (pageLines.length * 2);
+  objects.push("1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj");
+  var kidsRefs = [];
+  var nextObjectId = 3;
+  pageLines.forEach(function(page, index){
+    var pageId = nextObjectId++;
+    var contentId = nextObjectId++;
+    kidsRefs.push(pageId + " 0 R");
+    var contentLines = ["BT", "/F1 9 Tf", "40 770 Td"];
+    page.forEach(function(line, lineIndex){
+      if(lineIndex > 0) contentLines.push("0 -15 Td");
+      contentLines.push("(" + _pdfEsc(line) + ") Tj");
+    });
+    contentLines.push("ET");
+    var stream = contentLines.join("\n");
+    objects.push(pageId + " 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 " + pageWidth + " " + pageHeight + "] /Resources << /Font << /F1 " + fontId + " 0 R >> >> /Contents " + contentId + " 0 R >> endobj");
+    objects.push(contentId + " 0 obj << /Length " + stream.length + " >> stream\n" + stream + "\nendstream endobj");
+  });
+  objects.splice(1, 0, "2 0 obj << /Type /Pages /Count " + pageLines.length + " /Kids [" + kidsRefs.join(" ") + "] >> endobj");
+  objects.push(fontId + " 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj");
+  var pdf = "%PDF-1.4\n";
+  var offsets = [0];
+  objects.forEach(function(obj){
+    offsets.push(pdf.length);
+    pdf += obj + "\n";
+  });
+  var xrefOffset = pdf.length;
+  pdf += "xref\n0 " + (objects.length + 1) + "\n";
+  pdf += "0000000000 65535 f \n";
+  for(var i = 1; i < offsets.length; i++) pdf += String(offsets[i]).padStart(10, "0") + " 00000 n \n";
+  pdf += "trailer << /Size " + (objects.length + 1) + " /Root 1 0 R >>\nstartxref\n" + xrefOffset + "\n%%EOF";
+  return pdf;
+}
+function buildEngineeringReportData(options){
+  options = options || {};
+  var usePreviewFallback = !_hasNonEmptyEngineeringCollections() && ((_analysisRecs || []).length > 0 || !!_lastAutonomousProjectResult);
+  var previewSource = usePreviewFallback ? _buildPreviewEngineeringReportSource() : null;
+  var reportCustomerReqs = usePreviewFallback ? [] : _cloneExecutionData(DB.customerReqs || []);
+  var reportSystemReqs = usePreviewFallback ? previewSource.requirements.system : _cloneExecutionData(DB.sysReqs || []);
+  var reportSubsysReqs = usePreviewFallback ? previewSource.requirements.subsystem : _cloneExecutionData(DB.subsysReqs || []);
+  var reportSwReqs = usePreviewFallback ? previewSource.requirements.software : _cloneExecutionData(DB.swReqs || []);
+  var reportMeReqs = usePreviewFallback ? previewSource.requirements.mechanical : _cloneExecutionData(DB.meReqs || []);
+  var reportArch = usePreviewFallback ? previewSource.architecture.components : _cloneExecutionData(DB.arch || []);
+  var reportArchLinks = usePreviewFallback ? previewSource.architecture.links : _cloneExecutionData(DB.archLinks || []);
+  var reportIcd = usePreviewFallback ? _reportPreviewSuggestionData("icd") : _cloneExecutionData(DB.icd || []);
+  var reportRisks = usePreviewFallback ? previewSource.risks : _cloneExecutionData(DB.risks || []);
+  var reportResidualRisks = usePreviewFallback ? [] : _cloneExecutionData(DB.residualRisks || []);
+  var reportHazards = usePreviewFallback ? [] : _cloneExecutionData(DB.hazards || []);
+  var reportVv = usePreviewFallback ? previewSource.vv : _cloneExecutionData(DB.vv || []);
+  var reportImpact = usePreviewFallback ? (previewSource.impact || []) : _cloneExecutionData(DB.impactRecommendations || []);
+  var reportUpdateProposals = usePreviewFallback ? [] : _cloneExecutionData(DB.updateProposals || []);
+  var reportBaselines = usePreviewFallback ? [] : _cloneExecutionData(DB.baselines || []);
+  var reportChangeRequests = usePreviewFallback ? [] : _cloneExecutionData(DB.changeRequests || []);
+  var reportReleasePackages = usePreviewFallback ? [] : _cloneExecutionData(DB.releasePackages || []);
+  var reportProjectBackups = usePreviewFallback ? [] : _cloneExecutionData(DB.projectBackups || []);
+  var reportAuditLog = usePreviewFallback ? [] : _cloneExecutionData(DB.auditLog || []);
+  var traceRows = usePreviewFallback ? _cloneExecutionData(previewSource.traceabilityRows || []) : buildTraceabilityRows();
+  var traceFindings = usePreviewFallback ? _cloneExecutionData(previewSource.findings || []) : findTraceabilityFindings(traceRows);
+  var findings = traceFindings.map(function(item){ return _normalizeExportFinding(item, "traceability"); });
+  var componentNames = reportArch.map(function(item){ return String(item && item.name || "").trim(); }).filter(Boolean);
+  var componentSet = componentNames.reduce(function(acc, name){ acc[name] = true; return acc; }, {});
+  var subsystemReqs = [].concat(reportSubsysReqs || [], reportSwReqs || [], reportMeReqs || []);
+  var subsystemNames = subsystemReqs.map(function(req){ return String((req && (req.subsystem || req.allocation)) || "").trim(); }).filter(Boolean);
+  var presentSubsystems = reportArch.map(function(item){ return String((item && item.subsystem) || "").trim(); }).filter(Boolean)
+    .reduce(function(acc, name){ acc[name] = true; return acc; }, {});
+  subsystemNames.forEach(function(name){
+    if(!presentSubsystems[name]){
+      findings.push(_normalizeExportFinding({
+        type: "empty_subsystem",
+        severity: "medium",
+        domain: "architecture",
+        targetId: name,
+        message: 'Subsystem "' + name + '" has no architecture component coverage.',
+        evidence: ['subsystem=' + name, 'architectureComponents=0'],
+        recommendation: "Review subsystem allocation and architecture decomposition."
+      }, "architecture"));
+    }
+  });
+  (reportArchLinks || []).forEach(function(link){
+    var source = String(link && link.sourceComponent || "").trim();
+    var target = String(link && link.targetComponent || "").trim();
+    if(!source || !target || !componentSet[source] || !componentSet[target]){
+      findings.push(_normalizeExportFinding({
+        type: "inconsistent_link",
+        severity: "high",
+        domain: "architecture",
+        targetId: link.id || source + "->" + target,
+        message: "Architecture link references missing component endpoints.",
+        evidence: ['source=' + source, 'target=' + target, 'knownComponents=' + componentNames.length],
+        recommendation: "Review source and target component mapping before release."
+      }, "architecture"));
+    }
+  });
+  var presentSwCategories = (reportSwReqs || []).map(function(req){ return String((req && req.swCategory) || "").trim(); }).filter(Boolean)
+    .reduce(function(acc, name){ acc[name] = true; return acc; }, {});
+  _reportRequiredSwCategories().forEach(function(category){
+    if(!presentSwCategories[category]){
+      findings.push(_normalizeExportFinding({
+        type: "missing_sw_category",
+        severity: "medium",
+        domain: "software",
+        targetId: category,
+        message: 'Software requirement category "' + category + '" is missing from the current project set.',
+        evidence: ['swCategory=' + category, 'present=false'],
+        recommendation: "Review software decomposition coverage for the missing category."
+      }, "software"));
+    }
+  });
+  var deduped = {};
+  findings = findings.filter(function(item){
+    var key = [item.type, item.targetId, item.message].join("|");
+    if(deduped[key]) return false;
+    deduped[key] = true;
+    return true;
+  }).sort(function(a, b){
+    return [a.type, a.targetId, a.message].join("|").localeCompare([b.type, b.targetId, b.message].join("|"));
+  });
+  var report = {
+    generatedAt: options.generatedAt || DB._savedAt || null,
+    projectName: DB._projectName || "7200 Engineering Report",
+    project: {
+      id: (DB.project && (DB.project.id || DB.project.code)) || "",
+      name: DB._projectName || (DB.project && DB.project.name) || "7200 Engineering Report",
+      phase: DB.project && DB.project.phase || "",
+      status: DB.project && DB.project.status || "",
+      savedAt: DB._savedAt || null
+    },
+    release: _reportReleaseState(),
+    requirements: {
+      customer: _cloneExecutionData(reportCustomerReqs || []),
+      system: _cloneExecutionData(reportSystemReqs || []),
+      subsystem: _cloneExecutionData(reportSubsysReqs || []),
+      software: _cloneExecutionData(reportSwReqs || []),
+      mechanical: _cloneExecutionData(reportMeReqs || [])
+    },
+    architecture: {
+      components: _cloneExecutionData(reportArch || []),
+      links: _cloneExecutionData(reportArchLinks || [])
+    },
+    icd: _cloneExecutionData(reportIcd || []),
+    risks: _cloneExecutionData(reportRisks || []),
+    residualRisks: _cloneExecutionData(reportResidualRisks || []),
+    hazards: _cloneExecutionData(reportHazards || []),
+    vv: _cloneExecutionData(reportVv || []),
+    impact: _cloneExecutionData(reportImpact || []),
+    governance: {
+      impactRecommendations: _cloneExecutionData(reportImpact || []),
+      updateProposals: _cloneExecutionData(reportUpdateProposals || []),
+      baselines: _cloneExecutionData(reportBaselines || []),
+      changeRequests: _cloneExecutionData(reportChangeRequests || []),
+      releasePackages: _cloneExecutionData(reportReleasePackages || []),
+      projectBackups: _cloneExecutionData(reportProjectBackups || []),
+      auditSummaryRows: _cloneExecutionData(_reportAuditSummaryRows()),
+      auditEntries: _cloneExecutionData(reportAuditLog || []),
+      summary: {
+        baselines: reportBaselines.length,
+        releasedBaselines: reportBaselines.filter(function(item){ return item && item.status === "released"; }).length,
+        frozenBaselines: reportBaselines.filter(function(item){ return item && item.status === "frozen"; }).length,
+        impactRecommendations: reportImpact.length,
+        updateProposals: reportUpdateProposals.length,
+        changeRequests: reportChangeRequests.length,
+        releasePackages: reportReleasePackages.length,
+        projectBackups: reportProjectBackups.length,
+        auditEntries: reportAuditLog.length
+      }
+    },
+    traceability: {
+      rows: _cloneExecutionData(traceRows),
+      summary: {
+        total: traceRows.length,
+        missingVV: traceRows.filter(function(row){ return row.coverageStatus === "Missing"; }).length,
+        missingArchitecture: traceRows.filter(function(row){ return ((row.linkCounts && ((row.linkCounts.architecture || 0) + (row.linkCounts.architectureLinks || 0))) || 0) === 0; }).length,
+        missingRisks: traceRows.filter(function(row){ return row.safetyCritical && row.linkCounts && row.linkCounts.risks === 0; }).length
+      }
+    },
+    findings: {
+      items: findings,
+      summary: {
+        total: findings.length,
+        high: findings.filter(function(item){ return item.severity === "high"; }).length,
+        medium: findings.filter(function(item){ return item.severity === "medium"; }).length,
+        low: findings.filter(function(item){ return item.severity === "low"; }).length
+      }
+    }
+  };
+  report.summary = {
+    customerRequirements: report.requirements.customer.length,
+    systemRequirements: report.requirements.system.length,
+    subsystemRequirements: report.requirements.subsystem.length,
+    softwareRequirements: report.requirements.software.length,
+    mechanicalRequirements: report.requirements.mechanical.length,
+    architectureComponents: report.architecture.components.length,
+    architectureLinks: report.architecture.links.length,
+    icd: report.icd.length,
+    risks: report.risks.length,
+    residualRisks: report.residualRisks.length,
+    hazards: report.hazards.length,
+    vv: report.vv.length,
+    impactRecommendations: report.impact.length,
+    updateProposals: report.governance.updateProposals.length,
+    baselines: report.governance.baselines.length,
+    changeRequests: report.governance.changeRequests.length,
+    releasePackages: report.governance.releasePackages.length,
+    projectBackups: report.governance.projectBackups.length,
+    auditEntries: report.governance.auditEntries.length,
+    traceabilityRows: report.traceability.rows.length,
+    findings: report.findings.items.length
+  };
+  return report;
+}
+function exportEngineeringReportJSON(options){
+  options = options || {};
+  var snapshot = captureEngineeringDBSnapshot(options.snapshotLabel || "exportEngineeringReportJSON:pre", { sourceMode: "db" });
+  var report = buildEngineeringReportData(options);
+  snapshot.reportSummary = _cloneExecutionData(report.summary || {});
+  snapshot.counts.traceabilityRows = report.traceability && report.traceability.rows ? report.traceability.rows.length : 0;
+  _lastEngineeringExportSnapshot = _cloneExecutionData(snapshot);
+  var json = JSON.stringify(report, null, 2);
+  if(options.download !== false){
+    _downloadBlob(_reportBaseFilename() + "_engineering_report.json", new Blob([json], {type:"application/json"}));
+    notify("דוח הנדסי יוצא ל-JSON ✓","ok");
+  }
+  return {
+    ok: true,
+    filename: _reportBaseFilename() + "_engineering_report.json",
+    format: "json",
+    report: report,
+    textPreview: json
+  };
+}
+function exportEngineeringReportExcel(options){
+  options = options || {};
+  var snapshot = captureEngineeringDBSnapshot(options.snapshotLabel || "exportEngineeringReportExcel:pre", { sourceMode: "db" });
+  var report = buildEngineeringReportData(options);
+  snapshot.reportSummary = _cloneExecutionData(report.summary || {});
+  snapshot.counts.traceabilityRows = report.traceability && report.traceability.rows ? report.traceability.rows.length : 0;
+  _lastEngineeringExportSnapshot = _cloneExecutionData(snapshot);
+  var sheets = [
+    {name:"Summary", rows:_reportNormalizeRows([report.summary])},
+    {name:"Customer Requirements", rows:_reportNormalizeRows(report.requirements.customer || [], {layer:"Customer"})},
+    {name:"System Requirements", rows:_reportNormalizeRows(report.requirements.system || [], {layer:"System"})},
+    {name:"Subsystem Requirements", rows:_reportNormalizeRows(report.requirements.subsystem || [], {layer:"Subsystem"})},
+    {name:"Software Requirements", rows:_reportNormalizeRows(report.requirements.software || [], {layer:"Software"})},
+    {name:"Mechanical Requirements", rows:_reportNormalizeRows(report.requirements.mechanical || [], {layer:"Mechanical"})},
+    {name:"Architecture Components", rows:_reportArchitectureComponentRows(report)},
+    {name:"Architecture Links", rows:_reportArchitectureLinkRows(report)},
+    {name:"ICD", rows:_reportNormalizeRows(report.icd || [])},
+    {name:"Risks", rows:_reportNormalizeRows(report.risks || [])},
+    {name:"Residual Risks", rows:_reportNormalizeRows(report.residualRisks || [])},
+    {name:"V&V", rows:_reportNormalizeRows(report.vv || [])},
+    {name:"Traceability", rows:_reportTraceabilityRows(report)},
+    {name:"Findings", rows:_reportFindingRows(report)},
+    {name:"Impact Recommendations", rows:_reportNormalizeRows(report.impact || [])},
+    {name:"Update Proposals", rows:_reportNormalizeRows(report.governance.updateProposals || [])},
+    {name:"Governance Summary", rows:_reportNormalizeRows(_reportGovernanceSummaryRows(report))}
+  ];
+  var wbArray = _xlsxWorkbookBytes(sheets);
+  if(options.download !== false){
+    _downloadBlob(_reportBaseFilename() + "_engineering_report.xlsx", new Blob([wbArray], {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));
+    notify("דוח הנדסי יוצא ל-Excel ✓","ok");
+  }
+  return {
+    ok: true,
+    filename: _reportBaseFilename() + "_engineering_report.xlsx",
+    format: "xlsx",
+    report: report,
+    sheetNames: sheets.map(function(sheet){ return sheet.name; }),
+    workbookBytes: wbArray
+  };
+}
+function exportEngineeringReportPDF(options){
+  options = options || {};
+  var snapshot = captureEngineeringDBSnapshot(options.snapshotLabel || "exportEngineeringReportPDF:pre", { sourceMode: "db" });
+  var report = buildEngineeringReportData(options);
+  snapshot.reportSummary = _cloneExecutionData(report.summary || {});
+  snapshot.counts.traceabilityRows = report.traceability && report.traceability.rows ? report.traceability.rows.length : 0;
+  _lastEngineeringExportSnapshot = _cloneExecutionData(snapshot);
+  var lines = _buildEngineeringReportSections(report).reduce(function(acc, section){
+    acc.push(section.title);
+    (section.lines && section.lines.length ? section.lines : ["No data"]).forEach(function(line){ acc.push(line); });
+    acc.push("");
+    return acc;
+  }, []);
+  var pdf = _buildPdfBytesFromLines(lines);
+  if(options.download !== false){
+    _downloadBlob(_reportBaseFilename() + "_engineering_report.pdf", new Blob([pdf], {type:"application/pdf"}));
+    notify("דוח הנדסי יוצא ל-PDF ✓","ok");
+  }
+  return {
+    ok: true,
+    filename: _reportBaseFilename() + "_engineering_report.pdf",
+    format: "pdf",
+    report: report,
+    sections: _buildEngineeringReportSections(report),
+    textPreview: _buildEngineeringReportText(report)
+  };
+}
+function exportEngineeringReportDOCX(options){
+  options = options || {};
+  var snapshot = captureEngineeringDBSnapshot(options.snapshotLabel || "exportEngineeringReportDOCX:pre", { sourceMode: "db" });
+  var report = buildEngineeringReportData(options);
+  snapshot.reportSummary = _cloneExecutionData(report.summary || {});
+  snapshot.counts.traceabilityRows = report.traceability && report.traceability.rows ? report.traceability.rows.length : 0;
+  _lastEngineeringExportSnapshot = _cloneExecutionData(snapshot);
+  var sections = _buildEngineeringReportSections(report);
+  var bodyXml = sections.map(function(section){
+    var paragraphXml = ['<w:p><w:r><w:t>' + _xmlEsc(section.title) + '</w:t></w:r></w:p>'];
+    (section.lines && section.lines.length ? section.lines : ["No data"]).forEach(function(line){
+      paragraphXml.push('<w:p><w:r><w:t xml:space="preserve">' + _xmlEsc(line) + '</w:t></w:r></w:p>');
+    });
+    return paragraphXml.join("");
+  }).join("");
+  var entries = [
+    {
+      name: "[Content_Types].xml",
+      content: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/></Types>'
+    },
+    {
+      name: "_rels/.rels",
+      content: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/></Relationships>'
+    },
+    {
+      name: "docProps/core.xml",
+      content: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>' + _xmlEsc(report.projectName) + '</dc:title><dc:creator>7200 Offline System</dc:creator><cp:lastModifiedBy>7200 Offline System</cp:lastModifiedBy></cp:coreProperties>'
+    },
+    {
+      name: "docProps/app.xml",
+      content: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><Application>7200 Offline System</Application></Properties>'
+    },
+    {
+      name: "word/document.xml",
+      content: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>' + bodyXml + '<w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr></w:body></w:document>'
+    }
+  ];
+  var docxBytes = _zipStore(entries);
+  if(options.download !== false){
+    _downloadBlob(_reportBaseFilename() + "_engineering_report.docx", new Blob([docxBytes], {type:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"}));
+    notify("דוח הנדסי יוצא ל-Word ✓","ok");
+  }
+  return {
+    ok: true,
+    filename: _reportBaseFilename() + "_engineering_report.docx",
+    format: "docx",
+    report: report,
+    sections: sections,
+    byteLength: docxBytes.length
+  };
+}
 function loadFromFile(){document.getElementById("fileInput").click();}
 function handleFileLoad(e){
   var f=e.target.files[0];if(!f)return;
@@ -19731,6 +20778,258 @@ function normalizePastedEngineeringText(input) {
   };
 }
 
+function _isEngineeringNoiseLine(line) {
+  var t = String(line || "").replace(/\s+/g, " ").trim();
+  if (!t) return true;
+  if (t.length < 4) return true;
+  if (/^(?:page|עמוד)\s+\d+(?:\s+of\s+\d+)?$/i.test(t)) return true;
+  if (/^(?:table of contents|contents|revision history|document control|distribution list|approval|approvals|signature|signatures|prepared by|approved by|authors?)$/i.test(t)) return true;
+  if (/^(?:glossary|acronyms?|abbreviations?|terms and definitions|רשימת קיצורים|ראשי תיבות|מונחים והגדרות)$/i.test(t)) return true;
+  if (/^(?:appendix|annex)\s+[a-z0-9]+$/i.test(t)) return true;
+  if (/^(?:figure|table)\s+\d+[a-z]?(?:[.: -].*)?$/i.test(t)) return true;
+  if (/^(?:rev(?:ision)?|version|doc(?:ument)?(?: no\.?| number)?|classification|company confidential|proprietary|copyright)\b/i.test(t)) return true;
+  if (/^(?:approved|reviewed|prepared)\s+by[: ]/i.test(t)) return true;
+  if (/^(?:toc|index)\b/i.test(t)) return true;
+  if (/^[\d ._-]{3,}$/.test(t)) return true;
+  if (/^(?:crs|syrs|srs|icd|vv|sspp|fha|fmea|sar|sem[p]?)[ -]?(?:rev|version)?\b/i.test(t) && t.length < 40 && !/\bshall\b/i.test(t)) return true;
+  if (/^(?:term|acronym|abbreviation)\s*[|:]/i.test(t)) return true;
+  if (/^(?:[A-Z]{2,10}|[A-Z]{2,10}-\d+)\s+[A-Z][A-Z ]{3,}$/.test(t) && !/\bshall\b/i.test(t)) return true;
+  return false;
+}
+
+function _normalizeRequirementStatementText(line) {
+  var text = String(line || "").replace(/\s+/g, " ").trim();
+  text = text.replace(/^[\-\u2022*]+\s*/, "");
+  text = text.replace(/^(?:\d+(?:\.\d+){0,4}|[A-Z])[\)\].:-]\s+/, "");
+  text = text.replace(/^(?:requirement|req|דרישה)\s*[:#-]\s*/i, "");
+  text = text.replace(/^((?:crs|sys|syrs|srs|sw|me|subsys|icd|vv|urs|prd|srd)[-_ ]?\d+(?:\.\d+)?)\s*[:\-–]\s*/i, "");
+  return text.trim();
+}
+
+function _extractRequirementIdFromLine(line) {
+  var match = String(line || "").match(/\b((?:CRS|SYS|SyRS|SRS|SW|ME|SUBSYS|URS|PRD|SRD|REQ)[-_ ]?\d+(?:\.\d+)*)\b/i);
+  return match ? match[1].replace(/\s+/g, "-").toUpperCase() : "";
+}
+
+function _isStrictCustomerRequirementCandidate(line) {
+  var text = String(line || "").trim();
+  if (!text || _isEngineeringNoiseLine(text)) return false;
+  if (!/^CRS-\d+(?:\.\d+)*\b/i.test(text)) return false;
+  if (!/\bshall\b/i.test(text)) return false;
+  if (/^(?:crs-\d+(?:\.\d+)*\s*[:\-]?\s*)?(?:table of contents|contents|glossary|acronyms?|abbreviations?|revision history|document control|approvals?)$/i.test(text)) return false;
+  return true;
+}
+
+function _classifyEngineeringSection(line) {
+  var t = String(line || "").toLowerCase();
+  if (_isEngineeringNoiseLine(line)) return "";
+  if (/risk|hazard|safety|mil-std-882|sspp|fha|fmea|sar|unsafe|fail-safe|בטיחות|סיכון|סכנה/.test(t)) return "safety";
+  if (/interface|icd|api|protocol|message|ethernet|rest|websocket|nmea|stanag|ais|metadata|acknowledg|time sync|health message|archive export|interoperability|ממשק/.test(t)) return "interface";
+  if (/software|algorithm|firmware|database|ui|hmi|console|startup|shutdown|bit|bite|cyber|security|תוכנה/.test(t)) return "software";
+  if (/mechanical|hardware|thermal|vibration|shock|connector|enclosure|ip rating|emc|emi|power|mount|bracket|מכני|חומרה/.test(t)) return "hardware";
+  if (/verification|validation|acceptance|fat|sat|qualification|inspection|analysis|demonstration|vv|אימות|בדיקות/.test(t)) return "verification";
+  if (/architecture|component|subsystem|node|deployment|gateway|sensor|radar|eo\/ir|ais|communications backbone|operator console|mission computer|ארכיטקטורה/.test(t)) return "architecture";
+  if (/customer|operational|mission|system requirement|crs|urd|conops|לקוח/.test(t)) return "customer";
+  return "";
+}
+
+function _canonicalEngineeringSectionName(text) {
+  var t = String(text || "").toLowerCase().replace(/[_\-]+/g, " ").replace(/\s+/g, " ").trim();
+  if (!t) return "";
+  if (/scope/.test(t)) return "scope";
+  if (/operational|conops|mission/.test(t)) return "operational";
+  if (/architecture|deployment|node/.test(t)) return "architecture";
+  if (/performance|latency|throughput|accuracy|timing/.test(t)) return "performance";
+  if (/interface|icd|api|protocol|message|rest|websocket|nmea|stanag|ais|interoperability/.test(t)) return "interface";
+  if (/cyber|security|information assurance/.test(t)) return "cyber";
+  if (/safety|hazard|mil-std-882|unsafe/.test(t)) return "safety";
+  if (/environment|emc|emi|thermal|shock|vibration/.test(t)) return "environment";
+  if (/software|algorithm|firmware/.test(t)) return "software";
+  if (/mechanical|hardware|enclosure|mount/.test(t)) return "mechanical";
+  if (/bit\/?bite|health monitoring|built in test/.test(t)) return "bit";
+  if (/verification|validation|v&v|fat|sat|qualification|inspection|demonstration/.test(t)) return "verification";
+  if (/\bram\b|reliability|availability|maintainability/.test(t)) return "ram";
+  if (/\bils\b|training|logistics|supportability/.test(t)) return "ils";
+  if (/customer requirements?|crs/.test(t)) return "customer";
+  return "";
+}
+
+function _detectEngineeringSectionHeading(line) {
+  var raw = String(line || "").replace(/\s+/g, " ").trim();
+  if (!raw || _isEngineeringNoiseLine(raw)) return null;
+  var direct = _canonicalEngineeringSectionName(raw);
+  if (direct) return { name: direct, title: raw, numbered: false, index: "" };
+  var match = raw.match(/^(?:section\s+)?(\d+(?:\.\d+)*)\s*[\)\].:-]?\s*(.+)$/i);
+  if (!match) return null;
+  var title = String(match[2] || "").trim();
+  var named = _canonicalEngineeringSectionName(title);
+  if (!named) return null;
+  return { name: named, title: title, numbered: true, index: match[1] };
+}
+
+function _parseEngineeringDocumentSections(text) {
+  var lines = String(text || "").replace(/\r\n?/g, "\n").split("\n");
+  var sections = [];
+  var byLine = [];
+  var sectionLines = {};
+  var current = "";
+  lines.forEach(function(rawLine, idx) {
+    var line = String(rawLine || "").replace(/\s+/g, " ").trim();
+    var heading = _detectEngineeringSectionHeading(line);
+    if (heading) {
+      current = heading.name;
+      sections.push({
+        name: heading.name,
+        title: heading.title,
+        index: heading.index || "",
+        lineIndex: idx
+      });
+      byLine[idx] = current;
+      if (!sectionLines[current]) sectionLines[current] = [];
+      return;
+    }
+    byLine[idx] = current || "";
+    if (!current || !line || _isEngineeringNoiseLine(line)) return;
+    if (!sectionLines[current]) sectionLines[current] = [];
+    sectionLines[current].push(line);
+  });
+  return {
+    sections: sections,
+    byLine: byLine,
+    sectionLines: sectionLines
+  };
+}
+
+function _getEngineeringSectionText(sectionModel, name) {
+  if (!sectionModel || !sectionModel.sectionLines) return "";
+  return ((sectionModel.sectionLines[name] || []).join("\n")).trim();
+}
+
+function _mapSectionToRequirementDomain(section) {
+  var key = String(section || "").toLowerCase();
+  if (key === "software" || key === "cyber" || key === "bit") return "software";
+  if (key === "mechanical" || key === "environment") return "hardware";
+  if (key === "customer" || key === "operational" || key === "scope") return "customer";
+  return "system";
+}
+
+function _mapSectionToRequirementClass(section) {
+  var key = String(section || "").toLowerCase();
+  if (key === "interface") return "interface";
+  if (key === "safety") return "safety";
+  if (key === "performance" || key === "environment" || key === "ram") return "non_functional";
+  return "";
+}
+
+function _isRequirementCandidateLine(line, section) {
+  var t = String(line || "").trim();
+  if (!t || _isEngineeringNoiseLine(t)) return false;
+  if (t.length < 18 || t.length > 420) return false;
+  if (/^(?:table of contents|contents|glossary|acronyms?|abbreviations?)$/i.test(t)) return false;
+  if (/^(?:shall|must|required|יידרש|חייב|נדרש)/i.test(t)) return true;
+  if (/\bshall\b|\bmust\b|\brequired\b|נדרש ש|חייב ש|יש ל|shall support|shall provide|shall detect|shall comply|shall maintain/i.test(t)) return true;
+  if (_extractRequirementIdFromLine(t) && /\bshall\b|\bmust\b|נדרש|חייב|יש ל/i.test(t)) return true;
+  if (section === "verification" && /\b(test|inspection|analysis|demonstration|fat|sat|qualification|acceptance)\b/i.test(t) && /\bshall\b/i.test(t)) return true;
+  return false;
+}
+
+function _extractSpecRequirementCandidates(text) {
+  var lines = String(text || "").replace(/\r\n?/g, "\n").split("\n");
+  var sectionModel = _parseEngineeringDocumentSections(text);
+  var candidates = [];
+  var seen = {};
+  var section = "";
+  lines.forEach(function(rawLine, idx) {
+    var line = String(rawLine || "").replace(/\s+/g, " ").trim();
+    if (!line) return;
+    var nextSection = sectionModel.byLine[idx] || _classifyEngineeringSection(line);
+    if (nextSection) {
+      section = nextSection;
+      if (!_isRequirementCandidateLine(line, section)) return;
+    }
+    if (!_isRequirementCandidateLine(line, section)) return;
+    var rid = _extractRequirementIdFromLine(line);
+    var statement = _normalizeRequirementStatementText(line);
+    if (!statement || statement.length < 18) return;
+    var key = ((rid || "") + "|" + statement.toLowerCase().replace(/\s+/g, " ")).trim();
+    if (seen[key]) return;
+    seen[key] = true;
+    var strictCustomer = _isStrictCustomerRequirementCandidate(line);
+    candidates.push({
+      rid: rid,
+      statement: statement,
+      section: strictCustomer ? "customer" : (section || "system"),
+      isCustomer: strictCustomer,
+      sourceLine: line
+    });
+  });
+  return candidates;
+}
+
+function _extractMentionedComponentNames(text) {
+  var line = String(text || "");
+  var specs = [
+    { name:"Sensor Node", rx:/sensor node/i, domain:"system" },
+    { name:"Radar", rx:/\bradar\b/i, domain:"hardware" },
+    { name:"EO/IR", rx:/eo\/ir|electro[- ]optical|infrared/i, domain:"hardware" },
+    { name:"Passive RF Sensor", rx:/passive rf|rf sensor|receiver frontend|rf front end/i, domain:"hardware" },
+    { name:"AIS Receiver", rx:/\bais\b/i, domain:"hardware" },
+    { name:"Gateway", rx:/gateway|bridge/i, domain:"system" },
+    { name:"Mission Computer", rx:/mission computer|mission processor|processing node/i, domain:"software" },
+    { name:"Operator Console", rx:/operator console|console|hmi|operator workstation/i, domain:"software" },
+    { name:"Archive Service", rx:/archive service|archive|recorder|storage service|evidence retention/i, domain:"software" },
+    { name:"Time Server", rx:/time server|time sync|ntp|ptp|synchronization/i, domain:"system" },
+    { name:"Communications Backbone", rx:/communications backbone|ethernet backbone|network backbone|communications bus/i, domain:"system" },
+    { name:"Power Distribution", rx:/power distribution|28vdc|power supply|battery|power subsystem/i, domain:"hardware" },
+    { name:"Mechanical Assembly", rx:/mechanical assembly|enclosure|mounting|bracket|connector panel/i, domain:"hardware" }
+  ];
+  return specs.filter(function(spec){ return spec.rx.test(line); }).map(function(spec){ return { name: spec.name, domain: spec.domain }; });
+}
+
+function _inferInterfaceEndpoints(text) {
+  var names = _extractMentionedComponentNames(text);
+  return {
+    source: names[0] ? names[0].name : "External System",
+    target: names[1] ? names[1].name : (names[0] ? "Mission Computer" : "Mission Computer"),
+    domain: names[0] ? names[0].domain : "system"
+  };
+}
+
+function _inferVerificationMethodForText(text, reqClass, domain) {
+  var line = String(text || "").toLowerCase();
+  if (/inspect|inspection|connector|mount|enclosure|label|drawing|ip rating|בדיקה ויזואלית/.test(line)) return "Inspection";
+  if (/analysis|calculation|thermal|emc|emi|weight|mtbf|ram|stress|qualification by analysis/.test(line)) return "Analysis";
+  if (/demonstrat|operator|startup|shutdown|fail-safe|degraded mode|handover|recovery/.test(line)) return "Demonstration";
+  if (reqClass === "safety" && !/(latency|rate|ms|sec|hz|accuracy|throughput|voltage|temperature)/.test(line)) return "Analysis";
+  if (domain === "hardware" && /temperature|thermal|vibration|shock|emc|emi|power/.test(line)) return "Analysis";
+  return "Test";
+}
+
+function _inferVerificationPhaseForText(text, method) {
+  var line = String(text || "").toLowerCase();
+  if (/fat|factory acceptance/.test(line)) return "FAT";
+  if (/sat|site acceptance/.test(line)) return "SAT";
+  if (/qualification|mil-std|environment|emc|emi|thermal|vibration|shock/.test(line)) return "Qualification";
+  if (/pdr|analysis/.test(line) && method === "Analysis") return "PDR";
+  if (/cdr|design/.test(line)) return "CDR";
+  return method === "Analysis" ? "CDR" : "Verification";
+}
+
+function _shouldGenerateHazardForText(text) {
+  return /hazard|unsafe|fail-safe|safe state|loss of communication|single point of failure|loss of synchronization|cyber compromise|sensor failure|power loss|operator overload|environmental|emi|emc|false classification|false alert|evidence retention|forensic/i.test(String(text || "").toLowerCase());
+}
+
+function _deriveHazardTitle(text) {
+  var line = _normalizeRequirementStatementText(text);
+  if (/loss of communication/i.test(line)) return "Loss of communication hazard";
+  if (/unsafe command/i.test(line)) return "Unsafe command execution hazard";
+  if (/power loss/i.test(line)) return "Power loss hazard";
+  if (/cyber/i.test(line)) return "Cyber compromise hazard";
+  if (/emi|emc/i.test(line)) return "EMI/EMC susceptibility hazard";
+  if (/false classification|false alert/i.test(line)) return "False classification or alert hazard";
+  return line.substring(0, 96);
+}
+
 function buildAnalysisSource(opts) {
   var inputType = opts && opts.inputType ? opts.inputType : 'file';
   var sourceName = (opts && opts.sourceName) || (inputType === 'pasted_text' ? 'Pasted Text' : 'Document');
@@ -19792,7 +21091,7 @@ function buildAnalysisSummary(source, recs) {
   var counts = {};
   (recs || []).forEach(function(rec) { counts[rec.category] = (counts[rec.category] || 0) + 1; });
   var bits = [];
-  ["sysReqs","swReqs","meReqs","arch","icd","vv","risks","hazards","analyses","tasks","actions","ncr"].forEach(function(cat) {
+  ["customerReqs","sysReqs","subsysReqs","swReqs","meReqs","arch","archLinks","icd","vv","risks","hazards","residualRisks","analyses","tasks","actions","ncr"].forEach(function(cat) {
     if (counts[cat]) bits.push(cat + ": " + counts[cat]);
   });
   if (source && source.metadata && source.metadata.removedLines && source.metadata.removedLines.length) bits.push("filtered noise: " + source.metadata.removedLines.length);
@@ -19914,6 +21213,8 @@ function executeAnalysisForSource(source) {
         recommendationCount: (result.recs || []).length
       }
     }), { openModal: false });
+    result.recs = _mergeEngineeringIngestionSuggestions((result && result.recs) || [], result.autonomousProject, source);
+    result.summary = buildAnalysisSummary(source, result.recs);
     showRecommendations(result.recs, source.normalizedText, source.sourceName, result.summary);
     return result;
   }).catch(function(err) {
@@ -20131,6 +21432,11 @@ function analyzeDocumentLocal(text, filename) {
   var recs = [];
   var docType = detectDocType(text, filename);
   var lines = text.split(/\n/).map(function(l){return l.trim();}).filter(function(l){return l.length>8;});
+  var sectionModel = _parseEngineeringDocumentSections(text);
+  var verificationSectionText = _getEngineeringSectionText(sectionModel, "verification");
+  var interfaceSectionText = _getEngineeringSectionText(sectionModel, "interface");
+  var safetySectionText = _getEngineeringSectionText(sectionModel, "safety");
+  var reqCandidates = _extractSpecRequirementCandidates(text);
   var reqN = (DB.sysReqs||[]).length; var vvN = (DB.vv||[]).length;
   var rkN = (DB.risks||[]).length; var hzN = (DB.hazards||[]).length;
   var acN = (DB.actions||[]).length; var tkN = (DB.tasks||[]).length;
@@ -20140,81 +21446,117 @@ function analyzeDocumentLocal(text, filename) {
   var docId = "DOC-" + _docBase;
 
   // ── A. Requirements ──────────────────────────────────────────
-  var reqLines = lines.filter(function(l){
-    return (/(?:המערכת|הרכיב|המוצר|הפריט|הציוד)\s+(?:ת[א-ת]|י[א-ת]|צריכ)/.test(l)||
-      /(?:shall|must|will\s+provide|required to|needs to)\s+\S/i.test(l)||
-      /(?:^|\s)(?:דרישה|requirement|req)[:\s#\-\d]/i.test(l)||
-      /(?:יש ל|נדרש ש|חייב ל|SRS|SyRS|CRS|URD)[:\-\s]/.test(l))&&l.length>15&&l.length<400;
-  });
-  reqLines.forEach(function(line,i){
+  reqCandidates.forEach(function(candidate,i){
+    var line = candidate.statement;
+    var sourceSection = candidate.section || "";
     var n = reqN+i+1;
-    var crsId = "CRS-"+String(n).padStart(3,"0");
+    var hasExplicitCustomerRid = !!(candidate.isCustomer && candidate.rid && /^CRS-|^URS-|^PRD-|^SRD-/i.test(candidate.rid));
+    var crsId = hasExplicitCustomerRid ? candidate.rid : "";
     var sysId = "SYS-"+String(n).padStart(3,"0");
     var vvId  = "VV-" +String(vvN+i+1).padStart(3,"0");
     var short = line.length>80?line.substring(0,78)+"...":line;
-    var dom = /(?:בטיחות|safety)/i.test(line)?"בטיחות":
-              /(?:ממשק|interface)/i.test(line)?"ממשק":
-              /(?:ביצועים|performance)/i.test(line)?"ביצועים":"פונקציונלי";
-    // Customer req
-    recs.push({id:uid(),category:"sysReqs",catLabel:"דרישות לקוח (CRS)",action:"add",priority:"high",
-      title:"דרישת לקוח "+crsId+": "+short,description:line,
-      chain:"→ גוזר "+sysId+" + "+vvId,
-      data:{id:uid(),rid:crsId,level:"L0",domain:dom,desc:line,l0:docId,vv:"Test",status:"Draft"}});
+    var dom = sourceSection === "safety" ? "בטיחות" :
+              sourceSection === "interface" ? "ממשק" :
+              sourceSection === "performance" || sourceSection === "environment" ? "ביצועים" :
+              /(?:בטיחות|safety|hazard|fail-safe)/i.test(line)?"בטיחות":
+              /(?:ממשק|interface|protocol|api|ethernet|nmea|stanag|ais)/i.test(line)?"ממשק":
+              /(?:ביצועים|performance|latency|accuracy|bandwidth|throughput|power|temperature|emc|emi)/i.test(line)?"ביצועים":"פונקציונלי";
+    var verificationContextText = [line, verificationSectionText].filter(Boolean).join(" ");
+    var method = _inferVerificationMethodForText(verificationContextText, mapRequirementClass(line, {category:'customerReqs'}), mapRequirementDomain(line, {category:'customerReqs'}));
+    var phase = _inferVerificationPhaseForText(verificationContextText, method);
+    if(candidate.isCustomer){
+      recs.push({id:uid(),category:"customerReqs",catLabel:"דרישות לקוח (CRS)",action:"add",priority:"high",
+        title:"דרישת לקוח "+crsId+": "+short,description:line,
+        chain:"→ גוזר "+sysId+" + "+vvId,
+        data:{id:uid(),rid:crsId,level:"L0",domain:dom,desc:line,l0:docId,source:docId,originType:"customer",sourceSection:sourceSection,vv:method,status:"Draft"}});
+    }
     // Derived system req
     recs.push({id:uid(),category:"sysReqs",catLabel:"דרישות מערכת (SYS)",action:"add",priority:"high",
-      title:"דרישת מערכת "+sysId+" (נגזרת מ-"+crsId+")",
-      description:"המערכת תיישם: "+line.substring(0,120),chain:"נגזרת מ-"+crsId,
+      title:"דרישת מערכת "+sysId+(crsId ? " (נגזרת מ-"+crsId+")" : ""),
+      description:line,chain:crsId ? "נגזרת מ-"+crsId : "נגזרת ממסמך מקור",
       data:{id:uid(),rid:sysId,level:"L1",domain:dom,
-            desc:"המערכת תיישם: "+line.substring(0,120),l0:crsId,vv:"Test",status:"Draft"}});
+            desc:line,l0:crsId || docId,parentRid:crsId,source:docId,originType:"derived",sourceSection:sourceSection,vv:method,vvPhase:phase,status:"Draft"}});
     // V&V
+    var vvReqRef = crsId ? (crsId+","+sysId) : sysId;
     recs.push({id:uid(),category:"vv",catLabel:"V&V — אימות ואיסות",action:"add",priority:"medium",
-      title:"V&V "+vvId+" עבור "+crsId,description:"אימות ש"+line.substring(0,100),
-      chain:"מאמת "+crsId+" ו-"+sysId,
-      data:{id:uid(),req:crsId+","+sysId,method:"Test",artifact:"ATP-"+crsId,
-            phase:"SAT",owner:"",status:"Planned"}});
+      title:"V&V "+vvId+" עבור "+(crsId || sysId),description:"אימות ש"+line.substring(0,100),
+      chain:crsId ? ("מאמת "+crsId+" ו-"+sysId) : ("מאמת "+sysId),
+      data:{id:uid(),req:vvReqRef,method:method,artifact:(method === "Inspection" ? "ITP-" : method === "Analysis" ? "AN-" : "ATP-")+(crsId || sysId),
+            phase:phase,owner:method === "Inspection" ? "ME" : method === "Analysis" ? "SE" : "V&V",status:"Planned",sourceSection:"verification",
+            acceptanceCriteria:"Demonstrate compliance of "+(crsId || sysId)+" using "+method}});
     // SW/ME discipline reqs
-    if(/(?:תוכנה|software|sw|ממשק|api|algorithm|אלגוריתם)/i.test(line)){
+    if(sourceSection === "software" || sourceSection === "cyber" || sourceSection === "bit" || /(?:תוכנה|software|sw|ממשק|api|algorithm|אלגוריתם|message|protocol|startup|shutdown|bit|bite|cyber|degraded)/i.test(line)){
       var swId="SWR-"+String(n).padStart(3,"0");
       recs.push({id:uid(),category:"swReqs",catLabel:"דרישות תוכנה (SRS)",action:"add",priority:"high",
-        title:"דרישת תוכנה "+swId,description:"נגזרת מ-"+sysId+": "+line.substring(0,120),
+        title:"דרישת תוכנה "+swId,description:line.substring(0,120),
         chain:"נגזרת מ-"+sysId,
-        data:{id:uid(),rid:swId,level:"L2",domain:"פונקציונלי",
-              desc:"נגזרת מ-"+sysId+": "+line.substring(0,120),l0:sysId,vv:"Test",status:"Draft"}});
+        data:{id:uid(),rid:swId,level:"L2",domain:"פונקציונלי",parentRid:sysId,subsystem:_inferEngineeringSubsystem({statement:line}),swCategory:"Derived",
+              desc:line.substring(0,120),l0:sysId,sourceSection:sourceSection,vv:_inferVerificationMethodForText(verificationContextText, "functional", "software"),status:"Draft"}});
     }
-    if(/(?:מכני|mechanical|חומר|material|משקל|weight|טמפרטורה|temperature|לחץ|pressure)/i.test(line)){
+    if(sourceSection === "mechanical" || sourceSection === "environment" || /(?:מכני|mechanical|חומר|material|משקל|weight|טמפרטורה|temperature|לחץ|pressure|vibration|shock|thermal|connector|emc|emi|mount|enclosure|power)/i.test(line)){
       var meId="MER-"+String(n).padStart(3,"0");
       recs.push({id:uid(),category:"meReqs",catLabel:"דרישות מכניות (MRS)",action:"add",priority:"high",
-        title:"דרישה מכנית "+meId,description:"נגזרת מ-"+sysId+": "+line.substring(0,120),
+        title:"דרישה מכנית "+meId,description:line.substring(0,120),
         chain:"נגזרת מ-"+sysId,
-        data:{id:uid(),rid:meId,level:"L2",domain:"מבני",
-              desc:"נגזרת מ-"+sysId+": "+line.substring(0,120),l0:sysId,vv:"Inspection",status:"Draft"}});
+        data:{id:uid(),rid:meId,level:"L2",domain:"מבני",parentRid:sysId,subsystem:"Mechanical Assembly",
+              desc:line.substring(0,120),l0:sysId,sourceSection:sourceSection,vv:_inferVerificationMethodForText(verificationContextText, "non_functional", "hardware"),status:"Draft"}});
     }
   });
 
-  // ── B. Risks ─────────────────────────────────────────────────
+  // ── B. ICD / interface extraction ───────────────────────────
+  var interfaceSeeds = reqCandidates.filter(function(candidate){
+    return candidate.section === "interface";
+  }).map(function(candidate){
+    return { line: candidate.statement, rid: candidate.rid || "" };
+  });
+  (sectionModel.sectionLines.interface || []).forEach(function(line){
+    interfaceSeeds.push({ line: line, rid: _extractRequirementIdFromLine(line) });
+  });
+  var icdSeen = {};
+  interfaceSeeds.forEach(function(seed, idx){
+    var seedLine = String(seed && seed.line || "").trim();
+    if (!seedLine) return;
+    if (!/(?:api|protocol|message|rest|websocket|nmea|stanag|ais|health message|archive export|command acknowledg|track message|payload)/i.test(seedLine + " " + interfaceSectionText)) return;
+    var endpoints = _inferInterfaceEndpoints(seedLine);
+    var key = seedLine.toLowerCase();
+    if (icdSeen[key]) return;
+    icdSeen[key] = true;
+    recs.push({id:uid(),category:"icd",catLabel:"ICD / ממשקים",action:"add",priority:"high",
+      title:"ICD "+String(idx+1).padStart(3,"0"),description:seedLine.substring(0,140),chain:"נגזר מסעיף ממשקים / ICD",
+      data:{id:uid(),name:seedLine.substring(0,72),a:endpoints.source,b:endpoints.target,
+            type:/power|connector|serial/i.test(seedLine)?"HW":"SW",
+            protocol:(seedLine.match(/rest|websocket|nmea|stanag(?:\s*\d+)?|ais|ethernet|udp|tcp|can|serial/i)||[""])[0],
+            payload:(seedLine.match(/track message|command acknowledgment|health message|archive export|payload/i)||[""])[0],
+            ver:"Rev A",status:"Draft",notes:"Section-driven ICD extraction from "+filename,linkedReq:seed.rid || ""}});
+  });
+
+  // ── C. Risks ─────────────────────────────────────────────────
   lines.filter(function(l){
-    return /(?:סיכון|risk|בעיה|issue|עיכוב|delay|כשל|failure|השפעה|impact)/i.test(l)
+    var lineSection = _classifyEngineeringSection(l);
+    return !_isEngineeringNoiseLine(l) && ((lineSection === "safety") || /(?:סיכון|risk|בעיה|issue|עיכוב|delay|כשל|failure|השפעה|impact|loss of communication|single point of failure|cyber|emi|emc|power loss|false alert|false classification|unsafe command|degraded mode)/i.test(l))
       &&l.length>12&&l.length<350;
   }).forEach(function(line,i){
     recs.push({id:uid(),category:"risks",catLabel:"סיכונים",action:"add",priority:"high",
       title:"סיכון: "+line.substring(0,55),description:line,chain:"",
-      data:{id:uid(),desc:line.substring(0,120),cat:"טכני",impact:"בינוני",
-            sev:3,prob:3,mitigation:"נדרש ניתוח — ממסמך: "+filename,owner:"",status:"open"}});
+      data:{id:uid(),desc:line.substring(0,180),cat:/cyber|security/i.test(line)?"Cybersecurity":/emi|emc/i.test(line)?"EMI/EMC":/power/i.test(line)?"Power":"Technical",impact:"Derived from source requirement context",
+            sev:/hazard|unsafe|single point|power loss|cyber/i.test(line)?4:3,prob:/shall|must|required/i.test(line)?2:3,mitigation:"Allocate verification and design mitigation from "+filename,detection:"Derived local analysis",owner:"SE",status:"open",
+            req:_extractRequirementIdFromLine(line)}});
   });
 
-  // ── C. Hazards ───────────────────────────────────────────────
+  // ── D. Hazards ───────────────────────────────────────────────
   lines.filter(function(l){
-    return /(?:סכנה|hazard|בטיחות|safety|פגיעה|injury|נזק|radiation|חשמל|toxic)/i.test(l)
+    var lineSection = _classifyEngineeringSection(l);
+    return !_isEngineeringNoiseLine(l) && ((lineSection === "safety") || /(?:סכנה|hazard|בטיחות|safety|פגיעה|injury|נזק|radiation|חשמל|toxic|unsafe|fail-safe|loss of communication|single point of failure|cyber compromise|power loss|emi|emc|degraded mode|operator overload)/i.test(l))
       &&l.length>10&&l.length<300;
   }).forEach(function(line,i){
     recs.push({id:uid(),category:"hazards",catLabel:"בטיחות — Hazard Log (T613)",action:"add",
       priority:"critical",title:"סכנה: "+line.substring(0,55),description:line,
       chain:"→ נדרש ניתוח FMEA/FHA",
-      data:{id:uid(),desc:line.substring(0,100),cause:"נדרש ניתוח",
-            effect:"נדרש ניתוח",sev:3,prob:2,mitigation:"TBD — ממסמך: "+filename,status:"פתוח"}});
+      data:{id:uid(),desc:_deriveHazardTitle(line),cause:"Derived from source safety trigger",linkedReq:_extractRequirementIdFromLine(line),
+            effect:"Potential unsafe or mission-degrading consequence",sev:/unsafe|injury|single point|power loss/i.test(line)?4:3,prob:/shall|must|required/i.test(line)?2:3,mitigation:"Derive safety control and verification from "+filename,status:"פתוח"}});
   });
 
-  // ── D. Actions ───────────────────────────────────────────────
+  // ── E. Actions ───────────────────────────────────────────────
   lines.filter(function(l){
     return /(?:לבצע|לממש|להכין|להשלים|לבדוק|לאשר|action|todo)/i.test(l)&&l.length>10&&l.length<250;
   }).forEach(function(line,i){
@@ -20224,7 +21566,7 @@ function analyzeDocumentLocal(text, filename) {
             source:filename,owner:"",due:"",priority:"medium",status:"open"}});
   });
 
-  // ── E. Tasks from milestones ─────────────────────────────────
+  // ── F. Tasks from milestones ─────────────────────────────────
   lines.filter(function(l){
     return /(?:אבן דרך|milestone|תאריך יעד|deadline|delivery|PDR|CDR|SRR|TRR|FAT|SAT)/i.test(l)
       &&l.length>5&&l.length<200;
@@ -20235,7 +21577,7 @@ function analyzeDocumentLocal(text, filename) {
             priority:"high",status:"todo",pct:0,notes:"ממסמך: "+filename}});
   });
 
-  // ── F. BOM (design docs) ──────────────────────────────────────
+  // ── G. BOM (design docs) ──────────────────────────────────────
   if(docType==="design"){
     lines.filter(function(l){
       return /(?:רכיב|component|part number|p\/n|assembly|module|מודול)/i.test(l)&&l.length<180;
@@ -20247,7 +21589,7 @@ function analyzeDocumentLocal(text, filename) {
     });
   }
 
-  // ── G. NCR ───────────────────────────────────────────────────
+  // ── H. NCR ───────────────────────────────────────────────────
   lines.filter(function(l){
     return /(?:אי-התאמה|ncr|non-conformance|חריגה|deviation|ממצא|finding|תקלה)/i.test(l)
       &&l.length>10&&l.length<300;
@@ -20258,7 +21600,7 @@ function analyzeDocumentLocal(text, filename) {
             root:"TBD",capa:"TBD",opened:today(),owner:"",status:"פתוח"}});
   });
 
-  // ── H. Add doc to engDocs ─────────────────────────────────────
+  // ── I. Add doc to engDocs ─────────────────────────────────────
   recs.push({id:uid(),category:"engDocs",catLabel:"מסמכים",action:"add",priority:"low",
     title:"הוסף לרשימת מסמכים: "+filename,
     description:"שמירת המסמך שהועלה ברשומות המסמכים",chain:"",
@@ -20424,27 +21766,48 @@ function summarizeRequirementSource(rec) {
 
 function buildStructuredRequirements(analysisResult) {
   var recs = (analysisResult && analysisResult.recs) || [];
+  var sourceText = String((((analysisResult || {}).source || {}).normalizedText) || "");
+  var sourceCandidates = _extractSpecRequirementCandidates(sourceText).map(function(candidate){
+    return {
+      category: candidate.isCustomer ? "customerReqs" : "sysReqs",
+      priority: "high",
+      title: candidate.rid || candidate.statement.substring(0, 90),
+      description: candidate.statement,
+      data: {
+        rid: candidate.rid || "",
+        level: candidate.isCustomer ? "L0" : "L1",
+        desc: candidate.statement,
+        sourceSection: candidate.section,
+        originType: candidate.isCustomer ? "customer" : "document-derived"
+      }
+    };
+  });
+  var mergedRecs = recs.concat(sourceCandidates);
   var seen = {};
-  var counters = { system: (DB.sysReqs || []).length, software: (DB.swReqs || []).length, hardware: (DB.meReqs || []).length, interface: (DB.icd || []).length };
+  var counters = { customer: (DB.customerReqs || []).length, system: (DB.sysReqs || []).length, software: (DB.swReqs || []).length, hardware: (DB.meReqs || []).length, interface: (DB.icd || []).length };
   var requirements = [];
-  recs.forEach(function(rec) {
+  mergedRecs.forEach(function(rec) {
     if (!rec) return;
-    var relevant = /^(?:sysReqs|swReqs|meReqs|icd|arch|vv|risks|hazards)$/.test(rec.category || '');
+    var relevant = /^(?:customerReqs|sysReqs|swReqs|meReqs|icd|arch|vv|risks|hazards)$/.test(rec.category || '');
     if (!relevant) return;
     var sourceText = summarizeRequirementSource(rec);
     if (!sourceText || sourceText.length < 12) return;
-    var reqClass = mapRequirementClass(sourceText, rec);
-    var domain = mapRequirementDomain(sourceText, rec);
+    var sourceSection = String((rec.data && rec.data.sourceSection) || '').trim().toLowerCase();
+    var sectionClass = _mapSectionToRequirementClass(sourceSection);
+    var sectionDomain = _mapSectionToRequirementDomain(sourceSection);
+    var reqClass = sectionClass || mapRequirementClass(sourceText, rec);
+    var domain = (rec.category === "customerReqs") ? "customer" : (sectionDomain && sectionDomain !== "customer" ? sectionDomain : mapRequirementDomain(sourceText, rec));
     var measurable = isRequirementMeasurable(sourceText);
     var riskLevel = inferRiskLevel(sourceText, rec);
     var dedupeKey = [reqClass, domain, sourceText.replace(/\s+/g, ' ').toLowerCase()].join('|');
     if (seen[dedupeKey]) return;
     seen[dedupeKey] = true;
     counters[domain] = (counters[domain] || 0) + 1;
-    var prefix = domain === 'software' ? 'SWR' : domain === 'hardware' ? 'HWR' : 'SYS';
+    var prefix = domain === 'customer' ? 'CRS' : domain === 'software' ? 'SWR' : domain === 'hardware' ? 'HWR' : 'SYS';
     if (reqClass === 'interface') prefix = 'IFR';
     if (reqClass === 'safety') prefix = 'SFR';
-    var reqId = prefix + '-' + String(counters[domain]).padStart(3, '0');
+    var explicitRid = String((rec.data && rec.data.rid) || '').trim();
+    var reqId = explicitRid || (prefix + '-' + String(counters[domain]).padStart(3, '0'));
     requirements.push({
       id: reqId,
       title: sourceText.substring(0, 90),
@@ -20456,9 +21819,16 @@ function buildStructuredRequirements(analysisResult) {
       sourceCategory: rec.category,
       sourceTitle: rec.title || '',
       priority: normalizeAutonomousPriority(rec.priority),
-      verificationMethod: (rec.data && rec.data.vv) || ((rec.category === 'vv' && rec.data && rec.data.method) ? rec.data.method : (measurable ? 'Test' : 'Analysis')),
+      verificationMethod: (rec.data && (rec.data.vv || rec.data.method)) || _inferVerificationMethodForText(sourceText, reqClass, domain),
+      verificationPhase: (rec.data && rec.data.vvPhase) || _inferVerificationPhaseForText(sourceText, (rec.data && (rec.data.vv || rec.data.method)) || _inferVerificationMethodForText(sourceText, reqClass, domain)),
       coverage: rec.category === 'vv' ? 'covered' : 'candidate',
-      rationale: measurable ? 'Contains measurable or bounded engineering language' : 'Needs refinement for measurable acceptance criteria'
+      rationale: measurable ? 'Contains measurable or bounded engineering language' : 'Needs refinement for measurable acceptance criteria',
+      parentRid: (rec.data && (rec.data.parentRid || rec.data.l0)) || '',
+      sourceRid: explicitRid,
+      sourceSection: sourceSection,
+      originType: (rec.data && rec.data.originType) || (rec.category === 'customerReqs' ? 'customer' : 'document-derived'),
+      allocationHint: (rec.data && (rec.data.allocation || rec.data.subsystem)) || '',
+      subsystemHint: (rec.data && rec.data.subsystem) || _inferEngineeringSubsystem({ statement: sourceText })
     });
   });
   return requirements.sort(function(a, b) {
@@ -20469,6 +21839,7 @@ function buildStructuredRequirements(analysisResult) {
 function buildSystemArchitecture(requirements, analysisResult) {
   var reqs = requirements || [];
   var recs = (analysisResult && analysisResult.recs) || [];
+  var rawSource = String((((analysisResult || {}).source || {}).normalizedText) || "");
   var components = [];
   var interfaces = [];
   var dataFlows = [];
@@ -20479,25 +21850,40 @@ function buildSystemArchitecture(requirements, analysisResult) {
   var constraintSeen = {};
   var flowSeen = {};
   var riskSeen = {};
+  function addComponent(name, domain, driver, description) {
+    var clean = String(name || "").trim();
+    if (!clean || compSeen[clean]) return;
+    compSeen[clean] = true;
+    components.push({ id: 'COMP-' + String(components.length + 1).padStart(3, '0'), name: clean, domain: domain || 'system', subsystem: clean, drivers: driver ? [driver] : [], description: description || clean });
+  }
+  function addInterface(name, type, sourceRequirement, endpoints, notes) {
+    var clean = String(name || "").trim();
+    if (!clean) return;
+    var key = clean.toLowerCase();
+    if (!ifSeen[key]) {
+      ifSeen[key] = true;
+      interfaces.push({ id: 'IF-' + String(interfaces.length + 1).padStart(3, '0'), name: clean, type: type || 'SW', sourceRequirement: sourceRequirement || '', endpoints: endpoints || [], notes: notes || '' });
+    }
+  }
+  function addFlow(from, to, description, protocol) {
+    if (!from || !to) return;
+    var key = [from, to, description].join('|').toLowerCase();
+    if (flowSeen[key]) return;
+    flowSeen[key] = true;
+    dataFlows.push({ id: 'FLOW-' + String(dataFlows.length + 1).padStart(3, '0'), from: from, to: to, description: description || (from + ' -> ' + to), protocol: protocol || '' });
+  }
 
   reqs.forEach(function(req) {
-    var component = req.domain === 'software' ? 'Software Processing' : req.domain === 'hardware' ? 'Hardware/RF Platform' : 'System Control';
-    if (!compSeen[component]) {
-      compSeen[component] = true;
-      components.push({ id: 'COMP-' + String(components.length + 1).padStart(3, '0'), name: component, domain: req.domain, drivers: [req.id] });
-    }
+    _extractMentionedComponentNames(req.statement).forEach(function(item){
+      addComponent(item.name, item.domain, req.id, req.statement);
+    });
+    var component = req.subsystemHint || req.allocationHint || (req.domain === 'software' ? 'Mission Computer' : req.domain === 'hardware' ? 'Mechanical Assembly' : 'System Control');
+    addComponent(component, req.domain, req.id, req.statement);
     if (req.classification === 'interface') {
+      var endpoints = _inferInterfaceEndpoints(req.statement);
       var ifaceName = req.statement.substring(0, 90);
-      var ifaceKey = ifaceName.toLowerCase();
-      if (!ifSeen[ifaceKey]) {
-        ifSeen[ifaceKey] = true;
-        interfaces.push({ id: 'IF-' + String(interfaces.length + 1).padStart(3, '0'), name: ifaceName, type: /power|voltage|current|connector/i.test(req.statement) ? 'HW' : 'SW', sourceRequirement: req.id });
-      }
-      var flowKey = component + '|' + ifaceName;
-      if (!flowSeen[flowKey]) {
-        flowSeen[flowKey] = true;
-        dataFlows.push({ id: 'FLOW-' + String(dataFlows.length + 1).padStart(3, '0'), from: component, to: ifaceName, description: req.statement });
-      }
+      addInterface(ifaceName, /power|voltage|current|connector/i.test(req.statement) ? 'HW' : 'SW', req.id, [endpoints.source, endpoints.target], req.statement);
+      addFlow(endpoints.source, endpoints.target, req.statement, (/ethernet|udp|tcp|rest|websocket|nmea|stanag|ais|can|1553|serial/i.exec(req.statement) || [""])[0]);
     }
     if (!req.measurable || req.classification === 'non_functional') {
       var constraint = req.statement;
@@ -20513,6 +21899,10 @@ function buildSystemArchitecture(requirements, analysisResult) {
         risks.push({ id: 'AR-' + String(risks.length + 1).padStart(3, '0'), description: riskText, severity: req.riskLevel, driver: req.id });
       }
     }
+  });
+
+  _extractMentionedComponentNames(rawSource).forEach(function(item){
+    addComponent(item.name, item.domain, "", item.name);
   });
 
   recs.filter(function(rec) { return /^(?:arch|analyses|risks|hazards)$/.test(rec.category || ''); }).forEach(function(rec) {
@@ -20539,7 +21929,7 @@ function buildSystemArchitecture(requirements, analysisResult) {
 
   if (components.length > 1 && dataFlows.length === 0) {
     for (var i = 0; i < components.length - 1; i++) {
-      dataFlows.push({ id: 'FLOW-' + String(dataFlows.length + 1).padStart(3, '0'), from: components[i].name, to: components[i + 1].name, description: 'Derived integration flow between ' + components[i].name + ' and ' + components[i + 1].name });
+      addFlow(components[i].name, components[i + 1].name, 'Derived integration flow between ' + components[i].name + ' and ' + components[i + 1].name, '');
     }
   }
 
@@ -20555,13 +21945,16 @@ function buildSystemArchitecture(requirements, analysisResult) {
 function buildRTM(requirements) {
   return (requirements || []).map(function(req, idx) {
     var testId = 'TC-' + String(idx + 1).padStart(3, '0');
-    var method = req.verificationMethod || (req.measurable ? 'Test' : 'Analysis');
+    var method = req.verificationMethod || _inferVerificationMethodForText(req.statement, req.classification, req.domain);
+    var phase = req.verificationPhase || _inferVerificationPhaseForText(req.statement, method);
     return {
       requirementId: req.id,
       verificationMethod: method,
       testId: testId,
-      owner: req.domain === 'software' ? 'SW' : req.classification === 'safety' ? 'QA' : 'SE',
+      owner: req.domain === 'software' ? 'SW' : req.domain === 'hardware' ? 'ME' : req.classification === 'safety' ? 'QA' : 'SE',
       coverage: req.coverage || 'candidate',
+      phase: phase,
+      artifact: (method === 'Inspection' ? 'ITP-' : method === 'Analysis' ? 'AN-' : method === 'Demonstration' ? 'DTP-' : 'ATP-') + String(idx + 1).padStart(3, '0'),
       status: req.measurable ? 'Ready for verification design' : 'Needs measurable refinement'
     };
   });
@@ -21905,15 +23298,706 @@ function updateSelCount() {
   if (el) el.textContent = n + " המלצות נבחרו";
 }
 
+function _normalizeEngineeringIngestionSource(input, options){
+  options = options || {};
+  if (input && typeof input === "object" && input.normalizedText) return ensureAnalyzableSource(input);
+  return buildAnalysisSource({
+    inputType: options.inputType || "pasted_text",
+    sourceName: options.sourceName || "Engineering Ingestion Input",
+    rawText: typeof input === "string" ? input : String(input || ""),
+    metadata: options.metadata || {}
+  });
+}
+
+function _buildEngineeringIngestionCounts(recs){
+  return (recs || []).reduce(function(acc, rec){
+    var key = rec && rec.category ? rec.category : "unknown";
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+}
+
+function _riskSeverityToScore(severity){
+  severity = String(severity || '').toLowerCase();
+  if(severity === 'catastrophic') return 5;
+  if(severity === 'critical') return 4;
+  if(severity === 'marginal') return 3;
+  if(severity === 'minor') return 2;
+  return 3;
+}
+
+function _riskLikelihoodToScore(likelihood){
+  likelihood = String(likelihood || '').toLowerCase();
+  if(likelihood === 'frequent') return 5;
+  if(likelihood === 'probable') return 4;
+  if(likelihood === 'occasional') return 3;
+  if(likelihood === 'remote') return 2;
+  if(likelihood === 'improbable') return 1;
+  return 3;
+}
+
+function _milStdSeverityCode(text){
+  var line = String(text || '').toLowerCase();
+  if(/catastrophic|fatal|loss of mission|unsafe mission|single point of failure/i.test(line)) return 1;
+  if(/critical|hazard|unsafe|power loss|cyber compromise|loss of communication|loss of synchronization/i.test(line)) return 2;
+  if(/marginal|degraded|false classification|false alert|overload|emi|emc/i.test(line)) return 3;
+  return 4;
+}
+
+function _milStdProbabilityCode(text){
+  var line = String(text || '').toLowerCase();
+  if(/frequent|always|persistent|continuous/i.test(line)) return 'A';
+  if(/probable|likely|repeated/i.test(line)) return 'B';
+  if(/occasional|degraded|may|can|could/i.test(line)) return 'C';
+  if(/remote|unlikely/i.test(line)) return 'D';
+  return 'E';
+}
+
+function _autonomousRequirementText(req){
+  return String((req && (req.statement || req.desc || req.title || req.name)) || '').trim();
+}
+
+function _inferEngineeringSubsystem(req){
+  var line = _autonomousRequirementText(req).toLowerCase();
+  if(/operator|console|display|hmi|ui|alert|acknowledge|maintenance/.test(line)) return 'Command Console';
+  if(/recorder|archive|recorded|storage|log export/.test(line)) return 'Recorder / Archive';
+  if(/power|battery|voltage|current|restart|shutdown|startup/.test(line)) return 'Power Distribution';
+  if(/rf|receiver|antenna|frontend|surveillance|track loss|sensor/.test(line)) return 'RF Front End';
+  if(/gateway|1553|can|serial|ethernet|udp|tcp|protocol|message|packet|telemetry|interface/.test(line)) return 'Sensor Interface / Gateway';
+  if(/mount|mounting|bracket|connector retention|thermal|vibration|shock|ingress|mechanical|enclosure/.test(line)) return 'Mechanical Assembly';
+  return 'Mission Computer';
+}
+
+function _requirementAllocationForSubsystem(subsystem){
+  var name = String(subsystem || '').trim();
+  if(!name) return 'System';
+  return name === 'Sensor Interface / Gateway' ? 'Mission Computer' : name;
+}
+
+function _customerRequirementRid(req, idx){
+  var raw = String((req && (req.sourceRid || req.id || req.rid)) || '').trim();
+  if (/^(?:CRS|URS|PRD|SRD)-/i.test(raw)) return raw.toUpperCase();
+  return 'CRS-' + String(idx + 1).padStart(3, '0');
+}
+
+function _systemRequirementRid(req, idx){
+  var raw = String((req && (req.id || req.rid)) || '').trim();
+  if (/^SYS-/i.test(raw)) return raw.toUpperCase();
+  return 'SYS-' + String(idx + 1).padStart(3, '0');
+}
+
+function _deriveICDRowsFromAutonomous(auto){
+  var rows = [];
+  var seen = {};
+  function pushRow(name, a, b, type, protocol, notes, rate, reqId){
+    var key = [name, a, b, protocol, notes].join('|').toLowerCase();
+    if (!name || seen[key]) return;
+    seen[key] = true;
+    rows.push({
+      id: uid(),
+      name: name,
+      a: a || 'External System',
+      b: b || 'Mission Computer',
+      type: type || 'Data',
+      protocol: protocol || '',
+      notes: notes || '',
+      ver: 'A',
+      rate: rate || '',
+      status: 'Draft',
+      req: reqId || ''
+    });
+  }
+  ((auto && auto.architecture && auto.architecture.interfaces) || []).forEach(function(iface, idx){
+    var endpoints = _inferInterfaceEndpoints((iface && (iface.name || iface.description)) || '');
+    pushRow(
+      (iface && iface.name) || ('Interface ' + String(idx + 1).padStart(3, '0')),
+      endpoints.source,
+      endpoints.target,
+      /power|voltage|current/i.test((iface && iface.description) || '') ? 'Power' : 'Data',
+      ((iface && iface.protocol) || ((iface && iface.description || '').match(/ethernet|udp|tcp|rest|websocket|nmea|stanag|ais|can|1553|serial/i) || [''])[0]),
+      (iface && iface.description) || '',
+      (iface && iface.rate) || '',
+      (iface && iface.sourceRequirement) || ''
+    );
+  });
+  (auto && auto.requirements || []).forEach(function(req){
+    var text = _autonomousRequirementText(req);
+    if (!/interface|protocol|message|api|ethernet|udp|tcp|rest|websocket|nmea|stanag|ais|metadata|acknowledg|time sync|health message|archive export|interoperability/i.test(text)) return;
+    var endpoints = _inferInterfaceEndpoints(text);
+    pushRow(
+      text.substring(0, 96),
+      endpoints.source,
+      endpoints.target,
+      /power|voltage|current/i.test(text) ? 'Power' : 'Data',
+      (text.match(/ethernet|udp|tcp|rest|websocket|nmea|stanag|ais|can|1553|serial/i) || [''])[0],
+      text,
+      (text.match(/\b\d+(?:\.\d+)?\s*(?:hz|ms|sec|s|mbps|kbps)\b/i) || [''])[0],
+      req.id || req.rid || ''
+    );
+  });
+  return rows;
+}
+
+function _deriveHazardRowsFromAutonomous(auto){
+  var rows = [];
+  var seen = {};
+  ((auto && auto.risks) || []).forEach(function(risk){
+    var desc = [risk.hazard, risk.cause, risk.consequence].filter(Boolean).join(' | ');
+    if (!desc) return;
+    var key = desc.toLowerCase();
+    if (seen[key]) return;
+    seen[key] = true;
+    rows.push({
+      id: uid(),
+      desc: risk.hazard || _deriveHazardTitle(desc),
+      cause: risk.cause || 'Derived from source safety language',
+      effect: risk.consequence || 'Potential unsafe or mission-degrading outcome',
+      sev: _riskSeverityToScore(risk.severity),
+      prob: _riskLikelihoodToScore(risk.likelihood),
+      severityCode: _milStdSeverityCode(desc),
+      probabilityCode: _milStdProbabilityCode(desc),
+      mitigation: risk.mitigation || '',
+      linkedReq: Array.isArray(risk.sourceRefs) ? risk.sourceRefs.join(', ') : '',
+      status: 'פתוח'
+    });
+  });
+  return rows;
+}
+
+function _deriveResidualRiskRowsFromAutonomous(auto){
+  return ((auto && auto.risks) || []).filter(function(risk){
+    return !!(risk && (risk.mitigation || risk.verificationRecommendation));
+  }).map(function(risk, idx){
+    var sev = _riskSeverityToScore(risk.severity);
+    var prob = _riskLikelihoodToScore(risk.likelihood);
+    return {
+      id: uid(),
+      origRiskId: 'RISK-' + String(idx + 1).padStart(3, '0'),
+      desc: 'Residual risk after mitigation for ' + (risk.hazard || risk.affectedSystemElement || ('risk ' + (idx + 1))),
+      sevOrig: sev,
+      probOrig: prob,
+      mitigationApplied: risk.mitigation || risk.verificationRecommendation || '',
+      sevRes: Math.max(1, sev - 1),
+      probRes: Math.max(1, prob - 1),
+      accepted: 'ממתין',
+      approver: '',
+      approvalDate: ''
+    };
+  });
+}
+
+function _autonomousSoftwareCategories(req){
+  var text = _autonomousRequirementText(req);
+  var signals = classifyRequirementSignals(Object.assign({}, req || {}, { desc: text }), 'software_requirement');
+  var categories = [];
+  function addCategory(name){
+    if(name && categories.indexOf(name) < 0) categories.push(name);
+  }
+  if(signals.interface || /interface|command|telemetry|endpoint|gateway/i.test(text)) addCategory('Interface');
+  if(/message|packet|protocol|ethernet|udp|tcp|can|1553|serial|payload|timestamp/i.test(text)) addCategory('Message/Protocol');
+  if(signals.monitoring || /health|heartbeat|status|monitor/i.test(text)) addCategory('Monitoring');
+  if(signals.logging || /log|record|archive|maintenance log/i.test(text)) addCategory('Logging');
+  if(/fault|timeout|retry|invalid|loss|fallback|annunciation/i.test(text)) addCategory('Fault Handling');
+  if(signals.degradedMode || /degraded mode|fail-safe|fallback|safe state/i.test(text)) addCategory('Degraded Mode');
+  if(signals.startupShutdown || /startup|shutdown|boot|initialization|service stop/i.test(text)) addCategory('Startup/Shutdown');
+  if(signals.cybersecurity || /unauthorized|spoofing|integrity|trusted source|cyber|security|authorization/i.test(text)) addCategory('Cybersecurity');
+  if(signals.performance || /latency|throughput|update rate|bounded processing|response|within \d+/i.test(text)) addCategory('Performance');
+  if(signals.uiHmi || /operator|console|display|hmi|ui|alert/i.test(text)) addCategory('UI/HMI');
+  if(signals.bitBite || /bit|bite|self-test|watchdog/i.test(text)) addCategory('BIT/BITE');
+  if(signals.safety || /unsafe|inhibit|safe state|safety/i.test(text)) addCategory('Safety');
+  if(!categories.length) addCategory('Derived');
+  else addCategory('Derived');
+  return categories;
+}
+
+function _softwareRequirementDescription(req, category, subsystem){
+  var reqId = String((req && (req.id || req.rid)) || 'SYS-TBD').trim() || 'SYS-TBD';
+  var subsystemName = subsystem || _inferEngineeringSubsystem(req);
+  if(category === 'Interface') return 'The software shall implement the ' + subsystemName + ' operational interface allocated from ' + reqId + '.';
+  if(category === 'Message/Protocol') return 'The software shall validate and process mission messages, packets, and protocol exchanges required to satisfy ' + reqId + '.';
+  if(category === 'Monitoring') return 'The software shall monitor health, heartbeat, and status conditions needed to verify compliance with ' + reqId + '.';
+  if(category === 'Logging') return 'The software shall record operator actions, faults, and maintenance evidence associated with ' + reqId + '.';
+  if(category === 'Fault Handling') return 'The software shall detect invalid, stale, or missing inputs and enter a controlled recovery path for ' + reqId + '.';
+  if(category === 'Degraded Mode') return 'The software shall publish degraded mode status and maintain controlled operation for ' + reqId + '.';
+  if(category === 'Startup/Shutdown') return 'The software shall perform controlled startup and shutdown sequencing needed to satisfy ' + reqId + '.';
+  if(category === 'Cybersecurity') return 'The software shall validate command source integrity and reject unauthorized requests relevant to ' + reqId + '.';
+  if(category === 'Performance') return 'The software shall meet bounded response timing and processing performance required by ' + reqId + '.';
+  if(category === 'UI/HMI') return 'The software shall present operator status, alerts, and acknowledgements required for ' + reqId + '.';
+  if(category === 'BIT/BITE') return 'The software shall execute BIT/BITE checks and report health results needed for ' + reqId + '.';
+  if(category === 'Safety') return 'The software shall inhibit unsafe behavior and enforce safe-state transitions allocated from ' + reqId + '.';
+  return 'The software shall implement the derived behavior, allocation, and verification intent allocated from ' + reqId + '.';
+}
+
+function _isMechanicalRequirementCandidate(req){
+  return /vibration|connector retention|thermal|enclosure|ingress|mount|mounting|bracket|shock|survivability|environment|temperature|humidity|mechanical|power interruption/i.test(_autonomousRequirementText(req));
+}
+
+function _mechanicalRequirementDescription(req){
+  var reqId = String((req && (req.id || req.rid)) || 'SYS-TBD').trim() || 'SYS-TBD';
+  var text = _autonomousRequirementText(req);
+  if(/connector retention/i.test(text)) return 'The mechanical assembly shall maintain connector retention and wiring integrity allocated from ' + reqId + '.';
+  if(/thermal|temperature/i.test(text)) return 'The mechanical assembly shall provide a controlled thermal path and environmental survivability allocated from ' + reqId + '.';
+  if(/mount|mounting|bracket/i.test(text)) return 'The mechanical assembly shall provide secure mounting and structural support allocated from ' + reqId + '.';
+  if(/ingress|humidity/i.test(text)) return 'The enclosure shall preserve ingress and humidity protection allocated from ' + reqId + '.';
+  return 'The mechanical assembly shall maintain structural and environmental integrity allocated from ' + reqId + '.';
+}
+
+function _subsystemRequirementDescription(req, subsystem){
+  var reqId = String((req && (req.id || req.rid)) || 'SYS-TBD').trim() || 'SYS-TBD';
+  var text = _autonomousRequirementText(req);
+  if(/interface|message|packet|telemetry|ethernet|can|1553|serial/i.test(text)) return 'The ' + subsystem + ' subsystem shall provide the interface behavior allocated from ' + reqId + '.';
+  if(/safety|unsafe|fail-safe|degraded mode|startup|shutdown/i.test(text)) return 'The ' + subsystem + ' subsystem shall enforce controlled degraded, startup, shutdown, and safety behavior allocated from ' + reqId + '.';
+  if(/power|battery|voltage|current/i.test(text)) return 'The ' + subsystem + ' subsystem shall manage power distribution and monitoring behavior allocated from ' + reqId + '.';
+  return 'The ' + subsystem + ' subsystem shall implement the allocated functional and performance behavior derived from ' + reqId + '.';
+}
+
+function _autonomousRequirementSuggestionRecs(auto, source){
+  var recs = [];
+  var sourceName = (source && source.sourceName) || 'Engineering Ingestion Input';
+  (auto && auto.requirements || []).forEach(function(req, idx){
+    var text = _autonomousRequirementText(req);
+    if(!text) return;
+    var subsystem = _inferEngineeringSubsystem(req);
+    var allocation = _requirementAllocationForSubsystem(subsystem);
+    var customerRid = _customerRequirementRid(req, idx);
+    var systemRid = _systemRequirementRid(req, idx);
+    var priority = normalizeAutonomousPriority(req.priority || req.riskLevel || 'medium');
+    var domain = String(req.domain || '').toLowerCase();
+    var explicitCustomerRid = String((req && (req.sourceRid || req.id || req.rid)) || '').trim();
+    var sourceSection = String((req && req.sourceSection) || '').trim().toLowerCase();
+    var isStrictCustomer = (_isStrictCustomerRequirementCandidate(text) || (/^(?:CRS|URS|PRD|SRD)-/i.test(explicitCustomerRid) && /\bshall\b/i.test(text))) && sourceSection !== 'interface';
+    if(isStrictCustomer){
+      recs.push({
+        id: uid(),
+        category: 'customerReqs',
+        catLabel: 'דרישות לקוח',
+        action: 'add',
+        priority: priority,
+        title: req.title || ('דרישת לקוח ' + customerRid),
+        description: text,
+        chain: 'Customer requirement harvested from ' + sourceName,
+        data: {
+          id: uid(),
+          rid: customerRid,
+          level: 'L0',
+          domain: req.classification || req.domain || 'Customer',
+          desc: text,
+          status: 'Draft',
+          source: 'autonomous_ingestion',
+          originType: 'customer',
+          sourceSection: sourceSection,
+          allocation: allocation,
+          subsystem: subsystem,
+          vv: req.verificationMethod || _inferVerificationMethodForText(text, req.classification || '', domain)
+        }
+      });
+    }
+    recs.push({
+      id: uid(),
+      category: 'sysReqs',
+      catLabel: 'דרישות מערכת',
+      action: 'add',
+      priority: priority,
+      title: req.title || ('דרישת מערכת ' + systemRid),
+      description: text,
+      chain: 'Derived system requirement from ' + customerRid,
+      data: {
+        id: uid(),
+        rid: systemRid,
+        level: 'L2',
+        domain: req.classification || req.domain || 'System',
+        desc: text,
+        status: 'Draft',
+        source: 'autonomous_ingestion',
+        originType: 'derived',
+        allocation: allocation,
+        subsystem: subsystem,
+        vv: req.verificationMethod || _inferVerificationMethodForText(text, req.classification || '', domain),
+        vvPhase: req.verificationPhase || _inferVerificationPhaseForText(text, req.verificationMethod || _inferVerificationMethodForText(text, req.classification || '', domain)),
+        parentRid: customerRid
+      }
+    });
+    if(domain === 'system' || /interface|safety|performance|startup|shutdown|degraded|monitor|log|cyber|power|operator|console|recorder|telemetry|packet/i.test(text)){
+      recs.push({
+        id: uid(),
+        category: 'subsysReqs',
+        catLabel: 'דרישות תת-מערכת',
+        action: 'add',
+        priority: priority,
+        title: subsystem + ' derived requirement',
+        description: _subsystemRequirementDescription(req, subsystem),
+        chain: 'Autonomous subsystem derivation from ' + systemRid,
+        data: {
+          id: uid(),
+          rid: 'SUBSYS-' + String(idx + 1).padStart(3, '0'),
+          parentRid: systemRid,
+          subsystem: subsystem,
+          allocation: allocation,
+          domain: req.classification || 'Derived',
+          desc: _subsystemRequirementDescription(req, subsystem),
+          status: 'Draft',
+          source: 'autonomous_ingestion',
+          origin: 'derived decomposition',
+          level: 'L3',
+          vv: _inferVerificationMethodForText(_subsystemRequirementDescription(req, subsystem), req.classification || '', 'system'),
+          vvPhase: _inferVerificationPhaseForText(_subsystemRequirementDescription(req, subsystem), _inferVerificationMethodForText(_subsystemRequirementDescription(req, subsystem), req.classification || '', 'system'))
+        }
+      });
+    }
+    _autonomousSoftwareCategories(req).forEach(function(category, categoryIdx){
+      recs.push({
+        id: uid(),
+        category: 'swReqs',
+        catLabel: 'דרישות תוכנה',
+        action: 'add',
+        priority: priority,
+        title: category + ' software requirement',
+        description: _softwareRequirementDescription(req, category, subsystem),
+        chain: 'Autonomous software derivation from ' + systemRid,
+        data: {
+          id: uid(),
+          rid: 'SW-' + String(idx + 1).padStart(3, '0') + '-' + String(categoryIdx + 1).padStart(2, '0'),
+          parentRid: 'SUBSYS-' + String(idx + 1).padStart(3, '0'),
+          subsystem: subsystem,
+          allocation: allocation,
+          level: 'L4',
+          domain: category,
+          swCategory: category,
+          desc: _softwareRequirementDescription(req, category, subsystem),
+          status: 'Draft',
+          source: category === 'Derived' ? 'impact-derived' : 'derived decomposition',
+          origin: category === 'Derived' ? 'impact-derived' : 'derived',
+          isDerived: true,
+          vv: req.verificationMethod || _inferVerificationMethodForText(_softwareRequirementDescription(req, category, subsystem), category, 'software'),
+          vvPhase: req.verificationPhase || _inferVerificationPhaseForText(_softwareRequirementDescription(req, category, subsystem), req.verificationMethod || _inferVerificationMethodForText(_softwareRequirementDescription(req, category, subsystem), category, 'software'))
+        }
+      });
+    });
+    if(domain === 'hardware' || _isMechanicalRequirementCandidate(req)){
+      recs.push({
+        id: uid(),
+        category: 'meReqs',
+        catLabel: 'דרישות מכניות',
+        action: 'add',
+        priority: priority,
+        title: subsystem + ' mechanical requirement',
+        description: _mechanicalRequirementDescription(req),
+        chain: 'Autonomous mechanical derivation from ' + systemRid,
+        data: {
+          id: uid(),
+          rid: 'ME-' + String(idx + 1).padStart(3, '0'),
+          parentRid: systemRid,
+          subsystem: subsystem === 'Mechanical Assembly' ? subsystem : 'Mechanical Assembly',
+          allocation: allocation,
+          level: 'L4',
+          domain: 'Mechanical',
+          desc: _mechanicalRequirementDescription(req),
+          status: 'Draft',
+          source: 'derived decomposition',
+          originType: 'mechanical',
+          vv: req.verificationMethod || _inferVerificationMethodForText(_mechanicalRequirementDescription(req), 'non_functional', 'hardware'),
+          vvPhase: req.verificationPhase || _inferVerificationPhaseForText(_mechanicalRequirementDescription(req), req.verificationMethod || _inferVerificationMethodForText(_mechanicalRequirementDescription(req), 'non_functional', 'hardware'))
+        }
+      });
+    }
+  });
+  return recs;
+}
+
+function _autonomousVerificationSuggestionRecs(auto, source){
+  var recs = [];
+  var sourceName = (source && source.sourceName) || 'Engineering Ingestion Input';
+  (auto && auto.rtm || []).forEach(function(row, idx){
+    if(!row || !row.requirementId) return;
+    var method = row.verificationMethod || 'Test';
+    recs.push({
+      id: uid(),
+      category: 'vv',
+      catLabel: 'V&V — אימות ואיסות',
+      action: 'add',
+      priority: normalizeAutonomousPriority(row.priority || 'medium'),
+      title: 'V&V ' + String(idx + 1).padStart(3, '0'),
+      description: 'Verify ' + row.requirementId + ' by ' + method,
+      chain: 'Autonomous RTM derivation from ' + sourceName,
+      data: {
+        id: uid(),
+        req: row.requirementId,
+        method: method,
+        artifact: row.artifact || row.testId || ((method === 'Inspection' ? 'ITP-' : method === 'Analysis' ? 'AN-' : method === 'Demonstration' ? 'DTP-' : 'ATP-') + String(idx + 1).padStart(3, '0')),
+        phase: row.phase || (/integration/i.test(row.status || '') ? 'Integration' : 'Verification'),
+        owner: row.owner || '',
+        status: row.coverage === 'covered' ? 'Planned' : 'Candidate',
+        desc: row.status || ('Acceptance criteria to verify ' + row.requirementId),
+        acceptanceCriteria: row.status || ('Demonstrate compliance of ' + row.requirementId + ' using ' + method)
+      }
+    });
+  });
+  return recs;
+}
+
+function _autonomousEngineeringSuggestionRecs(autonomousProject, source){
+  var recs = [];
+  var auto = autonomousProject || {};
+  var sourceName = (source && source.sourceName) || 'Engineering Ingestion Input';
+  var arch = auto.architecture || {};
+  _autonomousRequirementSuggestionRecs(auto, source).forEach(function(rec){ recs.push(rec); });
+  _autonomousVerificationSuggestionRecs(auto, source).forEach(function(rec){ recs.push(rec); });
+  (arch.components || []).forEach(function(component, idx){
+    var name = String(component && component.name || '').trim();
+    if(!name) return;
+    recs.push({
+      id: uid(),
+      category: 'arch',
+      catLabel: 'ארכיטקטורה',
+      action: 'add',
+      priority: 'medium',
+      title: 'רכיב ארכיטקטורה ' + (idx + 1),
+      description: name,
+      chain: 'Autonomous preview from ' + sourceName,
+      data: {
+        id: uid(),
+        name: name,
+        type: /software/i.test(component.domain || '') ? 'SW' : /hardware/i.test(component.domain || '') ? 'HW' : 'System',
+        subsystem: component.subsystem || component.domain || '',
+        interfaces: Array.isArray(component.drivers) ? component.drivers.join(', ') : '',
+        desc: component.description || name,
+        status: 'Draft'
+      }
+    });
+  });
+  (arch.dataFlows || []).forEach(function(flow, idx){
+    var from = String(flow && flow.from || '').trim();
+    var to = String(flow && flow.to || '').trim();
+    var description = String(flow && flow.description || '').trim();
+    if(!from || !to) return;
+    recs.push({
+      id: uid(),
+      category: 'archLinks',
+      catLabel: 'קישורי ארכיטקטורה',
+      action: 'add',
+      priority: 'medium',
+      title: 'קישור ארכיטקטורה ' + (idx + 1),
+      description: description || (from + ' -> ' + to),
+      chain: 'Autonomous preview from ' + sourceName,
+      data: {
+        id: uid(),
+        sourceComponent: from,
+        targetComponent: to,
+        flowName: String(flow && flow.id || ('FLOW-' + String(idx + 1).padStart(3, '0'))),
+        flowType: /power|voltage|current/i.test(description) ? 'power' : /command|control/i.test(description) ? 'command' : /telemetry/i.test(description) ? 'telemetry' : 'data',
+        payloadOrMessage: description,
+        frequencyOrRate: '',
+        protocolOrMedium: /ethernet|udp|tcp|bus|can|serial/i.test(description) ? (description.match(/ethernet|udp|tcp|bus|can|serial/i) || [''])[0] : '',
+        voltageOrPower: '',
+        notes: 'Autonomous preview from ' + sourceName,
+        status: 'Draft'
+      }
+    });
+  });
+  (auto.risks || []).forEach(function(risk, idx){
+    var desc = [risk.hazard, risk.cause, risk.consequence].filter(Boolean).join(' | ');
+    if(!desc) return;
+    recs.push({
+      id: uid(),
+      category: 'risks',
+      catLabel: 'סיכונים',
+      action: 'add',
+      priority: 'high',
+      title: 'סיכון ' + (idx + 1),
+      description: desc,
+      chain: 'Autonomous preview from ' + sourceName,
+      data: {
+        id: uid(),
+        desc: desc.substring(0, 240),
+        cat: risk.affectedSystemElement || 'Technical',
+        req: Array.isArray(risk.sourceRefs) ? risk.sourceRefs.join(', ') : '',
+        impact: risk.consequence || '',
+        sev: _riskSeverityToScore(risk.severity),
+        prob: _riskLikelihoodToScore(risk.likelihood),
+        severityCode: _milStdSeverityCode(desc),
+        probabilityCode: _milStdProbabilityCode(desc),
+        cause: risk.cause || '',
+        effect: risk.consequence || '',
+        hazard: risk.hazard || '',
+        mitigation: risk.mitigation || risk.verificationRecommendation || '',
+        detection: risk.verificationRecommendation || '',
+        owner: '',
+        status: 'open'
+      }
+    });
+  });
+  _deriveICDRowsFromAutonomous(auto).forEach(function(row, idx){
+    recs.push({
+      id: uid(),
+      category: 'icd',
+      catLabel: 'ICD / ממשקים',
+      action: 'add',
+      priority: 'high',
+      title: row.name || ('ICD ' + (idx + 1)),
+      description: [row.a, row.b, row.protocol, row.notes].filter(Boolean).join(' | '),
+      chain: 'Autonomous ICD derivation from ' + sourceName,
+      data: row
+    });
+  });
+  _deriveHazardRowsFromAutonomous(auto).forEach(function(row, idx){
+    recs.push({
+      id: uid(),
+      category: 'hazards',
+      catLabel: 'Hazards',
+      action: 'add',
+      priority: 'high',
+      title: row.desc || ('Hazard ' + (idx + 1)),
+      description: [row.desc, row.cause, row.effect].filter(Boolean).join(' | '),
+      chain: 'Autonomous hazard derivation from ' + sourceName,
+      data: row
+    });
+  });
+  _deriveResidualRiskRowsFromAutonomous(auto).forEach(function(row, idx){
+    recs.push({
+      id: uid(),
+      category: 'residualRisks',
+      catLabel: 'Residual Risks',
+      action: 'add',
+      priority: 'medium',
+      title: row.desc || ('Residual Risk ' + (idx + 1)),
+      description: row.mitigationApplied || row.desc,
+      chain: 'Autonomous residual-risk derivation from ' + sourceName,
+      data: row
+    });
+  });
+  return recs;
+}
+
+function _mergeEngineeringIngestionSuggestions(baseRecs, autonomousProject, source){
+  var merged = _cloneExecutionData(baseRecs || []);
+  _autonomousEngineeringSuggestionRecs(autonomousProject, source).forEach(function(rec){ merged.push(rec); });
+  return dedupeAnalysisRecs(merged);
+}
+
+function _analysisRecSelectionKey(rec){
+  var data = rec && rec.data ? rec.data : {};
+  var rid = data.rid || data.req || data.name || data.desc || rec.title || rec.description || "";
+  return [
+    rec && rec.category ? rec.category : "",
+    String(rid).toLowerCase().replace(/\s+/g, " ").trim(),
+    String(rec && rec.description || "").toLowerCase().replace(/\s+/g, " ").trim()
+  ].join("|");
+}
+
+function _expandEngineeringApplySelection(selection){
+  var baseSelection = Array.isArray(selection) ? _cloneExecutionData(selection) : _cloneExecutionData(_analysisRecs || []);
+  var mergedSelection = _mergeEngineeringIngestionSuggestions(baseSelection, _lastAutonomousProjectResult, _lastAnalysisInput);
+  var selectionState = {};
+  baseSelection.forEach(function(rec){
+    if(!rec) return;
+    selectionState[_analysisRecSelectionKey(rec)] = rec._sel !== false;
+  });
+  mergedSelection.forEach(function(rec){
+    var key = _analysisRecSelectionKey(rec);
+    rec._sel = Object.prototype.hasOwnProperty.call(selectionState, key) ? selectionState[key] : true;
+  });
+  if(!Array.isArray(selection) || selection === _analysisRecs) _analysisRecs = mergedSelection;
+  return mergedSelection;
+}
+function _isCustomerRequirementSuggestion(rec){
+  if(rec && rec.category === "customerReqs") return true;
+  var data = rec && rec.data ? rec.data : {};
+  var rid = String(data.rid || "").trim();
+  var level = String(data.level || "").trim().toUpperCase();
+  return !!(rec && rec.category === "sysReqs" && (level === "L0" || /^CRS-/i.test(rid)));
+}
+function _customerRequirementFromSuggestion(rec){
+  var item = _cloneExecutionData(rec && rec.data || {}) || {};
+  item.id = uid();
+  if(!item.source) item.source = item.l0 || "DOC";
+  if(!item.origin) item.origin = "document-derived";
+  if(!item.status) item.status = "Draft";
+  return item;
+}
+
+function _allRequirementDbArrays(){
+  return [
+    { key: 'customerReqs', layer: 'customer' },
+    { key: 'sysReqs', layer: 'system' },
+    { key: 'subsysReqs', layer: 'subsystem' },
+    { key: 'swReqs', layer: 'software' },
+    { key: 'meReqs', layer: 'mechanical' }
+  ];
+}
+
+function _createVerificationItemForRequirement(req, layer, index){
+  var rid = String((req && (req.rid || req.id)) || '').trim();
+  var desc = String((req && req.desc) || '').trim();
+  if(!rid || !desc) return null;
+  var method = _inferVerificationMethodForText(desc, mapRequirementClass(desc, { category: layer }), mapRequirementDomain(desc, { category: layer }));
+  var artifactPrefix = method === 'Inspection' ? 'ITP-' : method === 'Analysis' ? 'AN-' : method === 'Demonstration' ? 'DTP-' : 'ATP-';
+  return {
+    id: uid(),
+    req: rid,
+    method: method,
+    phase: _inferVerificationPhaseForText(desc, method),
+    artifact: artifactPrefix + String(index + 1).padStart(3, '0'),
+    acceptanceCriteria: 'Demonstrate compliance of ' + rid + ' using ' + method,
+    desc: 'Verification coverage synthesized for ' + rid,
+    owner: layer === 'software' ? 'SW' : layer === 'mechanical' ? 'ME' : layer === 'customer' ? 'SE' : /safe|hazard|fail-safe|unsafe/i.test(desc) ? 'QA' : 'V&V',
+    status: 'Planned'
+  };
+}
+
+function _ensureVerificationCoverageForRequirements(){
+  if(!Array.isArray(DB.vv)) DB.vv = [];
+  var created = 0;
+  _allRequirementDbArrays().forEach(function(def){
+    (DB[def.key] || []).forEach(function(req, idx){
+      var rid = String((req && (req.rid || req.id)) || '').trim();
+      if(!rid) return;
+      if(_vvEntriesForRequirement(rid).length > 0) return;
+      var item = _createVerificationItemForRequirement(req, def.layer, created + idx);
+      if(!item) return;
+      DB.vv.push(item);
+      created += 1;
+    });
+  });
+  return created;
+}
+
+function buildEngineeringIngestionSuggestions(input, options){
+  var source = _normalizeEngineeringIngestionSource(input, options);
+  var analysis = runDocumentAnalysisPipeline(source);
+  var autonomousProject = null;
+  try {
+    autonomousProject = runAutonomousProjectPipeline(source, analysis);
+  } catch (err) {
+    console.error("Engineering ingestion autonomous preview failed", err);
+  }
+  var mergedSuggestions = _mergeEngineeringIngestionSuggestions((analysis && analysis.recs) || [], autonomousProject, source);
+  return {
+    ok: true,
+    source: _cloneExecutionData(source),
+    suggestions: _cloneExecutionData(mergedSuggestions),
+    counts: _buildEngineeringIngestionCounts(mergedSuggestions),
+    summary: (analysis && analysis.summary) || "",
+    autonomousProject: autonomousProject ? _cloneExecutionData(autonomousProject) : null
+  };
+}
+
+function previewEngineeringIngestion(input, options){
+  return buildEngineeringIngestionSuggestions(input, options);
+}
+
 // ── Apply recommendations to DB ───────────────────────────────
 var _REC_MAP = {
+  customerReqs:{ arr: "customerReqs", label: "דרישות לקוח" },
   sysReqs:   { arr: "sysReqs",    label: "דרישות מערכת" },
+  subsysReqs:{ arr: "subsysReqs", label: "דרישות תת-מערכת" },
   swReqs:    { arr: "swReqs",     label: "דרישות תוכנה" },
   meReqs:    { arr: "meReqs",     label: "דרישות מכניות" },
   arch:      { arr: "arch",       label: "ארכיטקטורה" },
+  archLinks: { arr: "archLinks",  label: "קישורי ארכיטקטורה" },
   icd:       { arr: "icd",        label: "ICD / ממשקים" },
   vv:        { arr: "vv",         label: "V&V" },
   risks:     { arr: "risks",      label: "סיכונים" },
+  residualRisks:{ arr: "residualRisks", label: "סיכונים שיוריים" },
   hazards:   { arr: "hazards",    label: "Hazards" },
   analyses:  { arr: "analyses",   label: "ניתוחים" },
   tasks:     { arr: "tasks",      label: "משימות" },
@@ -21923,33 +24007,86 @@ var _REC_MAP = {
   engDocs:   { arr: "engDocs",    label: "מסמכים" }
 };
 
-function applySelectedRecs() {
-  var selected = _analysisRecs.filter(function(r) { return r._sel; });
-  if (selected.length === 0) { notify("לא נבחרו המלצות","w"); return; }
-
+function applyEngineeringIngestionSelection(selection, options) {
+  options = options || {};
+  if (_isReleaseLocked()) return _releaseLockResult("engineering_ingestion_apply");
+  var sourceSelection = _expandEngineeringApplySelection(selection);
+  var selected = sourceSelection.filter(function(r) { return r && r._sel !== false; });
+  var sourceCounts = _buildEngineeringIngestionCounts(sourceSelection);
+  var selectedCounts = _buildEngineeringIngestionCounts(selected);
+  if (selected.length === 0) return { ok:false, reason:"NO_SELECTION", sourceCount:sourceSelection.length, sourceCounts:sourceCounts, selectedCount:0, selectedCounts:{}, appliedCounts:{} };
+  if (DB) DB._preserveEmptyEngineeringState = false;
   var applied = {};
+  var appliedLabels = {};
+  if (!DB.customerReqs) DB.customerReqs = [];
   selected.forEach(function(rec) {
     var map = _REC_MAP[rec.category];
-    if (!map) return;
+    if (!map || !rec.data) return;
     var arr = map.arr;
     if (!DB[arr]) DB[arr] = [];
-    // Ensure fresh uid for the item
-    var item = rec.data;
+    var item = _cloneExecutionData(rec.data) || {};
     item.id = uid();
     DB[arr].push(item);
-    applied[map.label] = (applied[map.label] || 0) + 1;
+    applied[arr] = (applied[arr] || 0) + 1;
+    appliedLabels[map.label] = (appliedLabels[map.label] || 0) + 1;
+    if (arr !== "customerReqs" && _isCustomerRequirementSuggestion(rec)) {
+      var customerItem = _customerRequirementFromSuggestion(rec);
+      DB.customerReqs.push(customerItem);
+      applied.customerReqs = (applied.customerReqs || 0) + 1;
+      appliedLabels["דרישות לקוח"] = (appliedLabels["דרישות לקוח"] || 0) + 1;
+    }
   });
+  if (typeof normalizeLegacyDbAliases === "function") normalizeLegacyDbAliases(DB);
+  var vvBackfillCount = _ensureVerificationCoverageForRequirements();
+  if(vvBackfillCount){
+    applied.vv = (applied.vv || 0) + vvBackfillCount;
+    appliedLabels["V&V"] = (appliedLabels["V&V"] || 0) + vvBackfillCount;
+  }
+  if (!Object.keys(applied).length) return { ok:false, reason:"NO_MAPPED_SELECTION", sourceCount:sourceSelection.length, sourceCounts:sourceCounts, selectedCount:selected.length, selectedCounts:selectedCounts, appliedCounts:{} };
+  if (options.markDirty !== false) markDirty();
+  if (options.render !== false) {
+    var page = document.querySelector(".page.active");
+    var pageId = page ? page.id.replace("page-","") : "dashboard";
+    renderPage(pageId);
+    updateBadges();
+  }
+  if (options.notify !== false) {
+    var summary = Object.keys(appliedLabels).map(function(k) { return k + ": " + appliedLabels[k]; }).join(" | ");
+    notify("✅ הוחלו " + selected.length + " המלצות → " + summary, "s");
+  }
+  if (options.close !== false) closeAnalysis();
+  return {
+    ok:true,
+    sourceCount: sourceSelection.length,
+    sourceCounts: sourceCounts,
+    selectedCount:selected.length,
+    selectedCounts:selectedCounts,
+    appliedCounts:applied,
+    appliedLabels:appliedLabels,
+    dbCounts: {
+      customerReqs: (DB.customerReqs || []).length,
+      sysReqs: (DB.sysReqs || []).length,
+      subsysReqs: (DB.subsysReqs || []).length,
+      swReqs: (DB.swReqs || []).length,
+      meReqs: (DB.meReqs || []).length,
+      arch: (DB.arch || []).length,
+      archLinks: (DB.archLinks || []).length,
+      risks: (DB.risks || []).length,
+      vv: (DB.vv || []).length
+    }
+  };
+}
 
-  markDirty();
-  // Re-render affected pages
-  var page = document.querySelector(".page.active");
-  var pageId = page ? page.id.replace("page-","") : "dashboard";
-  renderPage(pageId);
-  updateBadges();
-
-  // Summary
-  var summary = Object.keys(applied).map(function(k) { return k + ": " + applied[k]; }).join(" | ");
-  notify("✅ הוחלו " + selected.length + " המלצות → " + summary, "s");
+function applySelectedRecs() {
+  var result = applyEngineeringIngestionSelection(_analysisRecs, { notify:false, close:false });
+  if (!result || result.ok === false) {
+    if (result && result.reason === "NO_SELECTION") { notify("לא נבחרו המלצות","w"); return; }
+    if (result && result.reason === "RELEASE_LOCKED") { notify("המערכת נעולה לאחר שחרור baseline","w"); return; }
+    notify("לא הוחלו המלצות","w");
+    return;
+  }
+  var summary = Object.keys(result.appliedLabels || {}).map(function(k) { return k + ": " + result.appliedLabels[k]; }).join(" | ");
+  notify("✅ הוחלו " + result.selectedCount + " המלצות → " + summary, "s");
   closeAnalysis();
 }
 
@@ -24173,6 +26310,16 @@ window.releasePreflightCheck = releasePreflightCheck;
 window.validateDBShape = validateDBShape;
 window.checkSaveLoadIntegrity = checkSaveLoadIntegrity;
 window.buildOperationalHealthSummary = buildOperationalHealthSummary;
+window.buildEngineeringReportData = buildEngineeringReportData;
+window.exportEngineeringReportJSON = exportEngineeringReportJSON;
+window.exportEngineeringReportExcel = exportEngineeringReportExcel;
+window.exportEngineeringReportPDF = exportEngineeringReportPDF;
+window.exportEngineeringReportDOCX = exportEngineeringReportDOCX;
+window.captureEngineeringDBSnapshot = captureEngineeringDBSnapshot;
+window.getEngineeringDBSnapshot = getEngineeringDBSnapshot;
+window.buildEngineeringIngestionSuggestions = buildEngineeringIngestionSuggestions;
+window.previewEngineeringIngestion = previewEngineeringIngestion;
+window.applyEngineeringIngestionSelection = applyEngineeringIngestionSelection;
 window.renderVCRM = renderVCRM;
 window.setVCRMFilter = setVCRMFilter;
 window.openAddRisk = openAddRisk;
@@ -24180,3 +26327,4 @@ window.renderProjectPage = renderProjectPage;
 </script>
 </body>
 </html>
+

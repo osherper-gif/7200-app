@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -323,7 +323,7 @@ label{display:block;font-size:11px;font-weight:600;color:var(--gray);margin-bott
   <div class="modal">
     <div class="modal-title">
       <span id="reqModalTitle">דרישה חדשה</span>
-      <button class="modal-close" onclick="closeModal('reqModal')">×</button>
+      <button class="modal-close" onclick="closeModal('reqModal')">ֳ—</button>
     </div>
     <div class="form-row">
       <div class="form-group"><label>מזהה</label><input id="rId" placeholder="REQ-001"></div>
@@ -356,7 +356,7 @@ label{display:block;font-size:11px;font-weight:600;color:var(--gray);margin-bott
   <div class="modal">
     <div class="modal-title">
       <span id="tcModalTitle">מקרה בדיקה חדש</span>
-      <button class="modal-close" onclick="closeModal('tcModal')">×</button>
+      <button class="modal-close" onclick="closeModal('tcModal')">ֳ—</button>
     </div>
     <div class="form-row">
       <div class="form-group"><label>TC-ID</label><input id="tcId" placeholder="TC-001"></div>
@@ -399,7 +399,7 @@ label{display:block;font-size:11px;font-weight:600;color:var(--gray);margin-bott
   <div class="modal" style="max-width:700px;">
     <div class="modal-title">
       <span id="runDetailTitle">פרטי הרצה</span>
-      <button class="modal-close" onclick="closeModal('runDetailModal')">×</button>
+      <button class="modal-close" onclick="closeModal('runDetailModal')">ֳ—</button>
     </div>
     <div id="runDetailBody"></div>
   </div>
@@ -463,7 +463,7 @@ var DEFAULT_REQS = [
   {id:"REQ-005",title:"ייבוא JSON משחזר נתונים",cat:"שמירת נתונים",pri:"High",type:"requirement",
    desc:"טעינת קובץ JSON משחזרת את הדרישות וערכי הבדיקה.",status:"Active",parent:""},
   {id:"REQ-006",title:"localStorage key = '7200_project_data'",cat:"שמירת נתונים",pri:"Critical",type:"requirement",
-   desc:"שם הキー סטנדרטי לאחסון בקומקום בעברית.",status:"Active",parent:""},
+   desc:"שם ה-key הסטנדרטי לאחסון נתוני המערכת בעברית.",status:"Active",parent:""},
   {id:"REQ-013",title:"23 עמודות ניווט קיימים ונגישים",cat:"ניווט ו-UI",pri:"Critical",type:"requirement",
    desc:"dashboard, flow, actions, checklist, project, tasks, milestones, stakeholders, syseng, software, mechanical, safety, quality, tests, cm, risks, subcontractors, ils, discussions, lessons, closure, ai, settings.",status:"Active",parent:""},
   {id:"REQ-013.1",title:"כל page ID ייחודי",cat:"ניווט ו-UI",pri:"High",type:"sub-requirement",
@@ -493,7 +493,7 @@ var DEFAULT_REQS = [
   {id:"REQ-034",title:"_validateRequirement דוחה מילים סובייקטיביות",cat:"ניהול דרישות",pri:"High",type:"requirement",
    desc:"תזהה מילים סובייקטיביות (ברור, יפה, טוב, וכו') ותחזיר {valid:false}.",status:"Active",parent:""},
   {id:"REQ-034.1",title:"רשימת _VAGUE_WORDS כוללת ≥30 מילים",cat:"ניהול דרישות",pri:"High",type:"sub-requirement",
-   desc:"_VAGUE_WORDS array עם ≥30 מילים בעברית וإنجليزית.",status:"Active",parent:"REQ-034"},
+   desc:"_VAGUE_WORDS array עם ≥30 מילים סובייקטיביות בעברית.",status:"Active",parent:"REQ-034"},
   {id:"REQ-034.2",title:"_MEASURABLE_INDICATORS כוללת ≥10 דפוסים",cat:"ניהול דרישות",pri:"High",type:"sub-requirement",
    desc:"regex/patterns like '≤', '≥', 'ms', 'km', '%', 'W', 'dB', וכו'.",status:"Active",parent:"REQ-034"},
   {id:"REQ-035",title:"_validateRequirement מאשר דרישות עם מדדים",cat:"ניהול דרישות",pri:"High",type:"requirement",
@@ -530,7 +530,7 @@ var DEFAULT_REQS = [
    desc:"handleDocUpload לקבל קבצים ולקרוא תוכן.",status:"Active",parent:""},
   {id:"REQ-057",title:"Pattern matching לדרישות",cat:"ניתוח מסמך",pri:"High",type:"requirement",
    desc:"זיהוי דרישות בתוכן קובץ המוכן.",status:"Active",parent:""},
-  {id:"REQ-058",title:"בקרת איכות — דרישות לא מדידות נכנסות עם flag",cat:"ניתוח מסמך",pri:"High",type:"requirement",
+  {id:"REQ-058",title:"בקרת איכות ? דרישות לא מדידות נכנסות עם flag",cat:"ניתוח מסמך",pri:"High",type:"requirement",
    desc:"דרישות שלא עברו validate נשמרות עם _vague:true.",status:"Active",parent:""},
   {id:"REQ-059",title:"כפילויות נחסמות ב-applySelectedRecs",cat:"ניתוח מסמך",pri:"High",type:"requirement",
    desc:"_isDupInDB בדיקה לפני push להצעות המקובלות.",status:"Active",parent:""},
@@ -562,7 +562,7 @@ var DEFAULT_REQS = [
    desc:"קריאה לכמה roles, merge תשובות.",status:"Active",parent:""},
   {id:"REQ-077",title:"SELF_EVAL_QUESTIONS מוגדרות (17 שאלות)",cat:"מומחה AI",pri:"High",type:"requirement",
    desc:"array עם 17 שאלות self-evaluation.",status:"Active",parent:""},
-  {id:"REQ-078",title:"AI Populate Section — expert query + template fallback",cat:"מומחה AI",pri:"High",type:"requirement",
+  {id:"REQ-078",title:"AI Populate Section ? expert query + template fallback",cat:"מומחה AI",pri:"High",type:"requirement",
    desc:"_EXPERT_POPULATE_CFG עם 6 sections (arch, icd, risks, swReqs, meReqs, swModules).",status:"Active",parent:""},
   {id:"REQ-078.1",title:"_EXPERT_POPULATE_CFG עם 6 sections",cat:"מומחה AI",pri:"High",type:"sub-requirement",
    desc:"arch, icd, risks, swReqs, meReqs, swModules + duplicate prevention.",status:"Active",parent:"REQ-078"},
@@ -580,7 +580,7 @@ var DEFAULT_REQS = [
    desc:"badge עם מספר דרישות מכוסות / סה\"כ דרישות.",status:"Active",parent:""},
   {id:"REQ-094",title:"renderVV מייצר desc אוטומטי לפריטים ישנים",cat:"V&V",pri:"High",type:"requirement",
    desc:"פריטים ישנים ללא desc מקבלים generated description.",status:"Active",parent:""},
-  {id:"REQ-101",title:"Risk Register עם RPN = חומרה × סבירות",cat:"ניהול סיכונים",pri:"High",type:"requirement",
+  {id:"REQ-101",title:"Risk Register עם RPN = חומרה ֳ— סבירות",cat:"ניהול סיכונים",pri:"High",type:"requirement",
    desc:"RPN calculation אוטומטי בכל risk.",status:"Active",parent:""},
   {id:"REQ-102",title:"15 קטגוריות סיכונים מוגדרות",cat:"ניהול סיכונים",pri:"High",type:"requirement",
    desc:"RISK_CATEGORIES_15 array עם 15 קטגוריות בדיוק.",status:"Active",parent:""},
@@ -589,10 +589,10 @@ var DEFAULT_REQS = [
   {id:"REQ-104",title:"שדה Detection בטופס סיכון",cat:"ניהול סיכונים",pri:"High",type:"requirement",
    desc:"rDetection field בכל risk item.",status:"Active",parent:""},
   {id:"REQ-105",title:"Risk Heatmap ויזואלי",cat:"ניהול סיכונים",pri:"High",type:"requirement",
-   desc:"renderRiskHeatmap מציג heatmap (חומרה × סבירות).",status:"Active",parent:""},
-  {id:"REQ-106",title:"Residual Risk — טאב נפרד",cat:"ניהול סיכונים",pri:"High",type:"requirement",
+   desc:"renderRiskHeatmap מציג heatmap (חומרה ֳ— סבירות).",status:"Active",parent:""},
+  {id:"REQ-106",title:"Residual Risk ? טאב נפרד",cat:"ניהול סיכונים",pri:"High",type:"requirement",
    desc:"risk-residual tab עם טבלה לדרישות שיוריות.",status:"Active",parent:""},
-  {id:"REQ-106.1",title:"RPN שיורי = ס שיורי × ח שיורי",cat:"ניהול סיכונים",pri:"High",type:"sub-requirement",
+  {id:"REQ-106.1",title:"RPN שיורי = ס שיורי ֳ— ח שיורי",cat:"ניהול סיכונים",pri:"High",type:"sub-requirement",
    desc:"calculation אוטומטי לכל residual risk.",status:"Active",parent:"REQ-106"},
   {id:"REQ-106.2",title:"אישור קבלה (כן/לא/ממתין)",cat:"ניהול סיכונים",pri:"High",type:"sub-requirement",
    desc:"acceptance field עם options.",status:"Active",parent:"REQ-106"},
@@ -672,11 +672,11 @@ var DEFAULT_REQS = [
    desc:"כל מסמך ב-DOC_MODAL_SECTIONS מכיל לפחות section אחד מסוג fields.",status:"Active",parent:"REQ-151"},
   {id:"REQ-151.2",title:"פונקציית AI Fill מוגדרת ו-DOC_MODAL_SECTIONS מחובר אליה",cat:"דרישות מסמכים",pri:"High",type:"sub-requirement",
    desc:"_buildDocFillFromDB או aiPopulateDocSection קיימת וקוראת ל-DOC_MODAL_SECTIONS[docId].",status:"Active",parent:"REQ-151"},
-  {id:"REQ-151.3",title:"AI Fill מוגדר ל-SEMP — ממלא ver, status, author מ-DB",cat:"דרישות מסמכים",pri:"High",type:"derived",
+  {id:"REQ-151.3",title:"AI Fill מוגדר ל-SEMP ? ממלא ver, status, author מ-DB",cat:"דרישות מסמכים",pri:"High",type:"derived",
    desc:"_buildDocFillFromDB('SEMP') מחזיר projectName, author, ver מ-DB.project.",status:"Active",parent:"REQ-151"},
 
   // ── Requirements Traceability ─────────────────────────────────────────
-  {id:"REQ-152",title:"עקיבות דרישות — כל TC מקושר ל-REQ לפחות אחד",cat:"עקיבות דרישות",pri:"High",type:"requirement",
+  {id:"REQ-152",title:"עקיבות דרישות ? כל TC מקושר ל-REQ לפחות אחד",cat:"עקיבות דרישות",pri:"High",type:"requirement",
    desc:"כל test case חייב לכלול שדה reqs עם מזהה REQ אחד לפחות.",status:"Active",parent:""},
   {id:"REQ-152.1",title:"כל REQ מקושר ל-TC אחד לפחות (כיסוי דרישות ≥80%)",cat:"עקיבות דרישות",pri:"High",type:"sub-requirement",
    desc:"אחוז דרישות שיש להן TC לפחות אחד ≥80%.",status:"Active",parent:"REQ-152"},
@@ -704,7 +704,7 @@ var DEFAULT_TCS = [
   {id:"TC-013",title:"Residual Risks DOM",cat:"ניהול סיכונים",type:"UI",pri:"High",reqs:"REQ-106",steps:"בדוק getElementById residualRisks",expected:"element קיים",auto:"yes",fn:"checkResidualRisk"},
   {id:"TC-014",title:"DB.residualRisks array",cat:"ניהול סיכונים",type:"Functional",pri:"High",reqs:"REQ-107",steps:"בדוק Array.isArray",expected:"true",auto:"yes",fn:"checkResidualDB"},
   {id:"TC-015",title:"humanizeOpener מחזיר פתיח",cat:"מומחה AI",type:"Functional",pri:"High",reqs:"REQ-072",steps:"קרא humanizeOpener",expected:"string לא ריק",auto:"yes",fn:"checkHumanOpener"},
-  {id:"TC-016",title:"PIDS anchor בתשובות",cat:"מומחה AI",type:"Functional",pri:"High",reqs:"REQ-073",steps:"בדוק ל-PIDS values",expected:"−65 dBm, DF ≤2°",auto:"yes",fn:"checkPIDSAnchor"},
+  {id:"TC-016",title:"PIDS anchor בתשובות",cat:"מומחה AI",type:"Functional",pri:"High",reqs:"REQ-073",steps:"בדוק ל-PIDS values",expected:"−65 dBm, DF ≤2?",auto:"yes",fn:"checkPIDSAnchor"},
   {id:"TC-017",title:"GPS/GNSS flags",cat:"מומחה AI",type:"Functional",pri:"High",reqs:"REQ-074",steps:"בדוק isGNSSinteg, isRAIM",expected:"flags קיימים",auto:"yes",fn:"checkGPSFlags"},
   {id:"TC-018",title:"AI Populate _EXPERT_POPULATE_CFG",cat:"מומחה AI",type:"Functional",pri:"High",reqs:"REQ-078",steps:"בדוק _EXPERT_POPULATE_CFG",expected:"קיים עם 6 sections",auto:"yes",fn:"checkAIPopulate"},
   {id:"TC-019",title:"AI Populate dup prevention",cat:"מומחה AI",type:"Functional",pri:"High",reqs:"REQ-078.1",steps:"בדוק item._dup flag",expected:"_checkAllDuplicates קיים",auto:"yes",fn:"checkDupPreventAIPopulate"},
@@ -780,10 +780,10 @@ var DEFAULT_TCS = [
   {id:"TC-083",title:"מיזוג DB מ-localStorage",cat:"שמירת נתונים",type:"Functional",
    pri:"High",reqs:"REQ-002.1",steps:"בדוק Object.keys(parsed).forEach + DB[k]=parsed[k]",
    expected:"מיזוג נכון של DB קיים",auto:"yes",fn:"checkDBMerge"},
-  {id:"TC-084",title:"ייצוא JSON — manualSave מוריד קובץ",cat:"שמירת נתונים",type:"Functional",
+  {id:"TC-084",title:"ייצוא JSON ? manualSave מוריד קובץ",cat:"שמירת נתונים",type:"Functional",
    pri:"High",reqs:"REQ-004",steps:"בדוק שmanualSave יוצר Blob JSON ומוריד",
    expected:"Blob + application/json קיימים",auto:"yes",fn:"checkExportJSON"},
-  {id:"TC-085",title:"ייבוא JSON — handleFileLoad משחזר נתונים",cat:"שמירת נתונים",type:"Functional",
+  {id:"TC-085",title:"ייבוא JSON ? handleFileLoad משחזר נתונים",cat:"שמירת נתונים",type:"Functional",
    pri:"High",reqs:"REQ-005",steps:"בדוק שhandleFileLoad + JSON.parse + syncUIFromDB קיימים",
    expected:"כל 3 פונקציות קיימות",auto:"yes",fn:"checkImportJSON"},
   {id:"TC-086",title:"כל Page IDs ייחודיים",cat:"ניווט ו-UI",type:"Functional",
@@ -795,7 +795,7 @@ var DEFAULT_TCS = [
   {id:"TC-088",title:"פונקציית notify() קיימת לטוסטים",cat:"ניווט ו-UI",type:"Functional",
    pri:"High",reqs:"REQ-016",steps:"בדוק function notify() + CSS .notif",
    expected:"notify() + .notif קיימים",auto:"yes",fn:"checkNotifyFn"},
-  {id:"TC-089",title:"RTL layout — dir=rtl ו-lang=he",cat:"ניווט ו-UI",type:"UI",
+  {id:"TC-089",title:"RTL layout ? dir=rtl ו-lang=he",cat:"ניווט ו-UI",type:"UI",
    pri:"High",reqs:"REQ-018",steps:"בדוק dir='rtl' + lang='he' ב-HTML",
    expected:"dir=rtl + lang=he קיים",auto:"yes",fn:"checkRTL"},
   {id:"TC-090",title:"openAddReq מוסיף ל-DB.sysReqs",cat:"ניהול דרישות",type:"Functional",
@@ -807,13 +807,13 @@ var DEFAULT_TCS = [
   {id:"TC-092",title:"editItem עריכת דרישה עם טופס",cat:"ניהול דרישות",type:"Functional",
    pri:"High",reqs:"REQ-033",steps:"בדוק editItem עם isReqArr + edit_desc",
    expected:"editItem + isReqArr + edit_desc קיימים",auto:"yes",fn:"checkEditReqFn"},
-  {id:"TC-093",title:"_VAGUE_WORDS — 30+ מילים",cat:"ניהול דרישות",type:"Functional",
+  {id:"TC-093",title:"_VAGUE_WORDS ? 30+ מילים",cat:"ניהול דרישות",type:"Functional",
    pri:"High",reqs:"REQ-034.1",steps:"בדוק כמות מילים ב-_VAGUE_WORDS",
    expected:"≥30 מילים",auto:"yes",fn:"checkVagueWordsCount"},
-  {id:"TC-094",title:"_MEASURABLE_INDICATORS — 10+ דפוסים",cat:"ניהול דרישות",type:"Functional",
+  {id:"TC-094",title:"_MEASURABLE_INDICATORS ? 10+ דפוסים",cat:"ניהול דרישות",type:"Functional",
    pri:"High",reqs:"REQ-034.2",steps:"בדוק כמות regex patterns ב-_MEASURABLE_INDICATORS",
    expected:"≥10 דפוסים",auto:"yes",fn:"checkMeasurableCount"},
-  {id:"TC-095",title:"_isDupInDB — desc ראשון לפני rid",cat:"ניהול דרישות",type:"Regression",
+  {id:"TC-095",title:"_isDupInDB ? desc ראשון לפני rid",cat:"ניהול דרישות",type:"Regression",
    pri:"High",reqs:"REQ-036.1",steps:"בדוק item.desc || item.name || item.rid ו-ex.desc || ex.name || ex.rid",
    expected:"desc בסדר ראשון בשני המקומות",auto:"yes",fn:"checkDescPriority"},
   {id:"TC-096",title:"13 domain types קיימים בקוד",cat:"ניהול דרישות",type:"Functional",
@@ -828,49 +828,49 @@ var DEFAULT_TCS = [
   {id:"TC-099",title:"12 expert roles ב-templates object",cat:"מומחה AI",type:"Functional",
    pri:"High",reqs:"REQ-071.1",steps:"בדוק pm:, se:, rf_eng:, algo:, me:, sw:, qa:, vv:, emc:, rams:, safety:, gnss: בתוך templates object",
    expected:"12/12 roles",auto:"yes",fn:"checkAllExpertRolesInTemplate"},
-  {id:"TC-100",title:"humanizeOpener — 4 פתיחים יומיים",cat:"מומחה AI",type:"Functional",
+  {id:"TC-100",title:"humanizeOpener ? 4 פתיחים יומיים",cat:"מומחה AI",type:"Functional",
    pri:"High",reqs:"REQ-072.1",steps:"בדוק dailyOps array ≥4 entries",
    expected:"≥4 daily openers",auto:"yes",fn:"checkDailyOpenersCount"},
-  {id:"TC-101",title:"humanizeOpener — 6 פתיחים טכניים",cat:"מומחה AI",type:"Functional",
+  {id:"TC-101",title:"humanizeOpener ? 6 פתיחים טכניים",cat:"מומחה AI",type:"Functional",
    pri:"High",reqs:"REQ-072.2",steps:"בדוק techOps array ≥6 entries",
    expected:"≥6 tech openers",auto:"yes",fn:"checkTechOpenersCount"},
   {id:"TC-102",title:"PIDS anchor values קיימים בקוד",cat:"מומחה AI",type:"Functional",
-   pri:"High",reqs:"REQ-073.1",steps:"בדוק −65 dBm, ≤2°, <100 ms, 100W, 85 kg, 40,000 ft בקוד",
+   pri:"High",reqs:"REQ-073.1",steps:"בדוק −65 dBm, ≤2?, <100 ms, 100W, 85 kg, 40,000 ft בקוד",
    expected:"6/6 PIDS values קיימים",auto:"yes",fn:"checkPIDSValues"},
   {id:"TC-103",title:"כפילויות מסומנות ב-AI Populate modal",cat:"מומחה AI",type:"Integration",
    pri:"High",reqs:"REQ-078.2",steps:"בדוק _checkAllDuplicates + item._dup + dupCount",
    expected:"מניעת כפולות בAI Populate",auto:"yes",fn:"checkDupMarkInAIPopulate"},
-  {id:"TC-104",title:"_VV_DESC_TEMPLATES — 13+ domain templates",cat:"V&V",type:"Functional",
+  {id:"TC-104",title:"_VV_DESC_TEMPLATES ? 13+ domain templates",cat:"V&V",type:"Functional",
    pri:"High",reqs:"REQ-092.1",steps:"בדוק _VV_DESC_TEMPLATES ≥13 domain keys",
    expected:"≥13 templates",auto:"yes",fn:"checkVVDescTemplatesCount"},
-  {id:"TC-105",title:"_VV_PHASE_MAP — phases לכל domain",cat:"V&V",type:"Functional",
+  {id:"TC-105",title:"_VV_PHASE_MAP ? phases לכל domain",cat:"V&V",type:"Functional",
    pri:"High",reqs:"REQ-092.2",steps:"בדוק _VV_PHASE_MAP ≥10 domain mappings",
    expected:"≥10 phase mappings",auto:"yes",fn:"checkVVPhaseMapKeys"},
   {id:"TC-106",title:"renderVV מייצר desc לפריטים ישנים",cat:"V&V",type:"Regression",
    pri:"High",reqs:"REQ-094",steps:"בדוק Auto-generate description for legacy + _VV_DESC_TEMPLATES[dom]",
    expected:"auto-desc mechanism קיים",auto:"yes",fn:"checkRenderVVAutoDesc"},
-  {id:"TC-107",title:"RPN = חומרה × סבירות ב-Risk Register",cat:"ניהול סיכונים",type:"Functional",
+  {id:"TC-107",title:"RPN = חומרה ֳ— סבירות ב-Risk Register",cat:"ניהול סיכונים",type:"Functional",
    pri:"High",reqs:"REQ-101",steps:"בדוק r.sev*r.prob בקוד renderRisks",
    expected:"חישוב RPN קיים",auto:"yes",fn:"checkRPNCalc"},
-  {id:"TC-108",title:"RPN שיורי = sevRes × probRes",cat:"ניהול סיכונים",type:"Functional",
+  {id:"TC-108",title:"RPN שיורי = sevRes ֳ— probRes",cat:"ניהול סיכונים",type:"Functional",
    pri:"High",reqs:"REQ-106.1",steps:"בדוק sevRes*probRes ב-renderResidualRisks",
    expected:"חישוב RPN שיורי קיים",auto:"yes",fn:"checkResidualRPNCalc"},
-  {id:"TC-109",title:"שדה אישור קבלה — כן/לא/ממתין",cat:"ניהול סיכונים",type:"Functional",
+  {id:"TC-109",title:"שדה אישור קבלה ? כן/לא/ממתין",cat:"ניהול סיכונים",type:"Functional",
    pri:"High",reqs:"REQ-106.2",steps:"בדוק ממתין + כן + לא + rrAccepted",
    expected:"שלושת האפשרויות קיימות",auto:"yes",fn:"checkResidualAcceptance"},
   {id:"TC-110",title:"navigateTo מנקה tooltip (REQ-136)",cat:"טכני ו-QA",type:"Regression",
    pri:"High",reqs:"REQ-136",steps:"בדוק navigateTo קורא _hideVagueTooltip",
    expected:"קריאה קיימת ב-navigateTo block",auto:"yes",fn:"checkNavClearsTooltipREQ136"},
-  {id:"TC-111",title:"פורמט סיכון — 'קיים סיכון כי...'",cat:"ניהול סיכונים",type:"Functional",
+  {id:"TC-111",title:"פורמט סיכון ? 'קיים סיכון כי...'",cat:"ניהול סיכונים",type:"Functional",
    pri:"High",reqs:"REQ-103",steps:"בדוק באנר פורמט ו-rDetection שדה בטופס",
    expected:"פורמט + detection field קיימים",auto:"yes",fn:"checkRiskFormat"},
-  {id:"TC-112",title:"EXPERT_POPULATE_CFG קיים — 6 sections",cat:"מומחה AI",type:"Functional",
+  {id:"TC-112",title:"EXPERT_POPULATE_CFG קיים ? 6 sections",cat:"מומחה AI",type:"Functional",
    pri:"High",reqs:"REQ-078.1",steps:"בדוק _EXPERT_POPULATE_CFG + 6 section keys",
    expected:"_EXPERT_POPULATE_CFG קיים",auto:"yes",fn:"checkAIPopulate"},
   {id:"TC-113",title:"applySelectedRecs בודק כפולות לפני push",cat:"לוגיקה עסקית",type:"Regression",
    pri:"Critical",reqs:"REQ-059",steps:"בדוק _isDupInDB(arr, item) ב-applySelectedRecs לפני push",
    expected:"בדיקה קיימת",auto:"yes",fn:"checkApplyRecsNoDup"},
-  {id:"TC-114",title:"V&V table — עמודת תיאור + coverage badge",cat:"V&V",type:"UI",
+  {id:"TC-114",title:"V&V table ? עמודת תיאור + coverage badge",cat:"V&V",type:"UI",
    pri:"Medium",reqs:"REQ-091,REQ-093",steps:"בדוק תיאור הבדיקה + vvCoverage",
    expected:"עמודה + badge קיימים",auto:"yes",fn:"checkVVTable"},
   {id:"TC-115",title:"SSPP + FHA + FMEA ב-DOC_REGISTRY",cat:"ניהול תצורה",type:"Functional",
@@ -893,10 +893,10 @@ var DEFAULT_TCS = [
   {id:"TC-120",title:"AI Fill פונקציה מוגדרת לכל מסמך",cat:"דרישות מסמכים",type:"Functional",
    pri:"High",reqs:"REQ-151,REQ-151.2",steps:"בדוק _buildDocFillFromDB או aiPopulateDocSection + DOC_MODAL_SECTIONS[docId]",
    expected:"פונקציית AI Fill קיימת",auto:"yes",fn:"checkDocAIFillFn"},
-  {id:"TC-121",title:"AI Fill ל-SEMP — ממלא מ-DB",cat:"דרישות מסמכים",type:"Integration",
+  {id:"TC-121",title:"AI Fill ל-SEMP ? ממלא מ-DB",cat:"דרישות מסמכים",type:"Integration",
    pri:"High",reqs:"REQ-151.3",steps:"בדוק SEMP ב-DOC_MODAL_SECTIONS + _buildDocFillFromDB",
    expected:"SEMP + AI Fill מחובר",auto:"yes",fn:"checkSEMPAIFill"},
-  {id:"TC-122",title:"DOC_REGISTRY_DEF — 4 קטגוריות קיימות",cat:"דרישות מסמכים",type:"Functional",
+  {id:"TC-122",title:"DOC_REGISTRY_DEF ? 4 קטגוריות קיימות",cat:"דרישות מסמכים",type:"Functional",
    pri:"High",reqs:"REQ-154",steps:"בדוק se-mgmt, ops, integ, safety",
    expected:"4/4 קטגוריות קיימות",auto:"yes",fn:"checkDocRegCategories"},
   {id:"TC-123",title:"DOC_REGISTRY_DEF מכיל ≥22 מסמכים עם fields",cat:"דרישות מסמכים",type:"Functional",
@@ -1143,6 +1143,45 @@ var CAPABILITY_EXPANSION_TCS = [
   {id:"TC-435",title:"Operational health summary exposes local readiness counters",cat:"Capability Expansion",type:"Regression",pri:"High",reqs:"REQ-142",steps:"Inspect operational health summary on seeded local project data",expected:"Health summary exposes DB shape, requirement layer counts, traceability, and governance counters",auto:"yes",fn:"checkOperationalHealthSummaryRuntime"}
 ];
 
+var ENGINEERING_REPORT_EXPORT_TCS = [
+  {id:"TC-436",title:"Engineering report export functions exist",cat:"Engineering Report Export",type:"Regression",pri:"Critical",reqs:"REQ-143",steps:"Inspect export function wiring for PDF, Word, Excel, JSON, and report-data builder",expected:"All engineering report export entry points exist in runtime",auto:"yes",fn:"checkEngineeringReportExportFunctionsRuntime"},
+  {id:"TC-437",title:"Engineering report exports do not mutate DB",cat:"Engineering Report Export",type:"Regression",pri:"Critical",reqs:"REQ-143",steps:"Run all engineering report exports in preview mode and compare DB snapshots",expected:"Engineering report export stays read-only and deterministic",auto:"yes",fn:"checkEngineeringReportNoMutationRuntime"},
+  {id:"TC-438",title:"Engineering report JSON export contains all major sections",cat:"Engineering Report Export",type:"Regression",pri:"High",reqs:"REQ-143",steps:"Build engineering report JSON and inspect section coverage",expected:"JSON export includes requirements, architecture, risks, vv, impact, traceability, and findings",auto:"yes",fn:"checkEngineeringReportJSONRuntime"},
+  {id:"TC-439",title:"Engineering report Excel export produces seven normalized sheets",cat:"Engineering Report Export",type:"Regression",pri:"High",reqs:"REQ-143",steps:"Build engineering report Excel export and inspect workbook sheet names",expected:"Excel export includes seven sheets with deterministic names",auto:"yes",fn:"checkEngineeringReportExcelRuntime"},
+  {id:"TC-440",title:"Engineering report PDF export includes summary section",cat:"Engineering Report Export",type:"Regression",pri:"High",reqs:"REQ-143",steps:"Build engineering report PDF export in preview mode and inspect section text",expected:"PDF export includes Summary section and major engineering sections",auto:"yes",fn:"checkEngineeringReportPDFRuntime"},
+  {id:"TC-441",title:"Engineering report findings are generated from local traceability state",cat:"Engineering Report Export",type:"Regression",pri:"High",reqs:"REQ-143",steps:"Build engineering report data from seeded project state and inspect findings",expected:"Report findings include orphan or missing-linkage diagnostics when local data warrants them",auto:"yes",fn:"checkEngineeringReportFindingsRuntime"}
+];
+
+var ENGINEERING_INGESTION_RECOVERY_TCS = [
+  {id:"TC-442",title:"Engineering ingestion generates non-empty suggestion bundle for valid spec input",cat:"Engineering Ingestion Recovery",type:"Regression",pri:"Critical",reqs:"REQ-144",steps:"Run engineering ingestion on a structured specification snippet",expected:"Suggestion bundle includes requirements and other engineering entities",auto:"yes",fn:"checkEngineeringIngestionSuggestionBundleRuntime"},
+  {id:"TC-443",title:"Preview-only engineering ingestion does not mutate DB",cat:"Engineering Ingestion Recovery",type:"Regression",pri:"Critical",reqs:"REQ-144",steps:"Run engineering ingestion preview without apply",expected:"DB collections remain unchanged during preview-only ingestion",auto:"yes",fn:"checkEngineeringIngestionPreviewNoMutationRuntime"},
+  {id:"TC-444",title:"Engineering ingestion apply writes requirement entities into DB",cat:"Engineering Ingestion Recovery",type:"Regression",pri:"Critical",reqs:"REQ-144",steps:"Apply selected requirement recommendations from engineering ingestion",expected:"DB.sysReqs, DB.swReqs, and DB.meReqs receive selected entities",auto:"yes",fn:"checkEngineeringIngestionApplyRequirementsRuntime"},
+  {id:"TC-445",title:"Engineering ingestion apply writes architecture risk and VV entities into DB",cat:"Engineering Ingestion Recovery",type:"Regression",pri:"Critical",reqs:"REQ-144",steps:"Apply selected architecture, risk, and VV recommendations",expected:"DB.arch, DB.risks, and DB.vv receive selected entities",auto:"yes",fn:"checkEngineeringIngestionApplyCrossDomainRuntime"},
+  {id:"TC-446",title:"Engineering report reflects preview ingestion when DB is still empty",cat:"Engineering Ingestion Recovery",type:"Regression",pri:"Critical",reqs:"REQ-144",steps:"Build engineering report immediately after a valid ingestion preview on an empty project",expected:"Engineering report is not all-zero when ingestion preview has valid entities",auto:"yes",fn:"checkEngineeringReportUsesPreviewIngestionRuntime"},
+  {id:"TC-447",title:"Engineering report reflects populated DB state after ingestion apply",cat:"Engineering Ingestion Recovery",type:"Regression",pri:"High",reqs:"REQ-144",steps:"Apply engineering ingestion selections and build engineering report",expected:"Engineering report reflects populated requirement, architecture, risk, and VV collections",auto:"yes",fn:"checkEngineeringReportAfterIngestionApplyRuntime"},
+  {id:"TC-448",title:"Engineering report export is not empty after successful ingestion and apply",cat:"Engineering Ingestion Recovery",type:"Regression",pri:"High",reqs:"REQ-144",steps:"Apply engineering ingestion selections and export engineering report",expected:"Exported engineering report contains non-empty engineering sections",auto:"yes",fn:"checkEngineeringReportExportAfterIngestionRuntime"}
+];
+
+var ENGINEERING_INTELLIGENCE_TCS = [
+  {id:"TC-449",title:"Rich spec ingestion produces non-zero risks and VV candidates",cat:"Engineering Intelligence",type:"Regression",pri:"Critical",reqs:"REQ-145",steps:"Run engineering ingestion on a rich spec with safety, interface, cyber, and degraded-mode signals",expected:"Suggestion bundle contains non-zero risks and V&V candidates",auto:"yes",fn:"checkEngineeringIntelligenceRiskAndVVRuntime"},
+  {id:"TC-450",title:"Rich spec ingestion deepens subsystem software and mechanical derivation",cat:"Engineering Intelligence",type:"Regression",pri:"Critical",reqs:"REQ-145",steps:"Inspect derived subsystem, software, and mechanical entities from a rich engineering spec",expected:"Bundle contains deeper subsystem, software, and mechanical derivation instead of only shallow system rows",auto:"yes",fn:"checkEngineeringIntelligenceDerivationDepthRuntime"},
+  {id:"TC-451",title:"Software categories are populated from rich source signals",cat:"Engineering Intelligence",type:"Regression",pri:"High",reqs:"REQ-145",steps:"Inspect derived software categories from interface, monitoring, logging, degraded-mode, startup, and cyber signals",expected:"Multiple expected software categories are present in derived software suggestions",auto:"yes",fn:"checkEngineeringIntelligenceSoftwareCategoriesRuntime"},
+  {id:"TC-452",title:"Applying rich ingestion writes derived subsystem risk VV and requirement entities",cat:"Engineering Intelligence",type:"Regression",pri:"Critical",reqs:"REQ-145",steps:"Apply the rich engineering ingestion bundle",expected:"DB receives subsystem, software, mechanical, risk, and VV entities",auto:"yes",fn:"checkEngineeringIntelligenceApplyRuntime"},
+  {id:"TC-453",title:"Engineering report reflects rich derived engineering content after apply",cat:"Engineering Intelligence",type:"Regression",pri:"Critical",reqs:"REQ-145",steps:"Apply rich engineering ingestion and build engineering report",expected:"Report shows non-zero subsystem, software, mechanical, risk, and VV counts",auto:"yes",fn:"checkEngineeringIntelligenceReportRuntime"},
+  {id:"TC-454",title:"Traceability strengthens when rich risks and VV are present",cat:"Engineering Intelligence",type:"Regression",pri:"High",reqs:"REQ-145",steps:"Apply rich engineering ingestion and inspect traceability rows and summary",expected:"Traceability rows include VV and risk link counts for at least some derived requirements",auto:"yes",fn:"checkEngineeringIntelligenceTraceabilityRuntime"},
+  {id:"TC-455",title:"Preview-only rich engineering ingestion remains read-only",cat:"Engineering Intelligence",type:"Regression",pri:"Critical",reqs:"REQ-145",steps:"Run rich engineering ingestion in preview only",expected:"No DB mutation occurs before apply even with richer engineering derivation",auto:"yes",fn:"checkEngineeringIntelligencePreviewNoMutationRuntime"}
+];
+
+var ENGINEERING_EXPORT_ALIGNMENT_TCS = [
+  {id:"TC-456",title:"Manual-equivalent document analysis populates the same rich recommendation state as tested ingestion",cat:"Engineering Export Alignment",type:"Regression",pri:"Critical",reqs:"REQ-146",steps:"Run executeAnalysisForSource on a rich spec source and inspect _analysisRecs",expected:"Manual-equivalent analysis exposes non-zero risks, VV, and derived requirements in the visible recommendation state",auto:"yes",fn:"checkManualEngineeringAnalysisAlignmentRuntime"},
+  {id:"TC-457",title:"Manual-equivalent apply and export reflect populated DB state",cat:"Engineering Export Alignment",type:"Regression",pri:"Critical",reqs:"REQ-146",steps:"Run manual-equivalent analysis, applySelectedRecs, and export engineering report",expected:"Exported engineering report after the manual-equivalent flow reflects populated DB risks and VV state",auto:"yes",fn:"checkManualEngineeringExportAlignmentRuntime"},
+  {id:"TC-458",title:"Deep CRS ingestion populates customer requirements with preserved CRS identity",cat:"Engineering Export Alignment",type:"Regression",pri:"Critical",reqs:"REQ-146",steps:"Run ingestion on a deep CRS-style spec and inspect customer recommendations",expected:"Customer requirements are populated above a meaningful threshold and preserve CRS identifiers",auto:"yes",fn:"checkDeepCustomerRequirementPopulationRuntime"},
+  {id:"TC-459",title:"Front matter, TOC, and glossary noise are filtered from customer requirements",cat:"Engineering Export Alignment",type:"Regression",pri:"High",reqs:"REQ-146",steps:"Run deep CRS ingestion with front-matter noise and inspect customer requirement text",expected:"Noise lines are not promoted into customer requirements",auto:"yes",fn:"checkDeepSpecNoiseFilteringRuntime"},
+  {id:"TC-460",title:"Deep safety spec derives both risks and hazards after apply",cat:"Engineering Export Alignment",type:"Regression",pri:"Critical",reqs:"REQ-146",steps:"Apply deep CRS ingestion and inspect risk and hazard collections",expected:"Both risks and hazards are populated from deterministic source safety signals",auto:"yes",fn:"checkDeepSafetyDerivationRuntime"},
+  {id:"TC-461",title:"Deep interface spec derives ICD rows and richer architecture",cat:"Engineering Export Alignment",type:"Regression",pri:"Critical",reqs:"REQ-146",steps:"Apply deep CRS ingestion and inspect ICD and architecture collections",expected:"ICD rows are generated and architecture includes multiple major components",auto:"yes",fn:"checkDeepICDAndArchitectureRuntime"},
+  {id:"TC-462",title:"Deep manual-equivalent export shows materially richer engineering counts",cat:"Engineering Export Alignment",type:"Regression",pri:"Critical",reqs:"REQ-146",steps:"Run manual-equivalent analysis, apply, and export on the deep CRS spec",expected:"Export summary shows materially stronger customer, derived, ICD, hazard, VV, and traceability counts",auto:"yes",fn:"checkDeepManualExportCountsRuntime"}
+];
+
 var AI_REQUIREMENT_APPLY_TCS = [
   {id:"TC-241",title:"Requirement Assist apply action exists",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-123",steps:"בדוק שכפתור Apply Suggestion קיים ב-Requirement Assist",expected:"קיים apply control בטוח בתוך modal ההצעה",auto:"yes",fn:"checkRequirementAssistApplyActionExistsRuntime"},
   {id:"TC-242",title:"Suggestion generation does not auto-apply",cat:"מומחה AI",type:"Regression",pri:"Critical",reqs:"REQ-123",steps:"בדוק שפתיחת Requirement Assist לא משנה את הדרישה אוטומטית",expected:"אין auto-apply ואין audit על פתיחת suggestion בלבד",auto:"yes",fn:"checkRequirementAssistNoAutoApplyRuntime"},
@@ -1191,7 +1230,11 @@ var ACTIVE_TC_SETS = [
   SOFTWARE_REQUIREMENTS_EXPANSION_TCS,
   AI_REQUIREMENT_APPLY_TCS,
   DEFENSIVE_HARDENING_TCS,
-  CAPABILITY_EXPANSION_TCS
+  CAPABILITY_EXPANSION_TCS,
+  ENGINEERING_REPORT_EXPORT_TCS,
+  ENGINEERING_INGESTION_RECOVERY_TCS,
+  ENGINEERING_INTELLIGENCE_TCS,
+  ENGINEERING_EXPORT_ALIGNMENT_TCS
 ];
 function ensureHarnessAuthoritativeTestRegistry(){
   normalizeTMS();
@@ -1205,6 +1248,15 @@ saveTMS();
 //  AUTOMATION FUNCTIONS (run against app's source code)
 // ═══════════════════════════════════════════════════════════════
 var _appSrc = null;
+function _looksLikeFullAppSource(src){
+  if(!src || src.length <= 50000) return false;
+  return [
+    'function openAddReq(type)',
+    'function renderRisks()',
+    'function buildEngineeringReportData(options)',
+    'function applyEngineeringIngestionSelection(selection, options)'
+  ].every(function(marker){ return src.indexOf(marker) >= 0; });
+}
 var _appWin = null;
 
 // ── File picker for file:// mode ─────────────────────────────────
@@ -1228,7 +1280,7 @@ function _loadFromFilePicker(){
           '<input type="file" id="_appFileInput" accept=".html" style="display:none;">' +
         '</label>' +
         '<div id="_filePickerStatus" style="font-size:12px;color:#a6adc8;margin-bottom:14px;min-height:18px;"></div>' +
-        '<button id="_skipSrcBtn" style="background:#313244;color:#a6adc8;border:1px solid #45475a;padding:8px 18px;border-radius:6px;cursor:pointer;font-size:13px;">דלג — הרץ בלי קוד מקור</button>' +
+        '<button id="_skipSrcBtn" style="background:#313244;color:#a6adc8;border:1px solid #45475a;padding:8px 18px;border-radius:6px;cursor:pointer;font-size:13px;">דלג ? הרץ בלי קוד מקור</button>' +
       '</div>';
     document.body.appendChild(overlay);
 
@@ -1251,7 +1303,7 @@ function _loadFromFilePicker(){
           setTimeout(function(){ done(_appSrc); }, 500);
         } else {
           document.getElementById('_filePickerStatus').style.color = '#f38ba8';
-          document.getElementById('_filePickerStatus').textContent = '⚠️ הקובץ קטן מדי — האם בחרת את הקובץ הנכון?';
+          document.getElementById('_filePickerStatus').textContent = '⚠️ הקובץ קטן מדי ? האם בחרת את הקובץ הנכון?';
         }
       };
       r.readAsText(f);
@@ -1261,14 +1313,21 @@ function _loadFromFilePicker(){
 }
 
 async function loadAppSource(){
-  if(_appSrc && _appSrc.length > 50000) return _appSrc;
+  if(_appSrc && _appSrc.length > 50000 && _looksLikeFullAppSource(_appSrc)) return _appSrc;
 
-  // Method 1: Read from iframe DOM (works for file:// protocol — same-origin)
+  function considerSource(src){
+    if(!src || src.length <= 50000) return false;
+    if(!_looksLikeFullAppSource(src)) return false;
+    _appSrc = src;
+    return true;
+  }
+
+  // Method 1: Read from iframe DOM (works for file:// protocol ? same-origin)
   try {
     var iframe = document.getElementById('testIframe');
     if(iframe && iframe.contentDocument && iframe.contentDocument.documentElement){
       var src = iframe.contentDocument.documentElement.outerHTML;
-      if(src && src.length > 50000){ _appSrc = src; return _appSrc; }
+      if(considerSource(src)) return _appSrc;
     }
   } catch(e) {}
 
@@ -1277,15 +1336,15 @@ async function loadAppSource(){
     var xhr = new XMLHttpRequest();
     xhr.open('GET', '7200_System_v2.html', false);
     xhr.send(null);
-    if(xhr.status === 200 && xhr.responseText && xhr.responseText.length > 50000){
-      _appSrc = xhr.responseText; return _appSrc;
+    if(xhr.status === 200 && considerSource(xhr.responseText)){
+      return _appSrc;
     }
   } catch(e2) {}
 
   // Method 3: fetch (works when served via HTTP server)
   try {
     var resp = await fetch('7200_System_v2.html?_=' + Date.now());
-    if(resp.ok){ _appSrc = await resp.text(); return _appSrc; }
+    if(resp.ok && considerSource(await resp.text())) return _appSrc;
   } catch(e3) {}
 
   // Method 4 (file:// mode): ask user to pick the file via FileReader API
@@ -1299,7 +1358,7 @@ async function loadAppSource(){
     iframe.onload = function(){
       try{
         var src = iframe.contentDocument.documentElement.outerHTML;
-        _appSrc = (src && src.length > 50000) ? src : "";
+        _appSrc = considerSource(src) ? _appSrc : "";
       }catch(e){ _appSrc = ""; }
       resolve(_appSrc);
     };
@@ -1671,6 +1730,134 @@ function _withCapabilityExpansionRuntimeState(w, extraKeys, fn){
   } finally {
     var restored = JSON.parse(snapshot);
     Object.keys(restored).forEach(function(key){ w.DB[key] = restored[key]; });
+    w.DB._preserveEmptyEngineeringState = !!restored.preserveEmptyEngineeringState;
+  }
+}
+
+function _buildEngineeringIngestionSpecText(){
+  return [
+    'System Specification',
+    'The system shall provide Ethernet mission data exchange between Mission Computer and Recorder.',
+    'The software shall validate mission telemetry packets and log communication faults within 50 ms.',
+    'The software shall display degraded mode alerts on the operator console.',
+    'The system shall inhibit unsafe command execution during degraded mode.',
+    'The mechanical assembly shall maintain connector retention during vibration and temperature cycling.',
+    'Architecture: Mission Computer, Recorder, Power Supply, Operator Console.',
+    'Interface: Ethernet link between Mission Computer and Recorder.',
+    'Risk: Interface mismatch may corrupt recorded telemetry.',
+    'Verification: Test telemetry exchange and Analysis of degraded mode handling.'
+  ].join('\n');
+}
+
+function _buildEngineeringIntelligenceSpecText(){
+  return [
+    'Integrated Surveillance and Control Specification',
+    'Customer requirement: The system shall maintain surveillance coverage, provide deterministic operator awareness, and prevent unsafe or unauthorized control behavior.',
+    'The system shall enter a fail-safe degraded mode within 2 seconds after heartbeat loss, communication loss, or power interruption.',
+    'The system shall inhibit unauthorized command execution and spoofed control packets during degraded mode and startup recovery.',
+    'The software shall validate telemetry packets, log integrity failures, publish degraded mode alerts, and acknowledge operator commands within 100 ms.',
+    'The operator console shall display loss of surveillance coverage, track loss, false classification alerts, and startup or shutdown recovery status.',
+    'The recorder and mission computer shall exchange telemetry, command, and health packets over deterministic Ethernet and CAN maintenance channels.',
+    'The RF front end shall report track loss and sensor heartbeat health to the mission computer.',
+    'The power distribution assembly shall prevent thermal runaway, detect power interruption, and support controlled restart recovery.',
+    'The mechanical assembly shall maintain enclosure integrity, thermal path, ingress protection, and connector retention during vibration and temperature cycling.',
+    'Hazard: operator overload, false classification, and loss of surveillance coverage may create unsafe mission behavior.',
+    'Risk: cyber attack, spoofing, integrity failure, thermal runaway, and communication loss shall be monitored and mitigated.',
+    'Verification: Test fail-safe degraded mode and packet handling, inspect connector retention, analyze thermal runaway mitigation, and demonstrate startup shutdown recovery.'
+  ].join('\n');
+}
+
+function _buildDeepEngineeringSpecText(){
+  return [
+    'Integrated Coastal Control Mission System (ICCMS) System of Systems Specification',
+    'Document Control',
+    'Revision History',
+    'Approvals',
+    'Table of Contents',
+    'Glossary',
+    'AIS = Automatic Identification System',
+    'EO/IR = Electro Optical / Infrared',
+    'Section 1 Scope',
+    'The ICCMS shall provide integrated maritime surveillance and command support.',
+    'Section 2 Operational Concept',
+    'CRS-001 The system shall provide persistent mission surveillance coverage across radar, EO/IR, passive RF sensor, and AIS inputs.',
+    'CRS-002 The system shall fuse multi-sensor tracks into a common operational picture for the operator console.',
+    'CRS-003 The system shall maintain synchronized timestamps across all track, archive, and health messages.',
+    'CRS-004 The system shall detect loss of communication with any sensor node within 2 seconds.',
+    'CRS-005 The system shall enter a fail-safe degraded mode after loss of communication, heartbeat failure, or unsafe synchronization loss.',
+    'CRS-006 The system shall inhibit unsafe command execution during degraded mode, startup, shutdown, and recovery.',
+    'CRS-007 The system shall reject spoofed, unauthorized, or integrity-failed control messages.',
+    'CRS-008 The system shall retain operator commands, alerts, and forensic evidence for post-mission review.',
+    'CRS-009 The system shall generate operator alerts for false classification, false alert, and track loss conditions.',
+    'CRS-010 The mission computer shall exchange command, health, and track messages with the operator console over deterministic Ethernet.',
+    'CRS-011 The gateway shall exchange external system data using REST and WebSocket service interfaces.',
+    'CRS-012 The system shall support NMEA time and navigation inputs and STANAG interoperability exchanges.',
+    'CRS-013 The archive service shall export mission data and evidence packages without loss of metadata integrity.',
+    'CRS-014 The software shall validate every incoming control packet for schema, version, and field completeness.',
+    'CRS-015 The software shall acknowledge accepted operator commands within 100 ms.',
+    'CRS-016 The software shall log health changes, command acknowledgments, degraded mode transitions, and BIT/BITE evidence.',
+    'CRS-017 The software shall support startup BIT, shutdown sequencing, and controlled restart recovery.',
+    'CRS-018 The software shall monitor cyber compromise indications, sensor heartbeat failure, and power loss conditions.',
+    'CRS-019 The power distribution subsystem shall detect power loss, isolate faults, and preserve controlled restart behavior.',
+    'CRS-020 The mechanical assembly shall maintain enclosure integrity, connector retention, and mounting stability during vibration and shock.',
+    'CRS-021 The mechanical assembly shall maintain thermal path performance across temperature cycling and environmental over-stress.',
+    'CRS-022 The system shall comply with EMI/EMC control requirements and prevent mission degradation from electromagnetic interference.',
+    'CRS-023 The system shall support radar, EO/IR, passive RF sensor, AIS receiver, gateway, mission computer, operator console, archive service, time server, communications backbone, power distribution, and mechanical assembly nodes.',
+    'CRS-024 The system shall publish health messages, track updates, command acknowledgment messages, and archive export status messages.',
+    'CRS-025 The system shall verify latency, bandwidth, environmental, interface, and safety requirements through test, analysis, inspection, and demonstration activities at FAT, SAT, and qualification phases.',
+    'Section 11 Interfaces (ICD)',
+    'The operator console and mission computer shall exchange track message, command acknowledgment, and health message payloads over deterministic Ethernet.',
+    'The gateway and external systems shall exchange REST and WebSocket payloads with versioned field definitions.',
+    'The time server shall distribute synchronization services to radar, EO/IR, passive RF sensor, AIS receiver, mission computer, archive service, and operator console.',
+    'Section 15 Safety',
+    'Hazard: unsafe command, operator overload, loss of synchronization, false classification, power loss, cyber compromise, and EMI/EMC effects may create unsafe mission behavior.',
+    'The safety concept shall identify loss of communication, degraded mode transition, fail-safe behavior, and evidence retention hazards in accordance with MIL-STD-882E.',
+    'Section 24 Verification and Validation',
+    'Verification: FAT shall validate command acknowledgment timing, SAT shall validate external interoperability, qualification shall validate EMI/EMC and vibration performance.',
+    'Verification: demonstration and inspection shall confirm startup BIT/BITE, shutdown sequencing, and controlled restart recovery.'
+  ].join('\n');
+}
+
+function _withEngineeringIngestionRuntimeState(w, fn){
+  var keys = [
+    'customerReqs','subsystemReqs','subsysReqs','sysReqs','swReqs','meReqs','vv','risks','residualRisks',
+    'arch','archLinks','icd','impactRecommendations','updateProposals','baselines','changeRequests',
+    'auditLog','projectBackups','releasePackages','actions','tasks','hazards','analyses','bom','engDocs'
+  ];
+  var snapshot = JSON.stringify({
+    db: keys.reduce(function(acc, key){
+      acc[key] = w.DB[key];
+      return acc;
+    }, {}),
+    preserveEmptyEngineeringState: !!w.DB._preserveEmptyEngineeringState,
+    analysisRecs: w._analysisRecs,
+    lastAnalysisInput: w._lastAnalysisInput,
+    lastAutonomousProjectResult: w._lastAutonomousProjectResult
+  });
+  try{
+    var fresh = typeof w.buildFreshDefaultDB === 'function' ? w.buildFreshDefaultDB() : {};
+    keys.forEach(function(key){
+      var value = fresh[key];
+      if (Array.isArray(value)) w.DB[key] = JSON.parse(JSON.stringify(value));
+      else if (value && typeof value === 'object') w.DB[key] = JSON.parse(JSON.stringify(value));
+      else w.DB[key] = [];
+    });
+    if(!Array.isArray(w.DB.customerReqs)) w.DB.customerReqs = [];
+    if(!Array.isArray(w.DB.subsystemReqs)) w.DB.subsystemReqs = [];
+    if(!Array.isArray(w.DB.subsysReqs)) w.DB.subsysReqs = [];
+    w.DB._preserveEmptyEngineeringState = false;
+    w._analysisRecs = [];
+    w._lastAnalysisInput = null;
+    w._lastAutonomousProjectResult = null;
+    if(typeof w.normalizeLegacyDbAliases === 'function') w.normalizeLegacyDbAliases(w.DB);
+    return fn();
+  } finally {
+    var restored = JSON.parse(snapshot);
+    Object.keys(restored.db).forEach(function(key){ w.DB[key] = restored.db[key]; });
+    w.DB._preserveEmptyEngineeringState = !!restored.preserveEmptyEngineeringState;
+    w._analysisRecs = restored.analysisRecs;
+    w._lastAnalysisInput = restored.lastAnalysisInput;
+    w._lastAutonomousProjectResult = restored.lastAutonomousProjectResult;
   }
 }
 
@@ -1698,7 +1885,8 @@ function _withSeededSoftwareRequirementsRuntime(w, verifier){
     archLinks:w.DB.archLinks||[],
     swArch:w.DB.swArch||[],
     meArch:w.DB.meArch||[],
-    meArchLinks:w.DB.meArchLinks||[]
+    meArchLinks:w.DB.meArchLinks||[],
+    preserveEmptyEngineeringState: !!w.DB._preserveEmptyEngineeringState
   });
   try{
     w.DB.sysReqs = [];
@@ -1710,11 +1898,13 @@ function _withSeededSoftwareRequirementsRuntime(w, verifier){
     w.DB.swArch = [];
     w.DB.meArch = [];
     w.DB.meArchLinks = [];
+    w.DB._preserveEmptyEngineeringState = false;
     w._ensureEngineeringStructures();
     return verifier(w.DB.swReqs || [], w);
   } finally {
     var restored = JSON.parse(snapshot);
     Object.keys(restored).forEach(function(key){ w.DB[key] = restored[key]; });
+    w.DB._preserveEmptyEngineeringState = !!restored.preserveEmptyEngineeringState;
   }
 }
 
@@ -1977,6 +2167,594 @@ var AUTOMATION = {
           summary.governance.changeRequests === 1 &&
           summary.governance.releasePackages === 1;
         return ok ? _runtimePass('Operational health summary exposes local readiness counters') : _runtimeFail('Operational health summary is incomplete');
+      });
+    });
+  },
+  checkEngineeringReportExportFunctionsRuntime: async function(){
+    return withAppWindow(function(w){
+      var missing = ['buildEngineeringReportData','exportEngineeringReportPDF','exportEngineeringReportDOCX','exportEngineeringReportExcel','exportEngineeringReportJSON'].filter(function(name){ return typeof w[name] !== 'function'; });
+      return missing.length ? _runtimeFail('Missing engineering report export functions: ' + missing.join(', ')) : _runtimePass('Engineering report export functions exist in runtime');
+    });
+  },
+  checkEngineeringReportNoMutationRuntime: async function(){
+    return withAppWindow(function(w){
+      var missing = ['exportEngineeringReportPDF','exportEngineeringReportDOCX','exportEngineeringReportExcel','exportEngineeringReportJSON'].filter(function(name){ return typeof w[name] !== 'function'; });
+      if(missing.length) return _runtimeFail('Missing engineering report exports: ' + missing.join(', '));
+      return _withCapabilityExpansionRuntimeState(w, [], function(){
+        var before = JSON.stringify({
+          sysReqs:w.DB.sysReqs||[],
+          subsysReqs:w.DB.subsysReqs||[],
+          swReqs:w.DB.swReqs||[],
+          meReqs:w.DB.meReqs||[],
+          arch:w.DB.arch||[],
+          archLinks:w.DB.archLinks||[],
+          risks:w.DB.risks||[],
+          vv:w.DB.vv||[],
+          impactRecommendations:w.DB.impactRecommendations||[]
+        });
+        w.exportEngineeringReportJSON({download:false, generatedAt:'2026-04-15T00:00:00.000Z'});
+        w.exportEngineeringReportExcel({download:false, generatedAt:'2026-04-15T00:00:00.000Z'});
+        w.exportEngineeringReportPDF({download:false, generatedAt:'2026-04-15T00:00:00.000Z'});
+        w.exportEngineeringReportDOCX({download:false, generatedAt:'2026-04-15T00:00:00.000Z'});
+        var after = JSON.stringify({
+          sysReqs:w.DB.sysReqs||[],
+          subsysReqs:w.DB.subsysReqs||[],
+          swReqs:w.DB.swReqs||[],
+          meReqs:w.DB.meReqs||[],
+          arch:w.DB.arch||[],
+          archLinks:w.DB.archLinks||[],
+          risks:w.DB.risks||[],
+          vv:w.DB.vv||[],
+          impactRecommendations:w.DB.impactRecommendations||[]
+        });
+        return before === after ? _runtimePass('Engineering report exports remain read-only') : _runtimeFail('Engineering report export mutated DB state');
+      });
+    });
+  },
+  checkEngineeringReportJSONRuntime: async function(){
+    return withAppWindow(function(w){
+      var missing = ['buildEngineeringReportData','exportEngineeringReportJSON'].filter(function(name){ return typeof w[name] !== 'function'; });
+      if(missing.length) return _runtimeFail('Missing engineering report JSON helpers: ' + missing.join(', '));
+      return _withCapabilityExpansionRuntimeState(w, [], function(){
+        var result = w.exportEngineeringReportJSON({download:false, generatedAt:'2026-04-15T00:00:00.000Z'});
+        var report = result && result.report;
+        var ok = result &&
+          result.format === 'json' &&
+          report.project &&
+          report.release &&
+          report &&
+          report.requirements &&
+          Array.isArray(report.requirements.customer) &&
+          Array.isArray(report.requirements.system) &&
+          Array.isArray(report.requirements.subsystem) &&
+          Array.isArray(report.requirements.software) &&
+          Array.isArray(report.requirements.mechanical) &&
+          report.requirements.customer.length > 0 &&
+          report.requirements.customer[0].desc &&
+          report.requirements.software.length > 0 &&
+          report.requirements.software[0].swCategory &&
+          report.architecture &&
+          Array.isArray(report.architecture.components) &&
+          Array.isArray(report.architecture.links) &&
+          Array.isArray(report.icd) &&
+          Array.isArray(report.risks) &&
+          Array.isArray(report.residualRisks) &&
+          Array.isArray(report.hazards) &&
+          Array.isArray(report.vv) &&
+          Array.isArray(report.impact) &&
+          report.governance &&
+          Array.isArray(report.governance.updateProposals) &&
+          Array.isArray(report.governance.changeRequests) &&
+          Array.isArray(report.governance.releasePackages) &&
+          Array.isArray(report.governance.projectBackups) &&
+          Array.isArray(report.governance.auditEntries) &&
+          report.traceability &&
+          Array.isArray(report.traceability.rows) &&
+          report.findings &&
+          Array.isArray(report.findings.items);
+        return ok ? _runtimePass('Engineering report JSON contains full-fidelity engineering dossier sections and full rows') : _runtimeFail('Engineering report JSON is missing one or more full-fidelity dossier sections');
+      });
+    });
+  },
+  checkEngineeringReportExcelRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.exportEngineeringReportExcel !== 'function') return _runtimeFail('exportEngineeringReportExcel missing');
+      return _withCapabilityExpansionRuntimeState(w, [], function(){
+        var result = w.exportEngineeringReportExcel({download:false, generatedAt:'2026-04-15T00:00:00.000Z'});
+        var expected = ['Summary','Customer Requirements','System Requirements','Subsystem Requirements','Software Requirements','Mechanical Requirements','Architecture Components','Architecture Links','ICD','Risks','Residual Risks','V&V','Traceability','Findings','Impact Recommendations','Update Proposals','Governance Summary'];
+        var ok = result &&
+          result.format === 'xlsx' &&
+          Array.isArray(result.sheetNames) &&
+          result.sheetNames.length === expected.length &&
+          expected.every(function(name, index){ return result.sheetNames[index] === name; });
+        return ok ? _runtimePass('Engineering report Excel export produces expanded entity-family sheets for the full dossier') : _runtimeFail('Engineering report Excel export sheet set is incomplete for the full dossier');
+      });
+    });
+  },
+  checkEngineeringReportPDFRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.exportEngineeringReportPDF !== 'function') return _runtimeFail('exportEngineeringReportPDF missing');
+      return _withCapabilityExpansionRuntimeState(w, [], function(){
+        var result = w.exportEngineeringReportPDF({download:false, generatedAt:'2026-04-15T00:00:00.000Z'});
+        var titles = (result && result.sections || []).map(function(section){ return section.title; });
+        var ok = result &&
+          result.format === 'pdf' &&
+          typeof result.textPreview === 'string' &&
+          result.textPreview.indexOf('Cover / Summary') >= 0 &&
+          titles.indexOf('Customer Requirements') >= 0 &&
+          titles.indexOf('System Requirements') >= 0 &&
+          titles.indexOf('Architecture Components') >= 0 &&
+          titles.indexOf('Risks') >= 0 &&
+          titles.indexOf('V&V') >= 0 &&
+          titles.indexOf('Impact Recommendations') >= 0 &&
+          titles.indexOf('Audit Summary') >= 0;
+        return ok ? _runtimePass('Engineering report PDF export includes full dossier sections and appendix-style coverage') : _runtimeFail('Engineering report PDF export is missing one or more full dossier sections');
+      });
+    });
+  },
+  checkEngineeringReportFindingsRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.buildEngineeringReportData !== 'function') return _runtimeFail('buildEngineeringReportData missing');
+      return _withCapabilityExpansionRuntimeState(w, [], function(){
+        var report = w.buildEngineeringReportData({generatedAt:'2026-04-15T00:00:00.000Z'});
+        var findings = report && report.findings && report.findings.items || [];
+        var ok = Array.isArray(findings) &&
+          findings.length >= 1 &&
+          findings.some(function(item){
+            return item.type === 'missing_sw_category' ||
+              item.type === 'orphan_requirement' ||
+              item.type === 'missing_architecture_linkage' ||
+              item.type === 'missing_verification_linkage';
+          });
+        return ok ? _runtimePass('Engineering report findings are generated from local traceability and decomposition state') : _runtimeFail('Engineering report findings were not generated as expected');
+      });
+    });
+  },
+  checkEngineeringIngestionSuggestionBundleRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.buildEngineeringIngestionSuggestions !== 'function') return _runtimeFail('buildEngineeringIngestionSuggestions missing');
+      return _withEngineeringIngestionRuntimeState(w, function(){
+        var bundle = w.buildEngineeringIngestionSuggestions(_buildEngineeringIngestionSpecText(), { sourceName:'TC-442-SPEC.txt', inputType:'pasted_text' });
+        var counts = bundle && bundle.counts || {};
+        var ok = bundle &&
+          bundle.ok === true &&
+          Array.isArray(bundle.suggestions) && bundle.suggestions.length > 0 &&
+          (counts.sysReqs || 0) > 0 &&
+          ((counts.swReqs || 0) > 0 || (counts.arch || 0) > 0) &&
+          (counts.vv || 0) > 0 &&
+          (counts.risks || 0) > 0;
+        return ok ? _runtimePass('Engineering ingestion generates a non-empty suggestion bundle for valid spec input') : _runtimeFail('Engineering ingestion bundle is empty or missing expected engineering categories');
+      });
+    });
+  },
+  checkEngineeringIngestionPreviewNoMutationRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.buildEngineeringIngestionSuggestions !== 'function') return _runtimeFail('buildEngineeringIngestionSuggestions missing');
+      return _withEngineeringIngestionRuntimeState(w, function(){
+        var before = JSON.stringify({
+          sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[],
+          arch:w.DB.arch||[], archLinks:w.DB.archLinks||[], risks:w.DB.risks||[], vv:w.DB.vv||[]
+        });
+        w.buildEngineeringIngestionSuggestions(_buildEngineeringIngestionSpecText(), { sourceName:'TC-443-SPEC.txt', inputType:'pasted_text' });
+        var after = JSON.stringify({
+          sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[],
+          arch:w.DB.arch||[], archLinks:w.DB.archLinks||[], risks:w.DB.risks||[], vv:w.DB.vv||[]
+        });
+        return before === after ? _runtimePass('Preview-only engineering ingestion does not mutate DB') : _runtimeFail('Preview-only engineering ingestion mutated DB collections');
+      });
+    });
+  },
+  checkEngineeringIngestionApplyRequirementsRuntime: async function(){
+    return withAppWindow(function(w){
+      var missing = ['buildEngineeringIngestionSuggestions','applyEngineeringIngestionSelection'].filter(function(name){ return typeof w[name] !== 'function'; });
+      if(missing.length) return _runtimeFail('Missing engineering ingestion apply helpers: ' + missing.join(', '));
+      return _withEngineeringIngestionRuntimeState(w, function(){
+        var bundle = w.buildEngineeringIngestionSuggestions(_buildEngineeringIngestionSpecText(), { sourceName:'TC-444-SPEC.txt', inputType:'pasted_text' });
+        var selection = (bundle.suggestions || []).filter(function(rec){ return /^(?:sysReqs|swReqs|meReqs)$/.test(rec.category || ''); }).map(function(rec){
+          var copy = JSON.parse(JSON.stringify(rec));
+          copy._sel = true;
+          return copy;
+        });
+        var result = w.applyEngineeringIngestionSelection(selection, { render:false, notify:false, close:false });
+        var ok = result &&
+          result.ok === true &&
+          (w.DB.sysReqs || []).length > 0 &&
+          (w.DB.swReqs || []).length > 0 &&
+          (w.DB.meReqs || []).length > 0;
+        return ok ? _runtimePass('Engineering ingestion apply writes selected requirement entities into DB') : _runtimeFail('Engineering ingestion apply did not populate requirement collections as expected');
+      });
+    });
+  },
+  checkEngineeringIngestionApplyCrossDomainRuntime: async function(){
+    return withAppWindow(function(w){
+      var missing = ['buildEngineeringIngestionSuggestions','applyEngineeringIngestionSelection'].filter(function(name){ return typeof w[name] !== 'function'; });
+      if(missing.length) return _runtimeFail('Missing engineering ingestion cross-domain helpers: ' + missing.join(', '));
+      return _withEngineeringIngestionRuntimeState(w, function(){
+        var bundle = w.buildEngineeringIngestionSuggestions(_buildEngineeringIngestionSpecText(), { sourceName:'TC-445-SPEC.txt', inputType:'pasted_text' });
+        var selection = (bundle.suggestions || []).filter(function(rec){ return /^(?:arch|risks|vv)$/.test(rec.category || ''); }).map(function(rec){
+          var copy = JSON.parse(JSON.stringify(rec));
+          copy._sel = true;
+          return copy;
+        });
+        var result = w.applyEngineeringIngestionSelection(selection, { render:false, notify:false, close:false });
+        var ok = result &&
+          result.ok === true &&
+          (w.DB.arch || []).length > 0 &&
+          (w.DB.risks || []).length > 0 &&
+          (w.DB.vv || []).length > 0;
+        return ok ? _runtimePass('Engineering ingestion apply writes architecture, risk, and VV entities into DB') : _runtimeFail('Engineering ingestion apply did not populate architecture/risk/VV collections');
+      });
+    });
+  },
+  checkEngineeringReportUsesPreviewIngestionRuntime: async function(){
+    return withAppWindow(function(w){
+      var missing = ['buildEngineeringIngestionSuggestions','buildEngineeringReportData'].filter(function(name){ return typeof w[name] !== 'function'; });
+      if(missing.length) return _runtimeFail('Missing engineering ingestion report helpers: ' + missing.join(', '));
+      return _withEngineeringIngestionRuntimeState(w, function(){
+        var bundle = w.buildEngineeringIngestionSuggestions(_buildEngineeringIngestionSpecText(), { sourceName:'TC-446-SPEC.txt', inputType:'pasted_text' });
+        w._analysisRecs = JSON.parse(JSON.stringify(bundle.suggestions || []));
+        var report = w.buildEngineeringReportData({ generatedAt:'2026-04-19T00:00:00.000Z' });
+        var ok = report &&
+          report.summary &&
+          (report.summary.systemRequirements > 0 || report.summary.softwareRequirements > 0 || report.summary.mechanicalRequirements > 0) &&
+          (report.summary.architectureComponents > 0 || report.summary.risks > 0 || report.summary.vv > 0 || report.summary.traceabilityRows > 0);
+        return ok ? _runtimePass('Engineering report reflects preview ingestion even before DB apply') : _runtimeFail('Engineering report stayed empty after valid ingestion preview');
+      });
+    });
+  },
+  checkEngineeringReportAfterIngestionApplyRuntime: async function(){
+    return withAppWindow(function(w){
+      var missing = ['buildEngineeringIngestionSuggestions','applyEngineeringIngestionSelection','buildEngineeringReportData'].filter(function(name){ return typeof w[name] !== 'function'; });
+      if(missing.length) return _runtimeFail('Missing engineering ingestion apply/report helpers: ' + missing.join(', '));
+      return _withEngineeringIngestionRuntimeState(w, function(){
+        var bundle = w.buildEngineeringIngestionSuggestions(_buildEngineeringIngestionSpecText(), { sourceName:'TC-447-SPEC.txt', inputType:'pasted_text' });
+        var selection = (bundle.suggestions || []).map(function(rec){
+          var copy = JSON.parse(JSON.stringify(rec));
+          copy._sel = true;
+          return copy;
+        });
+        w.applyEngineeringIngestionSelection(selection, { render:false, notify:false, close:false });
+        var report = w.buildEngineeringReportData({ generatedAt:'2026-04-19T00:00:00.000Z' });
+        var ok = report &&
+          report.summary &&
+          report.summary.systemRequirements > 0 &&
+          report.summary.vv > 0 &&
+          report.summary.risks > 0 &&
+          report.summary.traceabilityRows > 0;
+        return ok ? _runtimePass('Engineering report reflects populated DB state after ingestion apply') : _runtimeFail('Engineering report did not reflect populated DB state after apply');
+      });
+    });
+  },
+  checkEngineeringReportExportAfterIngestionRuntime: async function(){
+    return withAppWindow(function(w){
+      var missing = ['buildEngineeringIngestionSuggestions','applyEngineeringIngestionSelection','exportEngineeringReportJSON'].filter(function(name){ return typeof w[name] !== 'function'; });
+      if(missing.length) return _runtimeFail('Missing engineering ingestion export helpers: ' + missing.join(', '));
+      return _withEngineeringIngestionRuntimeState(w, function(){
+        var bundle = w.buildEngineeringIngestionSuggestions(_buildEngineeringIngestionSpecText(), { sourceName:'TC-448-SPEC.txt', inputType:'pasted_text' });
+        var selection = (bundle.suggestions || []).map(function(rec){
+          var copy = JSON.parse(JSON.stringify(rec));
+          copy._sel = true;
+          return copy;
+        });
+        w.applyEngineeringIngestionSelection(selection, { render:false, notify:false, close:false });
+        var exported = w.exportEngineeringReportJSON({ download:false, generatedAt:'2026-04-19T00:00:00.000Z' });
+        var report = exported && exported.report;
+        var ok = exported &&
+          exported.ok === true &&
+          report &&
+          report.summary &&
+          (report.summary.systemRequirements + report.summary.softwareRequirements + report.summary.mechanicalRequirements) > 0 &&
+          (report.summary.architectureComponents + report.summary.risks + report.summary.vv + report.summary.traceabilityRows) > 0;
+        return ok ? _runtimePass('Engineering report export is not empty after successful ingestion and apply') : _runtimeFail('Engineering report export remained empty after ingestion and apply');
+      });
+    });
+  },
+  checkEngineeringIntelligenceRiskAndVVRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.buildEngineeringIngestionSuggestions !== 'function') return _runtimeFail('buildEngineeringIngestionSuggestions missing');
+      return _withEngineeringIngestionRuntimeState(w, function(){
+        var bundle = w.buildEngineeringIngestionSuggestions(_buildEngineeringIntelligenceSpecText(), { sourceName:'TC-449-SPEC.txt', inputType:'pasted_text' });
+        var counts = bundle && bundle.counts || {};
+        var ok = bundle &&
+          bundle.ok === true &&
+          (counts.risks || 0) > 0 &&
+          (counts.vv || 0) > 0;
+        return ok ? _runtimePass('Rich engineering ingestion derives non-zero risks and VV candidates') : _runtimeFail('Rich engineering ingestion did not derive risks and VV candidates');
+      });
+    });
+  },
+  checkEngineeringIntelligenceDerivationDepthRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.buildEngineeringIngestionSuggestions !== 'function') return _runtimeFail('buildEngineeringIngestionSuggestions missing');
+      return _withEngineeringIngestionRuntimeState(w, function(){
+        var bundle = w.buildEngineeringIngestionSuggestions(_buildEngineeringIntelligenceSpecText(), { sourceName:'TC-450-SPEC.txt', inputType:'pasted_text' });
+        var counts = bundle && bundle.counts || {};
+        var ok = bundle &&
+          bundle.ok === true &&
+          (counts.sysReqs || 0) > 0 &&
+          (counts.subsysReqs || 0) > 0 &&
+          (counts.swReqs || 0) >= 6 &&
+          (counts.meReqs || 0) > 0;
+        return ok ? _runtimePass('Rich engineering ingestion deepens subsystem, software, and mechanical derivation') : _runtimeFail('Rich engineering ingestion stayed too shallow across requirement layers');
+      });
+    });
+  },
+  checkEngineeringIntelligenceSoftwareCategoriesRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.buildEngineeringIngestionSuggestions !== 'function') return _runtimeFail('buildEngineeringIngestionSuggestions missing');
+      return _withEngineeringIngestionRuntimeState(w, function(){
+        var bundle = w.buildEngineeringIngestionSuggestions(_buildEngineeringIntelligenceSpecText(), { sourceName:'TC-451-SPEC.txt', inputType:'pasted_text' });
+        var categories = Array.from(new Set((bundle.suggestions || []).filter(function(rec){ return rec.category === 'swReqs'; }).map(function(rec){
+          return String((rec.data && rec.data.swCategory) || '').trim();
+        }).filter(Boolean)));
+        var required = ['Interface','Message/Protocol','Logging','Degraded Mode','Startup/Shutdown','Cybersecurity','Safety','Derived'];
+        var ok = required.every(function(name){ return categories.indexOf(name) >= 0; });
+        return ok ? _runtimePass('Derived software suggestions include rich category coverage from source signals') : _runtimeFail('Derived software categories are still missing expected engineering coverage');
+      });
+    });
+  },
+  checkEngineeringIntelligenceApplyRuntime: async function(){
+    return withAppWindow(function(w){
+      var missing = ['buildEngineeringIngestionSuggestions','applyEngineeringIngestionSelection'].filter(function(name){ return typeof w[name] !== 'function'; });
+      if(missing.length) return _runtimeFail('Missing engineering intelligence apply helpers: ' + missing.join(', '));
+      return _withEngineeringIngestionRuntimeState(w, function(){
+        var bundle = w.buildEngineeringIngestionSuggestions(_buildEngineeringIntelligenceSpecText(), { sourceName:'TC-452-SPEC.txt', inputType:'pasted_text' });
+        var result = w.applyEngineeringIngestionSelection(bundle.suggestions || [], { render:false, notify:false, close:false });
+        var ok = result &&
+          result.ok === true &&
+          result.sourceCount === (bundle.suggestions || []).length &&
+          result.selectedCount === (bundle.suggestions || []).length &&
+          (result.appliedCounts && result.appliedCounts.customerReqs || 0) > 0 &&
+          (result.appliedCounts && result.appliedCounts.risks || 0) > 0 &&
+          (result.appliedCounts && result.appliedCounts.vv || 0) > 0 &&
+          (w.DB.customerReqs || []).length > 0 &&
+          (w.DB.subsysReqs || []).length > 0 &&
+          (w.DB.swReqs || []).length > 0 &&
+          (w.DB.meReqs || []).length > 0 &&
+          (w.DB.risks || []).length > 0 &&
+          (w.DB.vv || []).length > 0;
+        return ok ? _runtimePass('Applying rich engineering ingestion writes derived subsystem, requirement, risk, and VV entities') : _runtimeFail('Applying rich engineering ingestion did not populate the expected derived entities');
+      });
+    });
+  },
+  checkEngineeringIntelligenceReportRuntime: async function(){
+    return withAppWindow(function(w){
+      var missing = ['buildEngineeringIngestionSuggestions','applyEngineeringIngestionSelection','buildEngineeringReportData'].filter(function(name){ return typeof w[name] !== 'function'; });
+      if(missing.length) return _runtimeFail('Missing engineering intelligence report helpers: ' + missing.join(', '));
+      return _withEngineeringIngestionRuntimeState(w, function(){
+        var bundle = w.buildEngineeringIngestionSuggestions(_buildEngineeringIntelligenceSpecText(), { sourceName:'TC-453-SPEC.txt', inputType:'pasted_text' });
+        var selection = (bundle.suggestions || []).map(function(rec){
+          var copy = JSON.parse(JSON.stringify(rec));
+          copy._sel = true;
+          return copy;
+        });
+        w.applyEngineeringIngestionSelection(selection, { render:false, notify:false, close:false });
+        var report = w.buildEngineeringReportData({ generatedAt:'2026-04-19T00:00:00.000Z' });
+        var ok = report &&
+          report.summary &&
+          report.summary.systemRequirements > 0 &&
+          report.summary.subsystemRequirements > 0 &&
+          report.summary.softwareRequirements > 0 &&
+          report.summary.mechanicalRequirements > 0 &&
+          report.summary.risks > 0 &&
+          report.summary.vv > 0;
+        return ok ? _runtimePass('Engineering report reflects richer derived engineering content after apply') : _runtimeFail('Engineering report is still missing richer derived engineering content');
+      });
+    });
+  },
+  checkEngineeringIntelligenceTraceabilityRuntime: async function(){
+    return withAppWindow(function(w){
+      var missing = ['buildEngineeringIngestionSuggestions','applyEngineeringIngestionSelection','buildEngineeringReportData'].filter(function(name){ return typeof w[name] !== 'function'; });
+      if(missing.length) return _runtimeFail('Missing engineering intelligence traceability helpers: ' + missing.join(', '));
+      return _withEngineeringIngestionRuntimeState(w, function(){
+        var bundle = w.buildEngineeringIngestionSuggestions(_buildEngineeringIntelligenceSpecText(), { sourceName:'TC-454-SPEC.txt', inputType:'pasted_text' });
+        var selection = (bundle.suggestions || []).map(function(rec){
+          var copy = JSON.parse(JSON.stringify(rec));
+          copy._sel = true;
+          return copy;
+        });
+        w.applyEngineeringIngestionSelection(selection, { render:false, notify:false, close:false });
+        var report = w.buildEngineeringReportData({ generatedAt:'2026-04-19T00:00:00.000Z' });
+        var rows = report && report.traceability && report.traceability.rows || [];
+        var ok = Array.isArray(rows) &&
+          rows.length > 0 &&
+          rows.some(function(row){ return row.linkCounts && row.linkCounts.vv > 0; }) &&
+          rows.some(function(row){ return row.linkCounts && row.linkCounts.risks > 0; }) &&
+          report.traceability.summary &&
+          report.traceability.summary.missingVV < rows.length;
+        return ok ? _runtimePass('Traceability strengthens when rich risks and VV are present') : _runtimeFail('Traceability did not improve after richer engineering derivation');
+      });
+    });
+  },
+  checkEngineeringIntelligencePreviewNoMutationRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.buildEngineeringIngestionSuggestions !== 'function') return _runtimeFail('buildEngineeringIngestionSuggestions missing');
+      return _withEngineeringIngestionRuntimeState(w, function(){
+        var before = JSON.stringify({
+          sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[],
+          risks:w.DB.risks||[], vv:w.DB.vv||[], arch:w.DB.arch||[], archLinks:w.DB.archLinks||[]
+        });
+        w.buildEngineeringIngestionSuggestions(_buildEngineeringIntelligenceSpecText(), { sourceName:'TC-455-SPEC.txt', inputType:'pasted_text' });
+        var after = JSON.stringify({
+          sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[],
+          risks:w.DB.risks||[], vv:w.DB.vv||[], arch:w.DB.arch||[], archLinks:w.DB.archLinks||[]
+        });
+        return before === after ? _runtimePass('Rich engineering ingestion preview remains read-only') : _runtimeFail('Rich engineering ingestion preview mutated DB before apply');
+      });
+    });
+  },
+  checkManualEngineeringAnalysisAlignmentRuntime: async function(){
+    return withAppWindow(function(w){
+      var missing = ['buildAnalysisSource','executeAnalysisForSource'].filter(function(name){ return typeof w[name] !== 'function'; });
+      if(missing.length) return _runtimeFail('Missing manual-equivalent engineering analysis helpers: ' + missing.join(', '));
+      return _withEngineeringIngestionRuntimeState(w, async function(){
+        var source = w.buildAnalysisSource({ inputType:'pasted_text', sourceName:'TC-456-SPEC.txt', rawText:_buildEngineeringIntelligenceSpecText(), metadata:{} });
+        await w.executeAnalysisForSource(source);
+        var counts = (w._analysisRecs || []).reduce(function(acc, rec){
+          var key = rec && rec.category ? rec.category : 'unknown';
+          acc[key] = (acc[key] || 0) + 1;
+          return acc;
+        }, {});
+        var ok = (counts.sysReqs || 0) > 0 &&
+          (counts.subsysReqs || 0) > 0 &&
+          (counts.swReqs || 0) > 0 &&
+          (counts.risks || 0) > 0 &&
+          (counts.vv || 0) > 0 &&
+          (w._analysisRecs || []).every(function(rec){ return rec && rec._sel !== false; });
+        return ok ? _runtimePass('Manual-equivalent document analysis exposes the same rich engineering recommendation state as the tested ingestion path') : _runtimeFail('Manual-equivalent document analysis did not reach the same rich recommendation state as the tested ingestion path');
+      });
+    });
+  },
+  checkManualEngineeringExportAlignmentRuntime: async function(){
+    return withAppWindow(function(w){
+      var missing = ['buildAnalysisSource','executeAnalysisForSource','applyEngineeringIngestionSelection','exportEngineeringReportJSON','getEngineeringDBSnapshot'].filter(function(name){ return typeof w[name] !== 'function'; });
+      if(missing.length) return _runtimeFail('Missing manual-equivalent export helpers: ' + missing.join(', '));
+      return _withEngineeringIngestionRuntimeState(w, async function(){
+        var source = w.buildAnalysisSource({ inputType:'pasted_text', sourceName:'TC-457-SPEC.txt', rawText:_buildEngineeringIntelligenceSpecText(), metadata:{} });
+        await w.executeAnalysisForSource(source);
+        var applyResult = w.applyEngineeringIngestionSelection(w._analysisRecs, { render:false, notify:false, close:false, markDirty:false });
+        var exported = w.exportEngineeringReportJSON({ download:false, generatedAt:'2026-04-19T00:00:00.000Z', snapshotLabel:'TC-457:pre-export' });
+        var report = exported && exported.report;
+        var snapshot = w.getEngineeringDBSnapshot();
+        var ok = exported &&
+          exported.ok === true &&
+          applyResult &&
+          applyResult.ok === true &&
+          snapshot &&
+          snapshot.label === 'TC-457:pre-export' &&
+          (applyResult.appliedCounts && applyResult.appliedCounts.risks || 0) > 0 &&
+          (applyResult.appliedCounts && applyResult.appliedCounts.vv || 0) > 0 &&
+          applyResult.selectedCount === applyResult.sourceCount &&
+          applyResult.dbCounts &&
+          applyResult.dbCounts.risks > 0 &&
+          applyResult.dbCounts.vv > 0 &&
+          snapshot.counts &&
+          snapshot.counts.customerReqs === applyResult.dbCounts.customerReqs &&
+          snapshot.counts.sysReqs === applyResult.dbCounts.sysReqs &&
+          snapshot.counts.subsysReqs === applyResult.dbCounts.subsysReqs &&
+          snapshot.counts.swReqs === applyResult.dbCounts.swReqs &&
+          snapshot.counts.meReqs === applyResult.dbCounts.meReqs &&
+          snapshot.counts.arch === applyResult.dbCounts.arch &&
+          snapshot.counts.archLinks === applyResult.dbCounts.archLinks &&
+          snapshot.counts.risks === applyResult.dbCounts.risks &&
+          snapshot.counts.vv === applyResult.dbCounts.vv &&
+          report &&
+          report.summary &&
+          snapshot.reportSummary &&
+          snapshot.reportSummary.customerRequirements === report.summary.customerRequirements &&
+          snapshot.reportSummary.systemRequirements === report.summary.systemRequirements &&
+          snapshot.reportSummary.subsystemRequirements === report.summary.subsystemRequirements &&
+          snapshot.reportSummary.softwareRequirements === report.summary.softwareRequirements &&
+          snapshot.reportSummary.mechanicalRequirements === report.summary.mechanicalRequirements &&
+          snapshot.reportSummary.architectureComponents === report.summary.architectureComponents &&
+          snapshot.reportSummary.architectureLinks === report.summary.architectureLinks &&
+          snapshot.reportSummary.risks === report.summary.risks &&
+          snapshot.reportSummary.vv === report.summary.vv &&
+          snapshot.reportSummary.traceabilityRows === report.summary.traceabilityRows &&
+          report.summary.risks > 0 &&
+          report.summary.vv > 0 &&
+          report.summary.systemRequirements > 0 &&
+          report.summary.traceabilityRows > 0;
+        return ok ? _runtimePass('Manual-equivalent apply and export now reflect the same populated engineering DB state proven by the tests') : _runtimeFail('Manual-equivalent apply and export still diverge from the tested populated engineering state');
+      });
+    });
+  },
+  checkDeepCustomerRequirementPopulationRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.buildEngineeringIngestionSuggestions !== 'function') return _runtimeFail('buildEngineeringIngestionSuggestions missing');
+      return _withEngineeringIngestionRuntimeState(w, function(){
+        var bundle = w.buildEngineeringIngestionSuggestions(_buildDeepEngineeringSpecText(), { sourceName:'TC-458-SPEC.txt', inputType:'pasted_text' });
+        var customerRecs = (bundle.suggestions || []).filter(function(rec){ return rec.category === 'customerReqs'; });
+        var ok = bundle &&
+          bundle.ok === true &&
+          customerRecs.length >= 30 &&
+          customerRecs.every(function(rec){
+            var rid = String((rec.data && rec.data.rid) || '');
+            var desc = String((rec.data && rec.data.desc) || rec.description || '');
+            return /^CRS-/i.test(rid) && /\bshall\b/i.test(desc) && String((rec.data && rec.data.sourceSection) || '').toLowerCase() !== 'interface';
+          });
+        return ok ? _runtimePass('Deep CRS ingestion populates a CRS-only customer requirement baseline with preserved IDs') : _runtimeFail('Deep CRS ingestion did not keep customer extraction CRS-only and above threshold');
+      });
+    });
+  },
+  checkDeepSpecNoiseFilteringRuntime: async function(){
+    return withAppWindow(function(w){
+      if(typeof w.buildEngineeringIngestionSuggestions !== 'function') return _runtimeFail('buildEngineeringIngestionSuggestions missing');
+      return _withEngineeringIngestionRuntimeState(w, function(){
+        var bundle = w.buildEngineeringIngestionSuggestions(_buildDeepEngineeringSpecText(), { sourceName:'TC-459-SPEC.txt', inputType:'pasted_text' });
+        var customerTexts = (bundle.suggestions || []).filter(function(rec){ return rec.category === 'customerReqs'; }).map(function(rec){
+          return String((rec.data && rec.data.desc) || rec.description || '').toLowerCase();
+        });
+        var forbidden = ['table of contents','revision history','approvals','glossary','ais = automatic identification system','eo/ir = electro optical'];
+        var ok = customerTexts.length > 0 && forbidden.every(function(token){
+          return customerTexts.every(function(text){ return text.indexOf(token) < 0; });
+        });
+        return ok ? _runtimePass('Front matter, TOC, and glossary noise stay out of customer requirement extraction') : _runtimeFail('Noise lines still leaked into customer requirement extraction');
+      });
+    });
+  },
+  checkDeepSafetyDerivationRuntime: async function(){
+    return withAppWindow(function(w){
+      var missing = ['buildEngineeringIngestionSuggestions','applyEngineeringIngestionSelection'].filter(function(name){ return typeof w[name] !== 'function'; });
+      if(missing.length) return _runtimeFail('Missing deep safety derivation helpers: ' + missing.join(', '));
+      return _withEngineeringIngestionRuntimeState(w, function(){
+        var bundle = w.buildEngineeringIngestionSuggestions(_buildDeepEngineeringSpecText(), { sourceName:'TC-460-SPEC.txt', inputType:'pasted_text' });
+        var result = w.applyEngineeringIngestionSelection(bundle.suggestions || [], { render:false, notify:false, close:false });
+        var hazardTexts = (w.DB.hazards || []).map(function(item){ return String(item.desc || '').toLowerCase(); }).join(' | ');
+        var ok = result &&
+          result.ok === true &&
+          (w.DB.risks || []).length >= 20 &&
+          (w.DB.hazards || []).length >= 20 &&
+          (w.DB.residualRisks || []).length > 0 &&
+          /unsafe command|loss of communication|power loss|emi/.test(hazardTexts);
+        return ok ? _runtimePass('Deep safety spec derives MIL-STD-style risk, hazard, and residual-risk coverage after apply') : _runtimeFail('Deep safety spec did not derive the expected risk and hazard depth');
+      });
+    });
+  },
+  checkDeepICDAndArchitectureRuntime: async function(){
+    return withAppWindow(function(w){
+      var missing = ['buildEngineeringIngestionSuggestions','applyEngineeringIngestionSelection'].filter(function(name){ return typeof w[name] !== 'function'; });
+      if(missing.length) return _runtimeFail('Missing deep ICD/architecture helpers: ' + missing.join(', '));
+      return _withEngineeringIngestionRuntimeState(w, function(){
+        var bundle = w.buildEngineeringIngestionSuggestions(_buildDeepEngineeringSpecText(), { sourceName:'TC-461-SPEC.txt', inputType:'pasted_text' });
+        w.applyEngineeringIngestionSelection(bundle.suggestions || [], { render:false, notify:false, close:false });
+        var protocols = (w.DB.icd || []).map(function(item){ return String(item.protocol || item.type || '').toLowerCase(); }).join(' | ');
+        var ok = (w.DB.icd || []).length >= 10 &&
+          (w.DB.arch || []).length >= 6 &&
+          (w.DB.archLinks || []).length >= 5 &&
+          /rest|websocket|nmea|stanag|ais|ethernet/.test(protocols);
+        return ok ? _runtimePass('Deep interface spec derives ICD rows and a materially richer architecture set') : _runtimeFail('Deep interface spec still produced weak ICD or architecture outputs');
+      });
+    });
+  },
+  checkDeepManualExportCountsRuntime: async function(){
+    return withAppWindow(function(w){
+      var missing = ['buildAnalysisSource','executeAnalysisForSource','applyEngineeringIngestionSelection','exportEngineeringReportJSON'].filter(function(name){ return typeof w[name] !== 'function'; });
+      if(missing.length) return _runtimeFail('Missing deep manual export helpers: ' + missing.join(', '));
+      return _withEngineeringIngestionRuntimeState(w, async function(){
+        var source = w.buildAnalysisSource({ inputType:'pasted_text', sourceName:'TC-462-SPEC.txt', rawText:_buildDeepEngineeringSpecText(), metadata:{} });
+        await w.executeAnalysisForSource(source);
+        var applyResult = w.applyEngineeringIngestionSelection(w._analysisRecs, { render:false, notify:false, close:false, markDirty:false });
+        var exported = w.exportEngineeringReportJSON({ download:false, generatedAt:'2026-04-20T00:00:00.000Z' });
+        var summary = exported && exported.report && exported.report.summary || {};
+        var trace = exported && exported.report && exported.report.traceability && exported.report.traceability.summary || {};
+        var coveredRatio = (summary.traceabilityRows || 0) ? (1 - ((trace.missingVV || 0) / summary.traceabilityRows)) : 0;
+        var vvPhases = (w.DB.vv || []).map(function(item){ return String(item.phase || '').toUpperCase(); }).join(' | ');
+        var ok = applyResult &&
+          applyResult.ok === true &&
+          (summary.customerRequirements || 0) >= 30 &&
+          (summary.systemRequirements || 0) > 20 &&
+          (summary.softwareRequirements || 0) > 15 &&
+          (summary.mechanicalRequirements || 0) > 2 &&
+          (summary.architectureComponents || 0) >= 6 &&
+          (summary.icd || 0) >= 10 &&
+          (summary.risks || 0) >= 20 &&
+          (summary.hazards || 0) >= 20 &&
+          (summary.vv || 0) > 50 &&
+          (summary.traceabilityRows || 0) > 200 &&
+          coveredRatio >= 0.6 &&
+          /FAT|SAT|QUALIFICATION/.test(vvPhases);
+        return ok ? _runtimePass('Deep manual-equivalent export meets the targeted engineering count and coverage thresholds') : _runtimeFail('Deep manual-equivalent export still misses one or more targeted engineering thresholds');
       });
     });
   },
@@ -2699,7 +3477,7 @@ var AUTOMATION = {
       var original = JSON.stringify(w.DB.risks);
       try{
         if(!w.DB.risks.length){
-          w.DB.risks.push({id:'TEMP-RISK-AI',desc:'קיים סיכון כי ספק יתעכב ויפגע באינטגרציה',cat:'ספקים — זמינות/איכות רכיבים',impact:'לוח זמנים',sev:3,prob:2,mitigation:'',detection:'',owner:'',status:'open'});
+          w.DB.risks.push({id:'TEMP-RISK-AI',desc:'קיים סיכון כי ספק יתעכב ויפגע באינטגרציה',cat:'ספקים ? זמינות/איכות רכיבים',impact:'לוח זמנים',sev:3,prob:2,mitigation:'',detection:'',owner:'',status:'open'});
         }
         w.renderRisks();
         var btn = w.document.querySelector('#risksBody [data-ai-risk-assist="true"]');
@@ -2715,7 +3493,7 @@ var AUTOMATION = {
       if(typeof w.runAIAction !== 'function') return _runtimeFail('runAIAction חסר');
       var resp;
       try{
-        resp = w.runAIAction('risk_assist', { text:'קיים סיכון כי ספק יתעכב ויפגע באינטגרציה', category:'ספקים — זמינות/איכות רכיבים', impact:'לוח זמנים', source:'test' });
+        resp = w.runAIAction('risk_assist', { text:'קיים סיכון כי ספק יתעכב ויפגע באינטגרציה', category:'ספקים ? זמינות/איכות רכיבים', impact:'לוח זמנים', source:'test' });
       }catch(e){
         return _runtimeFail('runAIAction(risk_assist) זרק שגיאה: ' + e.message);
       }
@@ -2775,7 +3553,7 @@ var AUTOMATION = {
       var original = JSON.stringify(w.DB.risks);
       try{
         if(!w.DB.risks.length){
-          w.DB.risks.push({id:'TEMP-RISK-UI',desc:'קיים סיכון כי ספק יתעכב ויפגע באינטגרציה',cat:'ספקים — זמינות/איכות רכיבים',impact:'לוח זמנים',sev:3,prob:2,mitigation:'',detection:'',owner:'',status:'open'});
+          w.DB.risks.push({id:'TEMP-RISK-UI',desc:'קיים סיכון כי ספק יתעכב ויפגע באינטגרציה',cat:'ספקים ? זמינות/איכות רכיבים',impact:'לוח זמנים',sev:3,prob:2,mitigation:'',detection:'',owner:'',status:'open'});
         }
         w.renderRisks();
         var result = w.openAIRiskAssistant(0);
@@ -2805,7 +3583,7 @@ var AUTOMATION = {
       var original = JSON.stringify(w.DB.risks);
       try{
         if(!w.DB.risks.length){
-          w.DB.risks.push({id:'TEMP-RISK-HM',desc:'קיים סיכון כי בדיקת FAT תידחה',cat:'לוחות זמנים — עיכוב פיתוח',impact:'לוח זמנים',sev:4,prob:3,mitigation:'',detection:'',owner:'',status:'open'});
+          w.DB.risks.push({id:'TEMP-RISK-HM',desc:'קיים סיכון כי בדיקת FAT תידחה',cat:'לוחות זמנים ? עיכוב פיתוח',impact:'לוח זמנים',sev:4,prob:3,mitigation:'',detection:'',owner:'',status:'open'});
         }
         w.renderRisks();
         var body = w.document.getElementById('risksBody');
@@ -4356,6 +5134,7 @@ var AUTOMATION = {
         var restored = JSON.parse(snapshot);
         w.DB.meReqs = restored.meReqs;
         w.DB.meArch = restored.meArch;
+        w.DB._preserveEmptyEngineeringState = !!restored.preserveEmptyEngineeringState;
       }
     });
   },
@@ -4443,7 +5222,7 @@ var AUTOMATION = {
     return withAppWindow(function(w){
       if(typeof w._ensureEngineeringStructures !== 'function' || !w.DB) return _runtimeFail('_ensureEngineeringStructures or DB missing');
       var snapshot = JSON.stringify({
-        sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], swArch:w.DB.swArch||[], meArch:w.DB.meArch||[]
+        sysReqs:w.DB.sysReqs||[], subsysReqs:w.DB.subsysReqs||[], swReqs:w.DB.swReqs||[], meReqs:w.DB.meReqs||[], swArch:w.DB.swArch||[], meArch:w.DB.meArch||[], preserveEmptyEngineeringState: !!w.DB._preserveEmptyEngineeringState
       });
       try{
         w.DB.sysReqs = [];
@@ -4452,6 +5231,7 @@ var AUTOMATION = {
         w.DB.meReqs = [];
         w.DB.swArch = [];
         w.DB.meArch = [];
+        w.DB._preserveEmptyEngineeringState = false;
         w._ensureEngineeringStructures();
         var ok = w.DB.sysReqs.length >= 4 &&
           w.DB.subsysReqs.some(function(r){ return r.parentRid && r.subsystem && r.desc; }) &&
@@ -4466,18 +5246,20 @@ var AUTOMATION = {
         w.DB.meReqs = restored.meReqs;
         w.DB.swArch = restored.swArch;
         w.DB.meArch = restored.meArch;
+        w.DB._preserveEmptyEngineeringState = !!restored.preserveEmptyEngineeringState;
       }
     });
   },
   checkEngineeringBaselineArchitectureRuntime: async function(){
     return withAppWindow(function(w){
       if(typeof w._ensureEngineeringStructures !== 'function' || !w.DB) return _runtimeFail('_ensureEngineeringStructures or DB missing');
-      var snapshot = JSON.stringify({ arch:w.DB.arch||[], archLinks:w.DB.archLinks||[], meArch:w.DB.meArch||[], meArchLinks:w.DB.meArchLinks||[] });
+      var snapshot = JSON.stringify({ arch:w.DB.arch||[], archLinks:w.DB.archLinks||[], meArch:w.DB.meArch||[], meArchLinks:w.DB.meArchLinks||[], preserveEmptyEngineeringState: !!w.DB._preserveEmptyEngineeringState });
       try{
         w.DB.arch = [];
         w.DB.archLinks = [];
         w.DB.meArch = [];
         w.DB.meArchLinks = [];
+        w.DB._preserveEmptyEngineeringState = false;
         w._ensureEngineeringStructures();
         var ok = w.DB.arch.length >= 6 &&
           w.DB.archLinks.length >= 6 &&
@@ -4490,7 +5272,9 @@ var AUTOMATION = {
         w.DB.arch = restored.arch;
         w.DB.archLinks = restored.archLinks;
         w.DB.meArch = restored.meArch;
+        w.DB._preserveEmptyEngineeringState = !!restored.preserveEmptyEngineeringState;
         w.DB.meArchLinks = restored.meArchLinks;
+        w.DB._preserveEmptyEngineeringState = !!restored.preserveEmptyEngineeringState;
       }
     });
   },
@@ -5835,7 +6619,7 @@ var AUTOMATION = {
   checkDupByDesc: async function(){
     var src = await loadAppSource();
     var hasFix = src.includes('item.desc || item.name || item.rid') && src.includes('ex.desc || ex.name || ex.rid');
-    return { pass: hasFix, actual: hasFix ? 'השוואה לפי desc ראשון — תקין' : 'עדיין משווה לפי rid ראשון — באג!' };
+    return { pass: hasFix, actual: hasFix ? 'השוואה לפי desc ראשון ? תקין' : 'עדיין משווה לפי rid ראשון ? באג!' };
   },
   checkDocFill: async function(){
     var src = await loadAppSource();
@@ -6173,7 +6957,7 @@ var AUTOMATION = {
   checkDescPriority: async function(){
     var src = await loadAppSource();
     var hasFix = src.includes('item.desc || item.name || item.rid') && src.includes('ex.desc || ex.name || ex.rid');
-    return { pass: hasFix, actual: hasFix ? 'desc > name > rid — סדר עדיפות נכון' : 'סדר שגוי! rid עדיין ראשון' };
+    return { pass: hasFix, actual: hasFix ? 'desc > name > rid ? סדר עדיפות נכון' : 'סדר שגוי! rid עדיין ראשון' };
   },
   checkDomainTypes: async function(){
     var src = await loadAppSource();
@@ -6247,12 +7031,12 @@ var AUTOMATION = {
   checkRPNCalc: async function(){
     var src = await loadAppSource();
     var has = src.includes('r.sev*r.prob') || src.includes('sev*prob');
-    return { pass: has, actual: has ? 'RPN = sev×prob \u05e7\u05d9\u05d9\u05dd' : 'חסר חישוב RPN' };
+    return { pass: has, actual: has ? 'RPN = sevֳ—prob \u05e7\u05d9\u05d9\u05dd' : 'חסר חישוב RPN' };
   },
   checkResidualRPNCalc: async function(){
     var src = await loadAppSource();
     var has = src.includes('r.sevRes||0)*(r.probRes||0)') || src.includes('sevRes*probRes') || src.includes('rpnR');
-    return { pass: has, actual: has ? 'RPN שיורי = sevRes×probRes קיים' : 'חסר חישוב RPN שיורי' };
+    return { pass: has, actual: has ? 'RPN שיורי = sevResֳ—probRes קיים' : 'חסר חישוב RPN שיורי' };
   },
   checkResidualAcceptance: async function(){
     var src = await loadAppSource();
@@ -6304,7 +7088,7 @@ var AUTOMATION = {
     var hasModalSections = src.includes('DOC_MODAL_SECTIONS[docId]') || src.includes('DOC_MODAL_SECTIONS[');
     var hasFillFn = src.includes('_buildDocFillFromDB') || src.includes('aiPopulateDocSection');
     var has = hasModalSections && hasFillFn;
-    return { pass: has, actual: has ? 'AI Fill קיים — _buildDocFillFromDB + DOC_MODAL_SECTIONS מחוברים' : (hasFillFn ? 'חסר DOC_MODAL_SECTIONS[docId]' : 'חסר פונקציית AI Fill למסמכים!') };
+    return { pass: has, actual: has ? 'AI Fill קיים ? _buildDocFillFromDB + DOC_MODAL_SECTIONS מחוברים' : (hasFillFn ? 'חסר DOC_MODAL_SECTIONS[docId]' : 'חסר פונקציית AI Fill למסמכים!') };
   },
 
   checkSEMPAIFill: async function(){
@@ -6348,7 +7132,7 @@ var AUTOMATION = {
     var src = await loadAppSource();
     var has = src.includes('function openAddReq') && src.includes('CRS') || src.includes('crsId');
     if(!has) has = src.includes('DB.sysReqs') && src.includes('openAddReq');
-    return { pass: has, actual: has ? 'openAddReq + DB.sysReqs קיימים — CRS נוצר בהוספת דרישה' : 'חסר: openAddReq / DB.sysReqs' };
+    return { pass: has, actual: has ? 'openAddReq + DB.sysReqs קיימים ? CRS נוצר בהוספת דרישה' : 'חסר: openAddReq / DB.sysReqs' };
   },
   checkSYSGenFn: async function(){
     var src = await loadAppSource();
@@ -6383,7 +7167,7 @@ var AUTOMATION = {
   checkQualityGateFn: async function(){
     var src = await loadAppSource();
     var has = src.includes('_VAGUE_WORDS') && src.includes('_validateRequirement');
-    return { pass: has, actual: has ? '_VAGUE_WORDS + _validateRequirement קיימים — vague filter פעיל' : 'חסר: _VAGUE_WORDS / _validateRequirement' };
+    return { pass: has, actual: has ? '_VAGUE_WORDS + _validateRequirement קיימים ? vague filter פעיל' : 'חסר: _VAGUE_WORDS / _validateRequirement' };
   },
   checkAutoTaskVagueFn: async function(){
     var src = await loadAppSource();
@@ -6484,17 +7268,17 @@ var AUTOMATION = {
   },
   checkJSSyntaxFn: async function(){
     var src = await loadAppSource();
-    if(!src || src.length < 1000) return { pass:false, actual:'קוד מקור לא נטען — הרץ דרך שרת' };
+    if(!src || src.length < 1000) return { pass:false, actual:'קוד מקור לא נטען ? הרץ דרך שרת' };
     var hasScript = src.includes('<script') && src.includes('<\/script>');
     var hasFunction = src.includes('function ') && src.includes('var ');
     var hasMismatch = (src.split('{').length - src.split('}').length);
     return { pass: hasScript && hasFunction && Math.abs(hasMismatch) < 50,
-      actual: hasScript && hasFunction ? 'JS syntax תקין — script + function + var קיימים (braces delta: '+hasMismatch+')' : 'חסר: script / function definitions' };
+      actual: hasScript && hasFunction ? 'JS syntax תקין ? script + function + var קיימים (braces delta: '+hasMismatch+')' : 'חסר: script / function definitions' };
   },
   checkVagueDebounce: async function(){
     var src = await loadAppSource();
     var has = src.includes('clearTimeout') && src.includes('_autoSaveTimer');
-    return { pass: has, actual: has ? 'clearTimeout + _autoSaveTimer קיימים — debounce פעיל' : 'חסר: clearTimeout / _autoSaveTimer' };
+    return { pass: has, actual: has ? 'clearTimeout + _autoSaveTimer קיימים ? debounce פעיל' : 'חסר: clearTimeout / _autoSaveTimer' };
   },
   checkSelfEvalFn: async function(){
     var src = await loadAppSource();
@@ -6559,30 +7343,30 @@ async function startRun(filter){
 
   // Show server/file mode banner
   if(_IS_SERVED){
-    log('📡 מצב שרת — בדיקות מקוד מקור פעילות', 'pass');
+    log('📡 מצב שרת ? בדיקות מקוד מקור פעילות', 'pass');
   } else {
-    log('📂 מצב file:// — נדרש לבחור את קובץ האפליקציה לסריקת קוד', 'warn');
+    log('📂 מצב file:// ? נדרש לבחור את קובץ האפליקציה לסריקת קוד', 'warn');
     // Pre-load app source via file picker so all source-checking tests can work
     if(!_appSrc || _appSrc.length < 50000){
       log('⏳ ממתין לבחירת קובץ 7200_System_v2.html...', 'info');
       _appSrc = null;
       var preloadedSrc = await _loadFromFilePicker();
       if(preloadedSrc && preloadedSrc.length > 50000){
-        log('✅ קוד מקור נטען (' + Math.round(preloadedSrc.length/1024) + ' KB) — כל הבדיקות יפעלו', 'pass');
+        log('✅ קוד מקור נטען (' + Math.round(preloadedSrc.length/1024) + ' KB) ? כל הבדיקות יפעלו', 'pass');
       } else {
-        log('⚠️ דולג על טעינת קוד מקור — בדיקות קוד מקור יכשלו', 'warn');
+        log('⚠️ דולג על טעינת קוד מקור ? בדיקות קוד מקור יכשלו', 'warn');
       }
     } else {
       log('✅ קוד מקור זמין (' + Math.round(_appSrc.length/1024) + ' KB)', 'pass');
     }
   }
-  log('['+runId+'] Starting — '+tcs.length+' test cases', 'info');
+  log('['+runId+'] Starting ? '+tcs.length+' test cases', 'info');
 
   for(var i=0; i<tcs.length; i++){
     var tc = tcs[i];
     var pct = Math.round((i/tcs.length)*100);
     document.getElementById('runProgressBar').style.width = pct+'%';
-    document.getElementById('runProgressLabel').textContent = 'מריץ: '+tc.id+' — '+tc.title;
+    document.getElementById('runProgressLabel').textContent = 'מריץ: '+tc.id+' ? '+tc.title;
     document.getElementById('runProgressPct').textContent = pct+'%';
 
     var result = { tcId:tc.id, status:'NOT_RUN', actual:'', expected:tc.expected, duration:0, autoFixed:false, fixNote:'' };
@@ -6599,13 +7383,13 @@ async function startRun(filter){
           log('  ✅ '+tc.id+': '+tc.title+' ('+result.duration+'ms)', 'pass');
         } else {
           _currentRun.failed++;
-          log('  ❌ '+tc.id+': '+tc.title+' — '+result.actual, 'fail');
+          log('  ❌ '+tc.id+': '+tc.title+' ? '+result.actual, 'fail');
           // Create defect automatically
           createDefectFromFail(tc, result, runId);
         }
       } else {
         result.status = 'SKIP';
-        result.actual = 'ידני — נדרש ביצוע ידני';
+        result.actual = 'ידני ? נדרש ביצוע ידני';
         _currentRun.skipped++;
         log('  ⏭ '+tc.id+': '+tc.title+' (ידני)', '');
       }
@@ -6614,7 +7398,7 @@ async function startRun(filter){
       result.actual = 'שגיאה: '+e.message;
       result.duration = Date.now()-t0;
       _currentRun.errors++;
-      log('  ⚠️ '+tc.id+': ERROR — '+e.message, 'error');
+      log('  ⚠️ '+tc.id+': ERROR ? '+e.message, 'error');
     }
     _currentRun.results.push(result);
     await sleep(30);
@@ -6645,7 +7429,7 @@ function sleep(ms){ return new Promise(function(r){ setTimeout(r,ms); }); }
 //  AUTOFIX + REGRESSION
 // ═══════════════════════════════════════════════════════════════
 // ═══════════════════════════════════════════════════════════════
-//  AUTOFIX SYSTEM — applies real code patches via /api/patch
+//  AUTOFIX SYSTEM ? applies real code patches via /api/patch
 // ═══════════════════════════════════════════════════════════════
 
 // Detect if running on server (HTTP) or file://
@@ -6655,7 +7439,7 @@ var _IS_SERVED  = (location.protocol !== 'file:');
 // Send patches to server.py /api/patch endpoint
 async function _applyPatchesToServer(patches, dryRun){
   if(!_IS_SERVED){
-    return { ok:false, error:'file:// מצב — נדרש שרת. הפעל start_server.bat ופתח http://localhost:5000/7200_Test_System.html', applied:[], skipped:[] };
+    return { ok:false, error:'file:// מצב ? נדרש שרת. הפעל start_server.bat ופתח http://localhost:5000/7200_Test_System.html', applied:[], skipped:[] };
   }
   try {
     var resp = await fetch(_SERVER_URL + '/api/patch', {
@@ -6669,7 +7453,7 @@ async function _applyPatchesToServer(patches, dryRun){
   }
 }
 
-// ── AUTOFIX ACTIONS — each knows what patch to apply ─────────────
+// ── AUTOFIX ACTIONS ? each knows what patch to apply ─────────────
 var AUTOFIX_ACTIONS = {
   // ── UI / Navigation ──────────────────────────────────────────
   checkTRIndexOf: {
@@ -6735,7 +7519,7 @@ async function startAutoFix(){
     alert('הרץ בדיקות תחילה לפני AutoFix'); return;
   }
   var failedResults = _currentRun.results.filter(function(r){ return r.status==='FAIL'||r.status==='ERROR'; });
-  if(!failedResults.length){ alert('אין כשלים לתקן — כל הבדיקות עברו!'); return; }
+  if(!failedResults.length){ alert('אין כשלים לתקן ? כל הבדיקות עברו!'); return; }
 
   // ── Navigate to runner tab and show progress ──────────────────
   var runnerTab = document.querySelector('.snav-item[onclick*="\'runner\'"]') ||
@@ -6748,12 +7532,12 @@ async function startAutoFix(){
 
   document.getElementById('runProgressArea').style.display='block';
   document.getElementById('runResultsArea').style.display='none';
-  logEl.innerHTML += '<div class="info" style="border-top:2px solid #f59e0b;margin-top:8px;padding-top:8px;">══ 🔧 AutoFix Mode — '+failedResults.length+' כשלים | '+((_IS_SERVED)?'📡 שרת זוהה — מחיל patches אוטומטית':'⚠️ file:// מצב — patches לא יוחלו. הפעל start_server.bat')+' ══</div>';
+  logEl.innerHTML += '<div class="info" style="border-top:2px solid #f59e0b;margin-top:8px;padding-top:8px;">══ 🔧 AutoFix Mode ? '+failedResults.length+' כשלים | '+((_IS_SERVED)?'📡 שרת זוהה ? מחיל patches אוטומטית':'⚠️ file:// מצב ? patches לא יוחלו. הפעל start_server.bat')+' ══</div>';
   logEl.scrollTop = logEl.scrollHeight;
 
   if(!_IS_SERVED){
     // ── file:// mode: apply patches client-side then offer download ──
-    logEl.innerHTML += '<div class="info">📂 מצב file:// — מחיל תיקונים ישירות ומציע הורדת קובץ מתוקן</div>';
+    logEl.innerHTML += '<div class="info">📂 מצב file:// ? מחיל תיקונים ישירות ומציע הורדת קובץ מתוקן</div>';
     logEl.scrollTop = logEl.scrollHeight;
 
     // Ensure we have app source (load via file picker if needed)
@@ -6764,10 +7548,10 @@ async function startAutoFix(){
       fixSrc = await _loadFromFilePicker();
     }
     if(!fixSrc || fixSrc.length < 50000){
-      logEl.innerHTML += '<div class="warn">⚠️ לא נבחר קובץ — רשימת כשלים לתיקון ידני:</div>';
+      logEl.innerHTML += '<div class="warn">⚠️ לא נבחר קובץ ? רשימת כשלים לתיקון ידני:</div>';
       failedResults.forEach(function(r){
         var tc=TMS.testCases.find(function(t){return t.id===r.tcId;})||{};
-        logEl.innerHTML += '<div class="fail">  ❌ '+r.tcId+': '+(tc.title||'')+(r.actual?' — '+r.actual:'')+'</div>';
+        logEl.innerHTML += '<div class="fail">  ❌ '+r.tcId+': '+(tc.title||'')+(r.actual?' ? '+r.actual:'')+'</div>';
         if(tc.steps) logEl.innerHTML += '<div class="info" style="font-size:11px;padding-right:20px;">📝 '+tc.steps+'</div>';
       });
       logEl.innerHTML += '<div class="info">══ AutoFix סיים: 0 תוקנו | '+failedResults.length+' ידניים ══</div>';
@@ -6776,7 +7560,7 @@ async function startAutoFix(){
       return;
     }
 
-    logEl.innerHTML += '<div class="pass">✅ קוד מקור נטען (' + Math.round(fixSrc.length/1024) + ' KB) — בודק patches...</div>';
+    logEl.innerHTML += '<div class="pass">✅ קוד מקור נטען (' + Math.round(fixSrc.length/1024) + ' KB) ? בודק patches...</div>';
     logEl.scrollTop = logEl.scrollHeight;
 
     var patched = fixSrc;
@@ -6804,12 +7588,12 @@ async function startAutoFix(){
           manualCount++;
           TMS.autofixLog.push({ id:uid(), runId:_currentRun.id, tcId:tc.id, failMsg:r.actual,
             fixAction:'Patch לא מצא קוד רלוונטי', result:'PATCH_SKIPPED', date:new Date().toISOString() });
-          logEl.innerHTML += '<div class="warn">  ⚠️ '+tc.id+': '+tc.title+' — כבר תוקן / patch לא רלוונטי</div>';
+          logEl.innerHTML += '<div class="warn">  ⚠️ '+tc.id+': '+tc.title+' ? כבר תוקן / patch לא רלוונטי</div>';
         }
       } else {
         manualCount++;
         TMS.autofixLog.push({ id:uid(), runId:_currentRun.id, tcId:tc.id, failMsg:r.actual,
-          fixAction:'אין פעולת AutoFix — נדרש תיקון ידני', result:'MANUAL_REQUIRED', date:new Date().toISOString() });
+          fixAction:'אין פעולת AutoFix ? נדרש תיקון ידני', result:'MANUAL_REQUIRED', date:new Date().toISOString() });
         logEl.innerHTML += '<div class="info">  ℹ️ '+tc.id+': '+(tc.title||'')+' — '+r.actual+'</div>';
         if(tc.steps) logEl.innerHTML += '<div class="info" style="font-size:11px;padding-right:20px;">📝 '+tc.steps+'</div>';
       }
@@ -6866,12 +7650,12 @@ async function startAutoFix(){
         applicable.forEach(function(p){ allPatches.push(p); });
         tcsPatchMap[tc.id] = { status:'pending', action: action.desc, count: applicable.length };
       } else if(alreadyFixed.length){
-        tcsPatchMap[tc.id] = { status:'already_fixed', action: 'כבר תוקן — ייתכן שהבדיקה עצמה בעייתית', count: 0 };
+        tcsPatchMap[tc.id] = { status:'already_fixed', action: 'כבר תוקן ? ייתכן שהבדיקה עצמה בעייתית', count: 0 };
       } else {
         tcsPatchMap[tc.id] = { status:'no_match', action: 'Patch לא מצא את הקוד הרלוונטי', count: 0 };
       }
     } else {
-      tcsPatchMap[tc.id] = { status:'no_action', action: 'אין פעולת AutoFix — נדרש תיקון ידני', count: 0 };
+      tcsPatchMap[tc.id] = { status:'no_action', action: 'אין פעולת AutoFix ? נדרש תיקון ידני', count: 0 };
     }
   });
 
@@ -7088,7 +7872,7 @@ function renderReqs(search){
   body.innerHTML = reqs.map(function(r,i){
     var tcCount = TMS.testCases.filter(function(tc){ return (tc.reqs||'').includes(r.id); }).length;
     var lastResult = getLastResultForReq(r.id);
-    var statusBadge = lastResult ? '<span class="badge badge-'+lastResult.toLowerCase()+'">'+lastResult+'</span>' : '—';
+    var statusBadge = lastResult ? '<span class="badge badge-'+lastResult.toLowerCase()+'">'+lastResult+'</span>' : '?';
     return '<tr>'+
       '<td style="font-weight:700;">'+r.id+'</td>'+
       '<td>'+r.title+'<br><span style="font-size:11px;color:var(--gray);">'+r.desc.substring(0,60)+'</span></td>'+
@@ -7132,7 +7916,7 @@ function renderTCs(search, catFilter){
   var body = document.getElementById('tcBody');
   body.innerHTML = tcs.map(function(tc,i){
     var last = getLastResult(tc.id);
-    var statusHtml = last ? '<span class="badge badge-'+last.status.toLowerCase()+'">'+last.status+'</span>' : '<span class="badge badge-notrun">—</span>';
+    var statusHtml = last ? '<span class="badge badge-'+last.status.toLowerCase()+'">'+last.status+'</span>' : '<span class="badge badge-notrun">?</span>';
     return '<tr>'+
       '<td style="font-weight:700;">'+tc.id+'</td>'+
       '<td>'+tc.title+'</td>'+
@@ -7191,8 +7975,8 @@ function showRunResults(run){
         '<td><span style="font-size:10px;font-weight:700;color:'+priColor+';">'+tc.pri+'</span></td>'+
         '<td style="text-align:center;"><span style="background:'+sc+';color:#fff;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:700;white-space:nowrap;">'+r.status+'</span></td>'+
         '<td style="font-size:11px;max-width:220px;" title="'+r.actual+'">'+r.actual+'</td>'+
-        '<td style="font-size:11px;text-align:center;color:var(--gray);">'+(r.duration?r.duration+'ms':'—')+'</td>'+
-        '<td style="text-align:center;">'+(r.autoFixed?'<span class="fix-badge" style="font-size:10px;">🔧 Fixed</span>':r.fixNote?'<span style="font-size:10px;color:var(--orange);">⚠️</span>':'—')+'</td>'+
+        '<td style="font-size:11px;text-align:center;color:var(--gray);">'+(r.duration?r.duration+'ms':'?')+'</td>'+
+        '<td style="text-align:center;">'+(r.autoFixed?'<span class="fix-badge" style="font-size:10px;">🔧 Fixed</span>':r.fixNote?'<span style="font-size:10px;color:var(--orange);">⚠️</span>':'?')+'</td>'+
       '</tr>';
     }).join('') || '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--gray);">אין תוצאות בסטטוס זה</td></tr>';
   }
@@ -7241,7 +8025,7 @@ function renderHistory(){
       '<td style="color:var(--gray);">'+run.skipped+'</td>'+
       '<td><div class="progress" style="width:80px;"><div class="progress-bar '+(passRate>=90?'green':passRate>=70?'orange':'red')+'" style="width:'+passRate+'%"></div></div>'+
       '<span style="font-size:11px;font-weight:700;">'+passRate+'%</span></td>'+
-      '<td style="font-size:11px;">'+(run.autofixed?'🔧 '+run.autofixed+' תוקנו':'—')+'</td>'+
+      '<td style="font-size:11px;">'+(run.autofixed?'🔧 '+run.autofixed+' תוקנו':'?')+'</td>'+
       '<td style="font-size:11px;">'+(run.duration/1000).toFixed(1)+'s</td>'+
       '<td style="display:flex;gap:3px;">'+
       '<button class="btn btn-outline" style="padding:3px 8px;font-size:11px;" onclick="showRunDetail('+i+')">פרטים</button>'+
@@ -7253,7 +8037,7 @@ function renderHistory(){
 
 function showRunDetail(idx){
   var run = TMS.runs[idx];
-  document.getElementById('runDetailTitle').textContent = 'פרטי הרצה — '+run.id;
+  document.getElementById('runDetailTitle').textContent = 'פרטי הרצה ? '+run.id;
   var passRate = run.totalTests ? Math.round(run.passed/run.totalTests*100) : 0;
   var html = '<div style="margin-bottom:12px;display:flex;gap:10px;flex-wrap:wrap;">'+
     '<span class="badge badge-pass">✅ '+run.passed+'</span>'+
@@ -7265,7 +8049,7 @@ function showRunDetail(idx){
     html += '<tr><td style="font-weight:700;">'+r.tcId+'</td>'+
       '<td><span class="badge badge-'+r.status.toLowerCase()+'">'+r.status+'</span></td>'+
       '<td>'+r.actual+'</td>'+
-      '<td>'+(r.autoFixed?'🔧':r.fixNote?'⚠️ '+r.fixNote:'—')+'</td></tr>';
+      '<td>'+(r.autoFixed?'🔧':r.fixNote?'⚠️ '+r.fixNote:'?')+'</td></tr>';
   });
   html += '</tbody></table>';
   document.getElementById('runDetailBody').innerHTML = html;
@@ -7286,7 +8070,7 @@ function renderDefects(){
       '<td><select style="padding:3px;font-size:11px;border-radius:4px;" onchange="updateDefectStatus(\''+d.id+'\',this.value)">'+
         ['Open','Fixed','Closed','Deferred'].map(function(s){ return '<option'+(d.status===s?' selected':'')+'>'+s+'</option>'; }).join('')+
       '</select></td>'+
-      '<td>'+(d.autoFixed?'<span class="fix-badge">🔧 AutoFixed</span>':'—')+'</td>'+
+      '<td>'+(d.autoFixed?'<span class="fix-badge">🔧 AutoFixed</span>':'?')+'</td>'+
       '<td style="font-size:11px;">'+d.foundDate+'</td>'+
       '<td style="font-size:11px;color:var(--gray);">'+d.description.substring(0,60)+'</td>'+
     '</tr>';
@@ -7321,7 +8105,7 @@ function renderCoverage(){
     '<span style="background:#c8e6c9;padding:3px 8px;border-radius:4px;">✅ מכוסה + Pass</span>'+
     '<span style="background:#ffcdd2;padding:3px 8px;border-radius:4px;">❌ מכוסה + Fail</span>'+
     '<span style="background:#fff9c4;padding:3px 8px;border-radius:4px;">◑ לא רץ</span>'+
-    '<span style="background:#f1f3f4;padding:3px 8px;border-radius:4px;">— לא מכוסה</span>'+
+    '<span style="background:#f1f3f4;padding:3px 8px;border-radius:4px;">? לא מכוסה</span>'+
     '</div>';
   document.getElementById('coverageMatrix').innerHTML = html;
 }
@@ -7698,6 +8482,13 @@ renderDashboard();
         if(_currentRun){
           document.body.setAttribute("data-autorun-total", String(_currentRun.totalTests || 0));
           document.body.setAttribute("data-autorun-runid", _currentRun.id || "");
+          document.body.setAttribute("data-autorun-passed", String(_currentRun.passed || 0));
+          document.body.setAttribute("data-autorun-failed", String(_currentRun.failed || 0));
+          document.body.setAttribute("data-autorun-errors", String(_currentRun.errors || 0));
+          document.body.setAttribute("data-autorun-skipped", String(_currentRun.skipped || 0));
+          var passRate = _currentRun.totalTests ? Math.round((_currentRun.passed || 0) / _currentRun.totalTests * 100) : 0;
+          document.body.setAttribute("data-autorun-passrate", String(passRate));
+          document.body.setAttribute("data-autorun-status", (_currentRun.failed || _currentRun.errors) ? "FAIL" : "PASS");
         }
       });
     }, 150);
@@ -7706,3 +8497,4 @@ renderDashboard();
 </script>
 </body>
 </html>
+
