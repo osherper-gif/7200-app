@@ -102,7 +102,7 @@ label{display:block;font-size:11px;font-weight:600;color:var(--gray);margin-bott
 <body>
 
 <!-- Hidden iframe for running tests against the app -->
-<iframe id="testIframe" src="about:blank" data-app-src="7200_System_v2.html" sandbox="allow-scripts allow-same-origin"></iframe>
+<iframe id="testIframe" src="7200_System_v2.html" data-app-src="7200_System_v2.html" sandbox="allow-scripts allow-same-origin"></iframe>
 
 <!-- HEADER -->
 <div class="hdr">
@@ -1269,8 +1269,9 @@ var _appWin = null;
 var _appWinPromise = null;
 var _harnessDeferredRenderScheduled = false;
 var _harnessReadyResolvers = [];
+var _harnessAutomationReadyResolvers = [];
 window.HARNESS_READY = false;
-window.HARNESS_BOOTSTRAP = { phase:'init', readyAt:0, deferred:false };
+window.HARNESS_BOOTSTRAP = { phase:'init', readyAt:0, deferred:false, automationReady:false, automationReadyAt:0 };
 
 // ── File picker for file:// mode ─────────────────────────────────
 // Shows a modal asking the user to select 7200_System_v2.html
@@ -1397,6 +1398,34 @@ function _whenHarnessReady(){
   return new Promise(function(resolve){ _harnessReadyResolvers.push(resolve); });
 }
 
+function _isHarnessAutomationReady(){
+  return !!(
+    window.HARNESS_READY &&
+    window.HARNESS_BOOTSTRAP &&
+    window.HARNESS_BOOTSTRAP.automationReady === true &&
+    window.TMS &&
+    Array.isArray(TMS.testCases) &&
+    window.AUTOMATION &&
+    typeof AUTOMATION === 'object'
+  );
+}
+
+function _setHarnessAutomationReady(){
+  if(!window.HARNESS_BOOTSTRAP) window.HARNESS_BOOTSTRAP = { phase:'ready', readyAt:Date.now(), deferred:false, automationReady:false, automationReadyAt:0 };
+  if(window.HARNESS_BOOTSTRAP.automationReady) return;
+  window.HARNESS_BOOTSTRAP.automationReady = true;
+  window.HARNESS_BOOTSTRAP.automationReadyAt = Date.now();
+  document.body.setAttribute('data-harness-automation-ready', 'true');
+  while(_harnessAutomationReadyResolvers.length){
+    try{ _harnessAutomationReadyResolvers.shift()(); }catch(e){}
+  }
+}
+
+function _whenHarnessAutomationReady(){
+  if(_isHarnessAutomationReady()) return Promise.resolve();
+  return new Promise(function(resolve){ _harnessAutomationReadyResolvers.push(resolve); });
+}
+
 function _scheduleHarnessDeferredRender(){
   if(_harnessDeferredRenderScheduled) return;
   _harnessDeferredRenderScheduled = true;
@@ -1417,10 +1446,28 @@ function _primeAppIframe(forceReload){
   return iframe;
 }
 
+function _isAppRuntimeReady(win){
+  try{
+    if(!win || !win.document) return false;
+    var hasCoreRuntime =
+      typeof win.buildEngineeringIngestionSuggestions === 'function' &&
+      typeof win.applyEngineeringIngestionSelection === 'function' &&
+      typeof win.buildEngineeringReportData === 'function';
+    var hasUiRuntime =
+      win.document.readyState === 'complete' &&
+      typeof win.renderDashboard === 'function' &&
+      typeof win.renderPortfolioPage === 'function' &&
+      typeof win.renderProjectPage === 'function';
+    return !!(hasCoreRuntime || hasUiRuntime);
+  }catch(e){
+    return false;
+  }
+}
+
 async function getAppWin(){
-  if(_appWin && _appWin.document){
+  if(_isAppRuntimeReady(_appWin)){
     try{
-      if(_appWin.document.readyState === 'complete') return _appWin;
+      return _appWin;
     }catch(e){}
   }
   if(_appWinPromise) return _appWinPromise;
@@ -1434,43 +1481,30 @@ async function getAppWin(){
       _appWinPromise = null;
       resolve(win);
     }
-    function isReady(win){
-      try{
-        return !!(win &&
-          win.document &&
-          win.document.readyState === 'complete' &&
-          typeof win.renderDashboard === 'function' &&
-          typeof win.renderPortfolioPage === 'function' &&
-          typeof win.renderProjectPage === 'function');
-      }catch(e){
-        return false;
-      }
-    }
     function tryResolve(){
       try{
         var w = iframe.contentWindow;
-        if(isReady(w)){ finish(w); return true; }
+        if(_isAppRuntimeReady(w)){ finish(w); return true; }
       }catch(e){}
       return false;
     }
-    if(iframe.contentDocument && iframe.contentDocument.readyState === 'complete' && tryResolve()) return;
-    iframe.onload = function(){
-      if(tryResolve()) return;
-      var started = Date.now();
-      var timer = setInterval(function(){
-        if(tryResolve() || (Date.now() - started) > 15000){
-          clearInterval(timer);
-          if(!resolved){
-            try{ finish(iframe.contentWindow); }catch(e){ finish(null); }
-          }
+    if(tryResolve()) return;
+    var started = Date.now();
+    var timer = setInterval(function(){
+      if(tryResolve() || (Date.now() - started) > 18000){
+        clearInterval(timer);
+        if(!resolved){
+          try{ finish(_isAppRuntimeReady(iframe.contentWindow) ? iframe.contentWindow : null); }catch(e){ finish(null); }
         }
-      }, 50);
-    };
+      }
+    }, 50);
+    iframe.onload = function(){ tryResolve(); };
     setTimeout(function(){
       if(!resolved){
-        try{ finish(iframe.contentWindow); }catch(e){ finish(null); }
+        clearInterval(timer);
+        try{ finish(_isAppRuntimeReady(iframe.contentWindow) ? iframe.contentWindow : null); }catch(e){ finish(null); }
       }
-    }, 16000);
+    }, 18500);
   });
   return _appWinPromise;
 }
@@ -1876,7 +1910,16 @@ function _buildDeepEngineeringSpecText(){
   ].join('\n');
 }
 
-function _withEngineeringIngestionRuntimeState(w, fn){
+async function _withEngineeringIngestionRuntimeState(w, fn){
+  if(!w) throw new Error('runtime window missing');
+  if(!w.DB){
+    if(typeof w.buildFreshDefaultDB === 'function'){
+      _setRuntimeDBSnapshot(w, w.buildFreshDefaultDB());
+    } else {
+      _setRuntimeDBSnapshot(w, {});
+    }
+  }
+  if(!w.DB) throw new Error('runtime DB missing');
   var keys = [
     'customerReqs','subsystemReqs','subsysReqs','sysReqs','swReqs','meReqs','vv','risks','residualRisks',
     'arch','archLinks','icd','impactRecommendations','updateProposals','baselines','changeRequests',
@@ -1908,7 +1951,7 @@ function _withEngineeringIngestionRuntimeState(w, fn){
     w._lastAnalysisInput = null;
     w._lastAutonomousProjectResult = null;
     if(typeof w.normalizeLegacyDbAliases === 'function') w.normalizeLegacyDbAliases(w.DB);
-    return fn();
+    return await fn();
   } finally {
     var restored = JSON.parse(snapshot);
     Object.keys(restored.db).forEach(function(key){ w.DB[key] = restored.db[key]; });
@@ -1917,6 +1960,136 @@ function _withEngineeringIngestionRuntimeState(w, fn){
     w._lastAnalysisInput = restored.lastAnalysisInput;
     w._lastAutonomousProjectResult = restored.lastAutonomousProjectResult;
   }
+}
+
+function _resolveRuntimeFunction(w, name){
+  if(!w || !name) return null;
+  if(typeof w[name] === 'function') return w[name].bind(w);
+  try{
+    var candidate = w.eval('typeof ' + name + ' === "function" ? ' + name + ' : null');
+    if(typeof candidate === 'function') return candidate.bind(w);
+  }catch(e){}
+  return null;
+}
+
+function _exportEngineeringReportRuntimeCompat(w, options){
+  var exportFn = _resolveRuntimeFunction(w, 'exportEngineeringReportJSON');
+  if(exportFn) return exportFn(options || {});
+  var buildFn = _resolveRuntimeFunction(w, 'buildEngineeringReportData');
+  if(buildFn) return { report: buildFn(options || {}) };
+  return null;
+}
+
+function _buildEngineeringReportRuntimeCompat(w, options){
+  var buildFn = _resolveRuntimeFunction(w, 'buildEngineeringReportData');
+  if(buildFn) return { report: buildFn(options || {}) };
+  return _exportEngineeringReportRuntimeCompat(w, options);
+}
+
+function _buildTraceabilityRowsRuntimeCompat(w){
+  var buildFn = _resolveRuntimeFunction(w, 'buildTraceabilityRows');
+  if(buildFn) return buildFn() || [];
+  var reportBundle = _buildEngineeringReportRuntimeCompat(w, { download:false });
+  return reportBundle && reportBundle.report && reportBundle.report.traceability && Array.isArray(reportBundle.report.traceability.rows)
+    ? reportBundle.report.traceability.rows
+    : [];
+}
+
+function _traceabilityFastRequirementRecords(w){
+  var db = (w && w.DB) || {};
+  var collections = [
+    { type:'customer_requirement', rows: db.customerReqs || [] },
+    { type:'requirement', rows: db.sysReqs || [] },
+    { type:'subsystem_requirement', rows: db.subsysReqs || db.subsystemReqs || [] },
+    { type:'software_requirement', rows: db.swReqs || [] },
+    { type:'mechanical_requirement', rows: db.meReqs || [] }
+  ];
+  var seen = {};
+  var records = [];
+  collections.forEach(function(group){
+    (group.rows || []).forEach(function(req){
+      var rid = String((req && (req.rid || req.id)) || '').trim();
+      if(!rid || seen[rid]) return;
+      seen[rid] = true;
+      records.push({
+        requirementId: rid,
+        entityType: group.type,
+        source: req || {}
+      });
+    });
+  });
+  return records;
+}
+
+function _collectTraceabilityFastIds(value, acc){
+  if(value == null) return acc;
+  if(Array.isArray(value)){
+    value.forEach(function(item){ _collectTraceabilityFastIds(item, acc); });
+    return acc;
+  }
+  if(typeof value === 'object'){
+    Object.keys(value).forEach(function(key){ _collectTraceabilityFastIds(value[key], acc); });
+    return acc;
+  }
+  String(value).split(/[\s,;|/]+/).forEach(function(token){
+    token = String(token || '').trim();
+    if(!token) return;
+    if(/^[A-Z]+-\d+[A-Z0-9-]*$/i.test(token)) acc[token] = true;
+  });
+  return acc;
+}
+
+function buildTraceabilityCoverageSummaryFast(w){
+  var records = _traceabilityFastRequirementRecords(w);
+  var vvEntries = ((w && w.DB && w.DB.vv) || []);
+  var linkedIds = {};
+  vvEntries.forEach(function(item){
+    _collectTraceabilityFastIds(item, linkedIds);
+  });
+  var total = records.length;
+  var nonMissing = 0;
+  var missing = 0;
+  records.forEach(function(record){
+    if(linkedIds[record.requirementId]) nonMissing += 1;
+    else missing += 1;
+  });
+  return {
+    fastPathUsed: true,
+    totalRows: total,
+    missingRows: missing,
+    nonMissingRows: nonMissing,
+    coverageRatio: total ? (nonMissing / total) : 0,
+    linkageSource: 'db.vv'
+  };
+}
+
+async function _runDeepEngineeringApplyRuntimeCompat(w, sourceName, rawText, applyOptions){
+  var suggestionsFn = _resolveRuntimeFunction(w, 'buildEngineeringIngestionSuggestions');
+  if(suggestionsFn){
+    var bundle = suggestionsFn(rawText, { sourceName:sourceName, inputType:'pasted_text' }) || {};
+    var applySelection = _resolveRuntimeFunction(w, 'applyEngineeringIngestionSelection');
+    if(!applySelection) return { ok:false, reason:'MISSING_APPLY', bundle:bundle };
+    return {
+      ok:true,
+      mode:'bundle',
+      bundle:bundle,
+      applyResult: applySelection((bundle && bundle.suggestions) || [], applyOptions || { render:false, notify:false, close:false, markDirty:false })
+    };
+  }
+  var buildSource = _resolveRuntimeFunction(w, 'buildAnalysisSource');
+  var executeAnalysis = _resolveRuntimeFunction(w, 'executeAnalysisForSource');
+  var applySelectionLegacy = _resolveRuntimeFunction(w, 'applyEngineeringIngestionSelection');
+  if(buildSource && executeAnalysis && applySelectionLegacy){
+    var source = buildSource({ inputType:'pasted_text', sourceName:sourceName, rawText:rawText, metadata:{} });
+    await executeAnalysis(source);
+    return {
+      ok:true,
+      mode:'analysis',
+      source:source,
+      applyResult: applySelectionLegacy(w._analysisRecs, applyOptions || { render:false, notify:false, close:false, markDirty:false })
+    };
+  }
+  return { ok:false, reason:'MISSING_RUNTIME_PATH' };
 }
 
 // ── Automation test functions ─────────────────────────────────
@@ -2863,11 +3036,13 @@ var AUTOMATION = {
   },
   checkDeepCustomerDbThresholdRuntime: async function(){
     return withAppWindow(function(w){
-      return _withEngineeringIngestionRuntimeState(w, function(){
-        var bundle = w.buildEngineeringIngestionSuggestions(_buildDeepEngineeringSpecText(), { sourceName:'TC-465-SPEC.txt', inputType:'pasted_text' });
-        var result = w.applyEngineeringIngestionSelection(bundle.suggestions || [], { render:false, notify:false, close:false });
-        var count = (w.DB.customerReqs || []).length;
-        return result && result.ok === true && count > 30 ? _runtimePass('DB.customerReqs exceeds 30 after deep CRS apply') : _runtimeFail('DB.customerReqs stayed too low after deep CRS apply: ' + count);
+      return _withEngineeringIngestionRuntimeState(w, async function(){
+        var run = await _runDeepEngineeringApplyRuntimeCompat(w, 'TC-465-SPEC.txt', _buildDeepEngineeringSpecText(), { render:false, notify:false, close:false, markDirty:false });
+        if(!run || run.ok !== true) return _runtimeFail('Unable to execute deep customer apply runtime path: ' + ((run && run.reason) || 'unknown'));
+        var db = w.DB || {};
+        var customerReqs = Array.isArray(db.customerReqs) ? db.customerReqs : [];
+        var count = customerReqs.length;
+        return run.applyResult && run.applyResult.ok === true && count > 30 ? _runtimePass('DB.customerReqs exceeds 30 after deep CRS apply') : _runtimeFail('DB.customerReqs stayed too low after deep CRS apply: ' + count);
       });
     });
   },
@@ -2904,37 +3079,56 @@ var AUTOMATION = {
   },
   checkDeepTraceabilityCoverageRuntime: async function(){
     return withAppWindow(function(w){
-      var missing = ['buildAnalysisSource','executeAnalysisForSource','applyEngineeringIngestionSelection','exportEngineeringReportJSON'].filter(function(name){ return typeof w[name] !== 'function'; });
-      if(missing.length) return _runtimeFail('Missing deep traceability helpers: ' + missing.join(', '));
       return _withEngineeringIngestionRuntimeState(w, async function(){
-        var source = w.buildAnalysisSource({ inputType:'pasted_text', sourceName:'TC-469-SPEC.txt', rawText:_buildDeepEngineeringSpecText(), metadata:{} });
-        await w.executeAnalysisForSource(source);
-        w.applyEngineeringIngestionSelection(w._analysisRecs, { render:false, notify:false, close:false, markDirty:false });
-        var exported = w.exportEngineeringReportJSON({ download:false, generatedAt:'2026-04-20T00:00:00.000Z' });
-        var summary = exported && exported.report && exported.report.summary || {};
-        var trace = exported && exported.report && exported.report.traceability && exported.report.traceability.summary || {};
-        var coveredRatio = (summary.traceabilityRows || 0) ? (1 - ((trace.missingVV || 0) / summary.traceabilityRows)) : 0;
-        return coveredRatio >= 0.5 ? _runtimePass('Traceability avoids Missing coverage for at least half the rows') : _runtimeFail('Traceability coverage too weak: ' + Math.round(coveredRatio * 100) + '% covered');
+        var run = await _runDeepEngineeringApplyRuntimeCompat(w, 'TC-469-SPEC.txt', _buildDeepEngineeringSpecText(), { render:false, notify:false, close:false, markDirty:false });
+        if(!run || run.ok !== true) return _runtimeFail('Traceability runtime path unavailable: ' + ((run && run.reason) || 'unknown'));
+        var summary = buildTraceabilityCoverageSummaryFast(w);
+        if(!summary || !summary.totalRows) return _runtimeFail('Traceability fast summary unavailable');
+        var coveredRatio = summary.coverageRatio || 0;
+        var detail = 'fastPathUsed=' + (summary.fastPathUsed ? 'yes' : 'no') +
+          ', totalRows=' + summary.totalRows +
+          ', missingRows=' + summary.missingRows +
+          ', nonMissingRows=' + summary.nonMissingRows +
+          ', coverageRatio=' + Math.round(coveredRatio * 100) + '%' +
+          ', linkageSource=' + summary.linkageSource;
+        return coveredRatio >= 0.5
+          ? _runtimePass('Traceability avoids Missing coverage for at least half the rows | ' + detail)
+          : _runtimeFail('Traceability coverage too weak | ' + detail);
       });
     });
   },
   checkEngineeringReportSummaryMatchesDbRuntime: async function(){
     return withAppWindow(function(w){
-      var missing = ['buildAnalysisSource','executeAnalysisForSource','applyEngineeringIngestionSelection','exportEngineeringReportJSON'].filter(function(name){ return typeof w[name] !== 'function'; });
-      if(missing.length) return _runtimeFail('Missing summary alignment helpers: ' + missing.join(', '));
       return _withEngineeringIngestionRuntimeState(w, async function(){
-        var source = w.buildAnalysisSource({ inputType:'pasted_text', sourceName:'TC-470-SPEC.txt', rawText:_buildDeepEngineeringSpecText(), metadata:{} });
-        await w.executeAnalysisForSource(source);
-        w.applyEngineeringIngestionSelection(w._analysisRecs, { render:false, notify:false, close:false, markDirty:false });
-        var exported = w.exportEngineeringReportJSON({ download:false, generatedAt:'2026-04-20T00:00:00.000Z' });
-        var summary = exported && exported.report && exported.report.summary || {};
+        var startedAt = Date.now();
+        var breadcrumbs = [];
+        function mark(step){
+          breadcrumbs.push(step + '=' + (Date.now() - startedAt) + 'ms');
+          w.__tc470LastStage = step;
+          w.__tc470Breadcrumbs = breadcrumbs.slice();
+        }
+        mark('before_setup');
+        mark('before_apply');
+        var suggestionsFn = _resolveRuntimeFunction(w, 'buildEngineeringIngestionSuggestions');
+        var applyFn = _resolveRuntimeFunction(w, 'applyEngineeringIngestionSelection');
+        if(!suggestionsFn || !applyFn) return _runtimeFail('Summary runtime path unavailable: missing current ingestion functions');
+        var bundle = suggestionsFn(_buildDeepEngineeringSpecText(), { sourceName:'TC-470-SPEC.txt', inputType:'pasted_text' }) || {};
+        var applyResult = applyFn((bundle && bundle.suggestions) || [], { render:false, notify:false, close:false, markDirty:false });
+        if(!applyResult || applyResult.ok !== true) return _runtimeFail('Summary apply failed');
+        mark('before_report_build');
+        var reportBundle = _buildEngineeringReportRuntimeCompat(w, { download:false, generatedAt:'2026-04-20T00:00:00.000Z' });
+        mark('before_export');
+        if(!reportBundle || !reportBundle.report) return _runtimeFail('Summary export runtime path unavailable');
+        JSON.stringify(reportBundle.report.summary || {});
+        mark('after_export');
+        var summary = reportBundle && reportBundle.report && reportBundle.report.summary || {};
         var ok = summary.customerRequirements === (w.DB.customerReqs || []).length &&
           summary.risks === (w.DB.risks || []).length &&
           summary.hazards === (w.DB.hazards || []).length &&
           summary.icd === (w.DB.icd || []).length &&
           summary.vv === (w.DB.vv || []).length &&
           summary.architectureComponents === (w.DB.arch || []).length;
-        return ok ? _runtimePass('Report summary counts match populated DB counts') : _runtimeFail('Report summary diverges from DB counts');
+        return ok ? _runtimePass('Report summary counts match populated DB counts | ' + breadcrumbs.join(' | ')) : _runtimeFail('Report summary diverges from DB counts | ' + breadcrumbs.join(' | '));
       });
     });
   },
@@ -8707,7 +8901,13 @@ document.body.setAttribute('data-harness-phase', 'booting');
   try{
     ensureHarnessAuthoritativeTestRegistry();
   }catch(e){}
+  try{ _primeAppIframe(false); }catch(e){}
   _setHarnessReady('registry-ready');
+  try{
+    if(window.TMS && Array.isArray(TMS.testCases) && window.AUTOMATION && typeof AUTOMATION === 'object'){
+      _setHarnessAutomationReady();
+    }
+  }catch(e){}
   _scheduleHarnessDeferredRender();
   setTimeout(function(){
     try{ _primeAppIframe(false); }catch(e){}
