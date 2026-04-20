@@ -102,7 +102,7 @@ label{display:block;font-size:11px;font-weight:600;color:var(--gray);margin-bott
 <body>
 
 <!-- Hidden iframe for running tests against the app -->
-<iframe id="testIframe" src="7200_System_v2.html" sandbox="allow-scripts allow-same-origin"></iframe>
+<iframe id="testIframe" src="about:blank" data-app-src="7200_System_v2.html" sandbox="allow-scripts allow-same-origin"></iframe>
 
 <!-- HEADER -->
 <div class="hdr">
@@ -1179,7 +1179,15 @@ var ENGINEERING_EXPORT_ALIGNMENT_TCS = [
   {id:"TC-459",title:"Front matter, TOC, and glossary noise are filtered from customer requirements",cat:"Engineering Export Alignment",type:"Regression",pri:"High",reqs:"REQ-146",steps:"Run deep CRS ingestion with front-matter noise and inspect customer requirement text",expected:"Noise lines are not promoted into customer requirements",auto:"yes",fn:"checkDeepSpecNoiseFilteringRuntime"},
   {id:"TC-460",title:"Deep safety spec derives both risks and hazards after apply",cat:"Engineering Export Alignment",type:"Regression",pri:"Critical",reqs:"REQ-146",steps:"Apply deep CRS ingestion and inspect risk and hazard collections",expected:"Both risks and hazards are populated from deterministic source safety signals",auto:"yes",fn:"checkDeepSafetyDerivationRuntime"},
   {id:"TC-461",title:"Deep interface spec derives ICD rows and richer architecture",cat:"Engineering Export Alignment",type:"Regression",pri:"Critical",reqs:"REQ-146",steps:"Apply deep CRS ingestion and inspect ICD and architecture collections",expected:"ICD rows are generated and architecture includes multiple major components",auto:"yes",fn:"checkDeepICDAndArchitectureRuntime"},
-  {id:"TC-462",title:"Deep manual-equivalent export shows materially richer engineering counts",cat:"Engineering Export Alignment",type:"Regression",pri:"Critical",reqs:"REQ-146",steps:"Run manual-equivalent analysis, apply, and export on the deep CRS spec",expected:"Export summary shows materially stronger customer, derived, ICD, hazard, VV, and traceability counts",auto:"yes",fn:"checkDeepManualExportCountsRuntime"}
+  {id:"TC-462",title:"Deep manual-equivalent export shows materially richer engineering counts",cat:"Engineering Export Alignment",type:"Regression",pri:"Critical",reqs:"REQ-146",steps:"Run manual-equivalent analysis, apply, and export on the deep CRS spec",expected:"Export summary shows materially stronger customer, derived, ICD, hazard, VV, and traceability counts",auto:"yes",fn:"checkDeepManualExportCountsRuntime"},
+  {id:"TC-463",title:"Open defects link to existing test cases",cat:"Engineering Export Alignment",type:"Regression",pri:"Critical",reqs:"REQ-146",steps:"Seed defects and verify each open defect references a real TC",expected:"Every open defect is linked to an existing automated test case",auto:"yes",fn:"checkOpenDefectLinkageRuntime"},
+  {id:"TC-464",title:"Open linked defect forces test failure until closure",cat:"Engineering Export Alignment",type:"Regression",pri:"Critical",reqs:"REQ-146",steps:"Seed an open defect for a passing TC and verify defect gate blocks pass",expected:"A linked open defect turns the result into FAIL until the defect is closed",auto:"yes",fn:"checkOpenDefectGateRuntime"},
+  {id:"TC-465",title:"Deep apply writes customer requirement volume above threshold",cat:"Engineering Export Alignment",type:"Regression",pri:"Critical",reqs:"REQ-146",steps:"Apply deep CRS ingestion and inspect DB.customerReqs",expected:"DB.customerReqs exceeds 30 on a rich CRS source",auto:"yes",fn:"checkDeepCustomerDbThresholdRuntime"},
+  {id:"TC-466",title:"Deep apply writes risk and hazard volume above threshold",cat:"Engineering Export Alignment",type:"Regression",pri:"Critical",reqs:"REQ-146",steps:"Apply deep CRS ingestion and inspect DB.risks and DB.hazards",expected:"DB.risks and DB.hazards both exceed 10",auto:"yes",fn:"checkDeepRiskDbThresholdRuntime"},
+  {id:"TC-467",title:"Deep apply writes V and V volume above threshold",cat:"Engineering Export Alignment",type:"Regression",pri:"Critical",reqs:"REQ-146",steps:"Apply deep CRS ingestion and inspect DB.vv",expected:"DB.vv exceeds 30 on a rich engineering source",auto:"yes",fn:"checkDeepVVDbThresholdRuntime"},
+  {id:"TC-468",title:"Deep apply writes ICD volume above threshold",cat:"Engineering Export Alignment",type:"Regression",pri:"Critical",reqs:"REQ-146",steps:"Apply deep CRS ingestion and inspect DB.icd",expected:"DB.icd exceeds 5 on an interface-rich source",auto:"yes",fn:"checkDeepICDThresholdRuntime"},
+  {id:"TC-469",title:"Deep export traceability coverage avoids Missing for most rows",cat:"Engineering Export Alignment",type:"Regression",pri:"Critical",reqs:"REQ-146",steps:"Apply deep CRS ingestion, export, and inspect traceability summary",expected:"At least 50 percent of rows avoid Missing VV coverage",auto:"yes",fn:"checkDeepTraceabilityCoverageRuntime"},
+  {id:"TC-470",title:"Engineering report summary matches populated DB counts",cat:"Engineering Export Alignment",type:"Regression",pri:"Critical",reqs:"REQ-146",steps:"Apply deep CRS ingestion, export, and compare report summary against DB",expected:"Report summary customer, risks, ICD, VV, and architecture counts match DB",auto:"yes",fn:"checkEngineeringReportSummaryMatchesDbRuntime"}
 ];
 
 var AI_REQUIREMENT_APPLY_TCS = [
@@ -1258,6 +1266,11 @@ function _looksLikeFullAppSource(src){
   ].every(function(marker){ return src.indexOf(marker) >= 0; });
 }
 var _appWin = null;
+var _appWinPromise = null;
+var _harnessDeferredRenderScheduled = false;
+var _harnessReadyResolvers = [];
+window.HARNESS_READY = false;
+window.HARNESS_BOOTSTRAP = { phase:'init', readyAt:0, deferred:false };
 
 // ── File picker for file:// mode ─────────────────────────────────
 // Shows a modal asking the user to select 7200_System_v2.html
@@ -1362,18 +1375,63 @@ async function loadAppSource(){
       }catch(e){ _appSrc = ""; }
       resolve(_appSrc);
     };
-    iframe.src = '7200_System_v2.html?' + Date.now();
+    iframe.src = (iframe.getAttribute('data-app-src') || '7200_System_v2.html') + '?' + Date.now();
     setTimeout(function(){ if(!_appSrc) resolve(""); }, 8000);
   });
 }
 
+function _setHarnessReady(phase){
+  if(window.HARNESS_READY) return;
+  window.HARNESS_READY = true;
+  window.HARNESS_BOOTSTRAP.phase = phase || 'ready';
+  window.HARNESS_BOOTSTRAP.readyAt = Date.now();
+  document.body.setAttribute('data-harness-ready', 'true');
+  document.body.setAttribute('data-harness-phase', window.HARNESS_BOOTSTRAP.phase);
+  while(_harnessReadyResolvers.length){
+    try{ _harnessReadyResolvers.shift()(); }catch(e){}
+  }
+}
+
+function _whenHarnessReady(){
+  if(window.HARNESS_READY) return Promise.resolve();
+  return new Promise(function(resolve){ _harnessReadyResolvers.push(resolve); });
+}
+
+function _scheduleHarnessDeferredRender(){
+  if(_harnessDeferredRenderScheduled) return;
+  _harnessDeferredRenderScheduled = true;
+  window.HARNESS_BOOTSTRAP.deferred = true;
+  setTimeout(function(){
+    try{ renderDashboard(); }catch(e){}
+  }, 0);
+}
+
+function _primeAppIframe(forceReload){
+  var iframe = document.getElementById('testIframe');
+  if(!iframe) return null;
+  var base = iframe.getAttribute('data-app-src') || '7200_System_v2.html';
+  var target = forceReload ? (base + '?' + Date.now()) : base;
+  if(forceReload || !iframe.getAttribute('src') || iframe.getAttribute('src') === 'about:blank'){
+    iframe.src = target;
+  }
+  return iframe;
+}
+
 async function getAppWin(){
-  return new Promise(function(resolve){
-    var iframe = document.getElementById('testIframe');
+  if(_appWin && _appWin.document){
+    try{
+      if(_appWin.document.readyState === 'complete') return _appWin;
+    }catch(e){}
+  }
+  if(_appWinPromise) return _appWinPromise;
+  _appWinPromise = new Promise(function(resolve){
+    var iframe = _primeAppIframe(false);
     var resolved = false;
     function finish(win){
       if(resolved) return;
       resolved = true;
+      _appWin = win || null;
+      _appWinPromise = null;
       resolve(win);
     }
     function isReady(win){
@@ -1408,13 +1466,13 @@ async function getAppWin(){
         }
       }, 50);
     };
-    iframe.src = '7200_System_v2.html?' + Date.now();
     setTimeout(function(){
       if(!resolved){
         try{ finish(iframe.contentWindow); }catch(e){ finish(null); }
       }
     }, 16000);
   });
+  return _appWinPromise;
 }
 
 function _runtimeFail(msg){
@@ -2173,7 +2231,27 @@ var AUTOMATION = {
   checkEngineeringReportExportFunctionsRuntime: async function(){
     return withAppWindow(function(w){
       var missing = ['buildEngineeringReportData','exportEngineeringReportPDF','exportEngineeringReportDOCX','exportEngineeringReportExcel','exportEngineeringReportJSON'].filter(function(name){ return typeof w[name] !== 'function'; });
-      return missing.length ? _runtimeFail('Missing engineering report export functions: ' + missing.join(', ')) : _runtimePass('Engineering report export functions exist in runtime');
+      if(missing.length) return _runtimeFail('Missing engineering report export functions: ' + missing.join(', '));
+      return _withEngineeringIngestionRuntimeState(w, async function(){
+        var source = w.buildAnalysisSource({ inputType:'pasted_text', sourceName:'TC-436-SPEC.txt', rawText:_buildDeepEngineeringSpecText(), metadata:{} });
+        await w.executeAnalysisForSource(source);
+        w.applyEngineeringIngestionSelection(w._analysisRecs, { render:false, notify:false, close:false, markDirty:false });
+        var reportData = w.buildEngineeringReportData({ generatedAt:'2026-04-20T00:00:00.000Z' });
+        var json = w.exportEngineeringReportJSON({ download:false, generatedAt:'2026-04-20T00:00:00.000Z' });
+        var excel = w.exportEngineeringReportExcel({ download:false, generatedAt:'2026-04-20T00:00:00.000Z' });
+        var pdf = w.exportEngineeringReportPDF({ download:false, generatedAt:'2026-04-20T00:00:00.000Z' });
+        var docx = w.exportEngineeringReportDOCX({ download:false, generatedAt:'2026-04-20T00:00:00.000Z' });
+        var ok = reportData &&
+          reportData.summary &&
+          reportData.summary.customerRequirements === (w.DB.customerReqs || []).length &&
+          reportData.summary.risks === (w.DB.risks || []).length &&
+          reportData.summary.vv === (w.DB.vv || []).length &&
+          json && json.ok === true &&
+          excel && excel.ok === true &&
+          pdf && pdf.ok === true &&
+          docx && docx.ok === true;
+        return ok ? _runtimePass('Engineering report export functions produce coherent engineering output from populated DB state') : _runtimeFail('Engineering report export functions exist but did not produce coherent output from populated DB state');
+      });
     });
   },
   checkEngineeringReportNoMutationRuntime: async function(){
@@ -2755,6 +2833,108 @@ var AUTOMATION = {
           coveredRatio >= 0.6 &&
           /FAT|SAT|QUALIFICATION/.test(vvPhases);
         return ok ? _runtimePass('Deep manual-equivalent export meets the targeted engineering count and coverage thresholds') : _runtimeFail('Deep manual-equivalent export still misses one or more targeted engineering thresholds');
+      });
+    });
+  },
+  checkOpenDefectLinkageRuntime: async function(){
+    return _withSavedTMSState(function(){
+      ensureHarnessAuthoritativeTestRegistry();
+      TMS.defects = [
+        { id:'DEF-LINK-001', tcId:'TC-458', status:'Open', title:'Customer regression', description:'customerReqs dropped to zero' },
+        { id:'DEF-LINK-002', tcId:'TC-460', status:'Open', title:'Safety regression', description:'hazards missing from section 15' }
+      ];
+      var missingLinks = (TMS.defects || []).filter(function(defect){
+        return defect.status === 'Open' && !TMS.testCases.some(function(tc){ return tc.id === defect.tcId; });
+      });
+      return missingLinks.length === 0 ? _runtimePass('Every open defect is linked to an existing test case') : _runtimeFail('Open defects missing TC linkage: ' + missingLinks.map(function(defect){ return defect.id; }).join(', '));
+    });
+  },
+  checkOpenDefectGateRuntime: async function(){
+    return _withSavedTMSState(function(){
+      ensureHarnessAuthoritativeTestRegistry();
+      TMS.defects = [{ id:'DEF-GATE-001', tcId:'TC-458', status:'Open', title:'Open customer defect', description:'customerReqs still regressed' }];
+      var tc = (TMS.testCases || []).find(function(item){ return item.id === 'TC-458'; });
+      if(!tc) return _runtimeFail('TC-458 missing for defect gate validation');
+      var result = { tcId:'TC-458', status:'PASS', actual:'baseline pass' };
+      var gate = _applyOpenDefectGate(tc, result);
+      var ok = gate && gate.blocked === true && result.status === 'FAIL' && /DEF-GATE-001/.test(result.actual);
+      return ok ? _runtimePass('An open linked defect forces the linked TC to fail until closure') : _runtimeFail('Open linked defect did not force TC failure');
+    });
+  },
+  checkDeepCustomerDbThresholdRuntime: async function(){
+    return withAppWindow(function(w){
+      return _withEngineeringIngestionRuntimeState(w, function(){
+        var bundle = w.buildEngineeringIngestionSuggestions(_buildDeepEngineeringSpecText(), { sourceName:'TC-465-SPEC.txt', inputType:'pasted_text' });
+        var result = w.applyEngineeringIngestionSelection(bundle.suggestions || [], { render:false, notify:false, close:false });
+        var count = (w.DB.customerReqs || []).length;
+        return result && result.ok === true && count > 30 ? _runtimePass('DB.customerReqs exceeds 30 after deep CRS apply') : _runtimeFail('DB.customerReqs stayed too low after deep CRS apply: ' + count);
+      });
+    });
+  },
+  checkDeepRiskDbThresholdRuntime: async function(){
+    return withAppWindow(function(w){
+      return _withEngineeringIngestionRuntimeState(w, function(){
+        var bundle = w.buildEngineeringIngestionSuggestions(_buildDeepEngineeringSpecText(), { sourceName:'TC-466-SPEC.txt', inputType:'pasted_text' });
+        var result = w.applyEngineeringIngestionSelection(bundle.suggestions || [], { render:false, notify:false, close:false });
+        var risks = (w.DB.risks || []).length;
+        var hazards = (w.DB.hazards || []).length;
+        return result && result.ok === true && risks > 10 && hazards > 10 ? _runtimePass('DB.risks and DB.hazards both exceed threshold after safety apply') : _runtimeFail('Risk/hazard thresholds not met: risks=' + risks + ', hazards=' + hazards);
+      });
+    });
+  },
+  checkDeepVVDbThresholdRuntime: async function(){
+    return withAppWindow(function(w){
+      return _withEngineeringIngestionRuntimeState(w, function(){
+        var bundle = w.buildEngineeringIngestionSuggestions(_buildDeepEngineeringSpecText(), { sourceName:'TC-467-SPEC.txt', inputType:'pasted_text' });
+        var result = w.applyEngineeringIngestionSelection(bundle.suggestions || [], { render:false, notify:false, close:false });
+        var count = (w.DB.vv || []).length;
+        return result && result.ok === true && count > 30 ? _runtimePass('DB.vv exceeds 30 after deep verification apply') : _runtimeFail('DB.vv stayed too low after deep apply: ' + count);
+      });
+    });
+  },
+  checkDeepICDThresholdRuntime: async function(){
+    return withAppWindow(function(w){
+      return _withEngineeringIngestionRuntimeState(w, function(){
+        var bundle = w.buildEngineeringIngestionSuggestions(_buildDeepEngineeringSpecText(), { sourceName:'TC-468-SPEC.txt', inputType:'pasted_text' });
+        var result = w.applyEngineeringIngestionSelection(bundle.suggestions || [], { render:false, notify:false, close:false });
+        var count = (w.DB.icd || []).length;
+        return result && result.ok === true && count > 5 ? _runtimePass('DB.icd exceeds 5 after interface-heavy apply') : _runtimeFail('DB.icd stayed too low after deep apply: ' + count);
+      });
+    });
+  },
+  checkDeepTraceabilityCoverageRuntime: async function(){
+    return withAppWindow(function(w){
+      var missing = ['buildAnalysisSource','executeAnalysisForSource','applyEngineeringIngestionSelection','exportEngineeringReportJSON'].filter(function(name){ return typeof w[name] !== 'function'; });
+      if(missing.length) return _runtimeFail('Missing deep traceability helpers: ' + missing.join(', '));
+      return _withEngineeringIngestionRuntimeState(w, async function(){
+        var source = w.buildAnalysisSource({ inputType:'pasted_text', sourceName:'TC-469-SPEC.txt', rawText:_buildDeepEngineeringSpecText(), metadata:{} });
+        await w.executeAnalysisForSource(source);
+        w.applyEngineeringIngestionSelection(w._analysisRecs, { render:false, notify:false, close:false, markDirty:false });
+        var exported = w.exportEngineeringReportJSON({ download:false, generatedAt:'2026-04-20T00:00:00.000Z' });
+        var summary = exported && exported.report && exported.report.summary || {};
+        var trace = exported && exported.report && exported.report.traceability && exported.report.traceability.summary || {};
+        var coveredRatio = (summary.traceabilityRows || 0) ? (1 - ((trace.missingVV || 0) / summary.traceabilityRows)) : 0;
+        return coveredRatio >= 0.5 ? _runtimePass('Traceability avoids Missing coverage for at least half the rows') : _runtimeFail('Traceability coverage too weak: ' + Math.round(coveredRatio * 100) + '% covered');
+      });
+    });
+  },
+  checkEngineeringReportSummaryMatchesDbRuntime: async function(){
+    return withAppWindow(function(w){
+      var missing = ['buildAnalysisSource','executeAnalysisForSource','applyEngineeringIngestionSelection','exportEngineeringReportJSON'].filter(function(name){ return typeof w[name] !== 'function'; });
+      if(missing.length) return _runtimeFail('Missing summary alignment helpers: ' + missing.join(', '));
+      return _withEngineeringIngestionRuntimeState(w, async function(){
+        var source = w.buildAnalysisSource({ inputType:'pasted_text', sourceName:'TC-470-SPEC.txt', rawText:_buildDeepEngineeringSpecText(), metadata:{} });
+        await w.executeAnalysisForSource(source);
+        w.applyEngineeringIngestionSelection(w._analysisRecs, { render:false, notify:false, close:false, markDirty:false });
+        var exported = w.exportEngineeringReportJSON({ download:false, generatedAt:'2026-04-20T00:00:00.000Z' });
+        var summary = exported && exported.report && exported.report.summary || {};
+        var ok = summary.customerRequirements === (w.DB.customerReqs || []).length &&
+          summary.risks === (w.DB.risks || []).length &&
+          summary.hazards === (w.DB.hazards || []).length &&
+          summary.icd === (w.DB.icd || []).length &&
+          summary.vv === (w.DB.vv || []).length &&
+          summary.architectureComponents === (w.DB.arch || []).length;
+        return ok ? _runtimePass('Report summary counts match populated DB counts') : _runtimeFail('Report summary diverges from DB counts');
       });
     });
   },
@@ -7160,9 +7340,20 @@ var AUTOMATION = {
     return { pass: has, actual: has ? 'handleFileLoad + FileReader קיימים' : 'חסר: handleFileLoad / FileReader' };
   },
   checkPatternMatchFn: async function(){
-    var src = await loadAppSource();
-    var has = src.includes('function detectDocType') || src.includes('matchedReqs') || src.includes('pattern');
-    return { pass: has, actual: has ? 'pattern matching / detectDocType קיים' : 'חסר: pattern detection' };
+    return withAppWindow(function(w){
+      var missing = ['detectDocType','analyzeDocumentLocal'].filter(function(name){ return typeof w[name] !== 'function'; });
+      if(missing.length) return _runtimeFail('Missing document analysis functions: ' + missing.join(', '));
+      return _withEngineeringIngestionRuntimeState(w, function(){
+        var text = _buildDeepEngineeringSpecText();
+        var docType = w.detectDocType(text, 'TC-038-SPEC.txt');
+        var recs = w.analyzeDocumentLocal(text, 'TC-038-SPEC.txt') || [];
+        var customer = recs.filter(function(rec){ return rec.category === 'customerReqs'; }).length;
+        var risks = recs.filter(function(rec){ return rec.category === 'risks'; }).length;
+        var vv = recs.filter(function(rec){ return rec.category === 'vv'; }).length;
+        var ok = docType === 'requirements' && customer > 30 && risks > 10 && vv > 30;
+        return ok ? _runtimePass('Pattern matching produces real engineering entities from a rich specification') : _runtimeFail('Pattern matching is present but did not produce strong engineering entities from a rich specification');
+      });
+    });
   },
   checkQualityGateFn: async function(){
     var src = await loadAppSource();
@@ -7247,9 +7438,23 @@ var AUTOMATION = {
     return { pass: has, actual: has ? 'sf-analyses + sf-sar tabs קיימים' : 'חסר: sf-analyses / sf-sar' };
   },
   checkSWDefectsFn: async function(){
-    var src = await loadAppSource();
-    var has = src.includes('id="sw-defects"') && src.includes('DB.swDefects') || src.includes('id="sw-defects"') && src.includes('defect');
-    return { pass: has, actual: has ? 'sw-defects tab + defect data קיימים' : 'חסר: sw-defects / DB.swDefects' };
+    return _withSavedTMSState(function(){
+      ensureHarnessAuthoritativeTestRegistry();
+      TMS.defects = [{
+        id:'DEF-UNIT-001',
+        tcId:'TC-458',
+        title:'Linked engineering defect',
+        severity:'Major',
+        status:'Open',
+        description:'Customer extraction regressed',
+        foundDate:'2026-04-20'
+      }];
+      renderDefects();
+      var body = document.getElementById('defectsBody');
+      var text = body ? (body.innerText || body.textContent || '') : '';
+      var ok = text.indexOf('DEF-UNIT-001') >= 0 && text.indexOf('TC-458') >= 0 && text.indexOf('Linked engineering defect') >= 0;
+      return ok ? _runtimePass('Defect tracking renders linked TC evidence instead of only checking tab existence') : _runtimeFail('Defect tracking did not render linked defect evidence');
+    });
   },
   checkDiscussionsFn: async function(){
     var src = await loadAppSource();
@@ -7378,9 +7583,16 @@ async function startRun(filter){
         result.status = res.pass ? 'PASS' : 'FAIL';
         result.actual = res.actual || '';
         result.duration = Date.now()-t0;
+        var defectGate = _applyOpenDefectGate(tc, result);
         if(res.pass){
-          _currentRun.passed++;
-          log('  ✅ '+tc.id+': '+tc.title+' ('+result.duration+'ms)', 'pass');
+          if(defectGate.blocked){
+            _currentRun.failed++;
+            log('  ❌ '+tc.id+': '+tc.title+' ? '+result.actual, 'fail');
+            createDefectFromFail(tc, result, runId);
+          } else {
+            _currentRun.passed++;
+            log('  ✅ '+tc.id+': '+tc.title+' ('+result.duration+'ms)', 'pass');
+          }
         } else {
           _currentRun.failed++;
           log('  ❌ '+tc.id+': '+tc.title+' ? '+result.actual, 'fail');
@@ -7424,6 +7636,21 @@ async function startRun(filter){
 }
 
 function sleep(ms){ return new Promise(function(r){ setTimeout(r,ms); }); }
+
+function _findOpenDefectForTc(tcId){
+  return (TMS.defects || []).find(function(defect){
+    return defect && defect.tcId === tcId && defect.status === 'Open';
+  }) || null;
+}
+
+function _applyOpenDefectGate(tc, result){
+  var defect = _findOpenDefectForTc(tc && tc.id);
+  if(!defect || !result || result.status !== 'PASS') return { blocked:false, defect:null };
+  result.status = 'FAIL';
+  result.actual = 'Linked open defect ' + defect.id + ' is still open for ' + tc.id + ': ' + (defect.description || defect.title || 'defect remains unresolved');
+  result.defectId = defect.id;
+  return { blocked:true, defect:defect };
+}
 
 // ═══════════════════════════════════════════════════════════════
 //  AUTOFIX + REGRESSION
@@ -7767,6 +7994,9 @@ function createDefectFromFail(tc, result, runId){
   TMS.defects.push({
     id:'DEF-'+String(TMS.defects.length+1).padStart(3,'0'),
     tcId:tc.id, runId:runId, title:'כשל ב-'+tc.title,
+    tcTitle: tc.title || '',
+    tcFn: tc.fn || '',
+    reqs: tc.reqs || '',
     severity:sev, status:'Open', description:result.actual,
     expected:result.expected, foundDate:new Date().toISOString().split('T')[0],
     fixedDate:'', autoFixed:false, notes:'', occurrences:1
@@ -8471,13 +8701,25 @@ function generateRunPDF(runIdx){
 
 
 // ── INIT ─────────────────────────────────────────────────────
-renderDashboard();
+document.body.setAttribute('data-harness-ready', 'false');
+document.body.setAttribute('data-harness-phase', 'booting');
+(function bootstrapHarness(){
+  try{
+    ensureHarnessAuthoritativeTestRegistry();
+  }catch(e){}
+  _setHarnessReady('registry-ready');
+  _scheduleHarnessDeferredRender();
+  setTimeout(function(){
+    try{ _primeAppIframe(false); }catch(e){}
+  }, 0);
+})();
 (function(){
   try{
     var params = new URLSearchParams(location.search || "");
     if(params.get("autorun") !== "1") return;
-    setTimeout(function(){
-      startRun(params.get("filter") || undefined).then(function(){
+    _whenHarnessReady().then(function(){
+      setTimeout(function(){
+        startRun(params.get("filter") || undefined).then(function(){
         document.body.setAttribute("data-autorun-done","true");
         if(_currentRun){
           document.body.setAttribute("data-autorun-total", String(_currentRun.totalTests || 0));
@@ -8490,8 +8732,9 @@ renderDashboard();
           document.body.setAttribute("data-autorun-passrate", String(passRate));
           document.body.setAttribute("data-autorun-status", (_currentRun.failed || _currentRun.errors) ? "FAIL" : "PASS");
         }
-      });
-    }, 150);
+        });
+      }, 150);
+    });
   }catch(e){}
 })();
 </script>
