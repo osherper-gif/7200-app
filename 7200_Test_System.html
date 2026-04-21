@@ -212,6 +212,8 @@ label{display:block;font-size:11px;font-weight:600;color:var(--gray);margin-bott
       <button class="btn btn-run" onclick="startRun()">▶ הרץ הכל</button>
       <button class="btn btn-outline" onclick="startRun('failed')">🔴 רק כשלים</button>
       <button class="btn btn-outline" onclick="startRun('critical')">⚡ Critical בלבד</button>
+      <input id="targetedRunInput" class="search-bar" style="width:180px;" placeholder="TC-470 או TC-465,TC-469" onkeydown="if(event.key==='Enter'){ startTargetedRunFromInput(); }">
+      <button class="btn btn-outline" onclick="startTargetedRunFromInput()">🎯 Run TC</button>
       <button class="btn btn-autofix" onclick="startAutoFix()">🔧 AutoFix + Regression</button>
       <span id="runStatus" style="font-size:12px;color:var(--gray);margin-right:auto;"></span>
     </div>
@@ -7706,16 +7708,45 @@ var AUTOMATION = {
 // ═══════════════════════════════════════════════════════════════
 var _currentRun = null;
 
+function parseTargetedRunIds(raw){
+  var seen = {};
+  return String(raw || '').split(/[,\s]+/).map(function(item){
+    return String(item || '').trim().toUpperCase();
+  }).filter(function(item){
+    if(!item) return false;
+    if(seen[item]) return false;
+    seen[item] = true;
+    return true;
+  });
+}
+
+function startTargetedRunFromInput(){
+  var input = document.getElementById('targetedRunInput');
+  var ids = parseTargetedRunIds(input && input.value);
+  if(!ids.length){
+    document.getElementById('runStatus').textContent = 'הזן TC ID אחד או יותר, לדוגמה TC-470';
+    return Promise.resolve(false);
+  }
+  document.getElementById('runStatus').textContent = 'מריץ subset ממוקד: ' + ids.join(', ');
+  return startRun({ mode:'targeted', ids:ids });
+}
+
 async function startRun(filter){
   _appSrc = null; // reload app source fresh
   ensureHarnessAuthoritativeTestRegistry();
+  var filterMode = filter && typeof filter === 'object' ? filter.mode : filter;
+  var targetIds = filter && typeof filter === 'object' ? parseTargetedRunIds(filter.ids || []) : [];
+  var targetSet = targetIds.reduce(function(acc, id){ acc[id] = true; return acc; }, {});
   var tcs = TMS.testCases.filter(function(tc){
     if(tc.auto==='no') return false;
-    if(filter==='failed'){
+    if(filterMode==='targeted'){
+      return !!targetSet[String(tc.id || '').toUpperCase()];
+    }
+    if(filterMode==='failed'){
       var last = getLastResult(tc.id);
       return last && last.status !== 'PASS';
     }
-    if(filter==='critical') return tc.pri==='Critical';
+    if(filterMode==='critical') return tc.pri==='Critical';
     return true;
   });
 
@@ -7724,7 +7755,7 @@ async function startRun(filter){
   var runStart = Date.now();
 
   _currentRun = {
-    id:runId, timestamp:new Date().toISOString(), filter:filter||'all',
+    id:runId, timestamp:new Date().toISOString(), filter:filterMode||'all', targetedIds:targetIds,
     results:[], passed:0, failed:0, errors:0, skipped:0, autofixed:0,
     totalTests:tcs.length, duration:0
   };
@@ -7759,7 +7790,7 @@ async function startRun(filter){
       log('✅ קוד מקור זמין (' + Math.round(_appSrc.length/1024) + ' KB)', 'pass');
     }
   }
-  log('['+runId+'] Starting ? '+tcs.length+' test cases', 'info');
+  log('['+runId+'] Starting ? '+tcs.length+' test cases' + (filterMode==='targeted' ? ' | targeted: ' + targetIds.join(', ') : ''), 'info');
 
   for(var i=0; i<tcs.length; i++){
     var tc = tcs[i];
@@ -7824,6 +7855,9 @@ async function startRun(filter){
   showRunResults(_currentRun);
   renderDashboard();
   document.getElementById('lastRunBadge').textContent = runId+': '+passRate+'% Pass';
+  document.getElementById('runStatus').textContent = filterMode==='targeted'
+    ? 'הושלמה הרצה ממוקדת: ' + targetIds.join(', ')
+    : 'הושלמה הרצה: ' + (filterMode || 'all');
   // Navigate to results tab (nth-child(2) = תוצאות)
   var resultTab = document.querySelector('.snav-item[onclick*="results"]');
   if(resultTab) nav('results', resultTab);
@@ -8440,8 +8474,16 @@ function renderHistory(){
     var passRate = run.totalTests ? Math.round(run.passed/run.totalTests*100) : 0;
     var dt = new Date(run.timestamp);
     var dtStr = dt.toLocaleDateString('he-IL')+' '+dt.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});
+    var runTag = run.isRegression
+      ? '<span style="font-size:10px;color:var(--teal);">[REG]</span> '
+      : run.filter === 'targeted'
+        ? '<span style="font-size:10px;color:var(--purple);">[TC]</span> '
+        : '';
+    var runTargetTitle = run.filter === 'targeted' && Array.isArray(run.targetedIds) && run.targetedIds.length
+      ? ' title="Targeted: ' + run.targetedIds.join(', ') + '"'
+      : '';
     return '<tr>'+
-      '<td style="font-weight:700;">'+(run.isRegression?'<span style="font-size:10px;color:var(--teal);">[REG]</span> ':'')+run.id+'</td>'+
+      '<td style="font-weight:700;"'+runTargetTitle+'>'+runTag+run.id+'</td>'+
       '<td style="font-size:11px;">'+dtStr+'</td>'+
       '<td style="color:var(--green);font-weight:700;">'+run.passed+'</td>'+
       '<td style="color:var(--red);font-weight:700;">'+run.failed+'</td>'+
