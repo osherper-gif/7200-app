@@ -5164,30 +5164,39 @@ function _buildPdfBytesFromLines(lines){
 }
 function buildEngineeringReportData(options){
   options = options || {};
+  var profile = { startedAt: Date.now(), sections: {} };
+  function measure(section, fn){
+    var started = Date.now();
+    var result = fn();
+    profile.sections[section] = Date.now() - started;
+    return result;
+  }
   var usePreviewFallback = !_hasNonEmptyEngineeringCollections() && ((_analysisRecs || []).length > 0 || !!_lastAutonomousProjectResult);
   var previewSource = usePreviewFallback ? _buildPreviewEngineeringReportSource() : null;
-  var reportCustomerReqs = usePreviewFallback ? [] : _cloneExecutionData(DB.customerReqs || []);
-  var reportSystemReqs = usePreviewFallback ? previewSource.requirements.system : _cloneExecutionData(DB.sysReqs || []);
-  var reportSubsysReqs = usePreviewFallback ? previewSource.requirements.subsystem : _cloneExecutionData(DB.subsysReqs || []);
-  var reportSwReqs = usePreviewFallback ? previewSource.requirements.software : _cloneExecutionData(DB.swReqs || []);
-  var reportMeReqs = usePreviewFallback ? previewSource.requirements.mechanical : _cloneExecutionData(DB.meReqs || []);
-  var reportArch = usePreviewFallback ? previewSource.architecture.components : _cloneExecutionData(DB.arch || []);
-  var reportArchLinks = usePreviewFallback ? previewSource.architecture.links : _cloneExecutionData(DB.archLinks || []);
-  var reportIcd = usePreviewFallback ? _reportPreviewSuggestionData("icd") : _cloneExecutionData(DB.icd || []);
-  var reportRisks = usePreviewFallback ? previewSource.risks : _cloneExecutionData(DB.risks || []);
-  var reportResidualRisks = usePreviewFallback ? [] : _cloneExecutionData(DB.residualRisks || []);
-  var reportHazards = usePreviewFallback ? [] : _cloneExecutionData(DB.hazards || []);
-  var reportVv = usePreviewFallback ? previewSource.vv : _cloneExecutionData(DB.vv || []);
-  var reportImpact = usePreviewFallback ? (previewSource.impact || []) : _cloneExecutionData(DB.impactRecommendations || []);
-  var reportUpdateProposals = usePreviewFallback ? [] : _cloneExecutionData(DB.updateProposals || []);
-  var reportBaselines = usePreviewFallback ? [] : _cloneExecutionData(DB.baselines || []);
-  var reportChangeRequests = usePreviewFallback ? [] : _cloneExecutionData(DB.changeRequests || []);
-  var reportReleasePackages = usePreviewFallback ? [] : _cloneExecutionData(DB.releasePackages || []);
-  var reportProjectBackups = usePreviewFallback ? [] : _cloneExecutionData(DB.projectBackups || []);
-  var reportAuditLog = usePreviewFallback ? [] : _cloneExecutionData(DB.auditLog || []);
-  var traceRows = usePreviewFallback ? _cloneExecutionData(previewSource.traceabilityRows || []) : buildTraceabilityRows();
-  var traceFindings = usePreviewFallback ? _cloneExecutionData(previewSource.findings || []) : findTraceabilityFindings(traceRows);
-  var findings = traceFindings.map(function(item){ return _normalizeExportFinding(item, "traceability"); });
+  var reportCustomerReqs = measure("requirements_customer", function(){ return usePreviewFallback ? [] : _cloneExecutionData(DB.customerReqs || []); });
+  var reportSystemReqs = measure("requirements_system", function(){ return usePreviewFallback ? previewSource.requirements.system : _cloneExecutionData(DB.sysReqs || []); });
+  var reportSubsysReqs = measure("requirements_subsystem", function(){ return usePreviewFallback ? previewSource.requirements.subsystem : _cloneExecutionData(DB.subsysReqs || []); });
+  var reportSwReqs = measure("requirements_software", function(){ return usePreviewFallback ? previewSource.requirements.software : _cloneExecutionData(DB.swReqs || []); });
+  var reportMeReqs = measure("requirements_mechanical", function(){ return usePreviewFallback ? previewSource.requirements.mechanical : _cloneExecutionData(DB.meReqs || []); });
+  var reportArch = measure("architecture_components", function(){ return usePreviewFallback ? previewSource.architecture.components : _cloneExecutionData(DB.arch || []); });
+  var reportArchLinks = measure("architecture_links", function(){ return usePreviewFallback ? previewSource.architecture.links : _cloneExecutionData(DB.archLinks || []); });
+  var reportIcd = measure("icd", function(){ return usePreviewFallback ? _reportPreviewSuggestionData("icd") : _cloneExecutionData(DB.icd || []); });
+  var reportRisks = measure("risks", function(){ return usePreviewFallback ? previewSource.risks : _cloneExecutionData(DB.risks || []); });
+  var reportResidualRisks = measure("residual_risks", function(){ return usePreviewFallback ? [] : _cloneExecutionData(DB.residualRisks || []); });
+  var reportHazards = measure("hazards", function(){ return usePreviewFallback ? [] : _cloneExecutionData(DB.hazards || []); });
+  var reportVv = measure("vv", function(){ return usePreviewFallback ? previewSource.vv : _cloneExecutionData(DB.vv || []); });
+  var reportImpact = measure("impact", function(){ return usePreviewFallback ? (previewSource.impact || []) : _cloneExecutionData(DB.impactRecommendations || []); });
+  var reportUpdateProposals = measure("governance_update_proposals", function(){ return usePreviewFallback ? [] : _cloneExecutionData(DB.updateProposals || []); });
+  var reportBaselines = measure("governance_baselines", function(){ return usePreviewFallback ? [] : _cloneExecutionData(DB.baselines || []); });
+  var reportChangeRequests = measure("governance_change_requests", function(){ return usePreviewFallback ? [] : _cloneExecutionData(DB.changeRequests || []); });
+  var reportReleasePackages = measure("governance_release_packages", function(){ return usePreviewFallback ? [] : _cloneExecutionData(DB.releasePackages || []); });
+  var reportProjectBackups = measure("governance_project_backups", function(){ return usePreviewFallback ? [] : _cloneExecutionData(DB.projectBackups || []); });
+  var reportAuditLog = measure("governance_audit_log", function(){ return usePreviewFallback ? [] : _cloneExecutionData(DB.auditLog || []); });
+  var traceRows = measure("traceability_rows", function(){ return usePreviewFallback ? _cloneExecutionData(previewSource.traceabilityRows || []) : buildTraceabilityRows(); });
+  var traceFindings = measure("traceability_findings", function(){ return usePreviewFallback ? _cloneExecutionData(previewSource.findings || []) : findTraceabilityFindings(traceRows); });
+  var findings = measure("findings_normalized", function(){
+    return traceFindings.map(function(item){ return _normalizeExportFinding(item, "traceability"); });
+  });
   var componentNames = reportArch.map(function(item){ return String(item && item.name || "").trim(); }).filter(Boolean);
   var componentSet = componentNames.reduce(function(acc, name){ acc[name] = true; return acc; }, {});
   var subsystemReqs = [].concat(reportSubsysReqs || [], reportSwReqs || [], reportMeReqs || []);
@@ -5246,7 +5255,7 @@ function buildEngineeringReportData(options){
   }).sort(function(a, b){
     return [a.type, a.targetId, a.message].join("|").localeCompare([b.type, b.targetId, b.message].join("|"));
   });
-  var report = {
+  var report = measure("report_assembly", function(){ return {
     generatedAt: options.generatedAt || DB._savedAt || null,
     projectName: DB._projectName || "7200 Engineering Report",
     project: {
@@ -5313,7 +5322,7 @@ function buildEngineeringReportData(options){
         low: findings.filter(function(item){ return item.severity === "low"; }).length
       }
     }
-  };
+  }; });
   report.summary = {
     customerRequirements: report.requirements.customer.length,
     systemRequirements: report.requirements.system.length,
@@ -5337,6 +5346,8 @@ function buildEngineeringReportData(options){
     traceabilityRows: report.traceability.rows.length,
     findings: report.findings.items.length
   };
+  profile.totalMs = Date.now() - profile.startedAt;
+  window.__lastEngineeringReportProfile = _cloneExecutionData(profile);
   return report;
 }
 function exportEngineeringReportJSON(options){
@@ -9014,16 +9025,95 @@ function summarizeRequirementLineage(requirementId){
   };
 }
 
-function scoreRequirementReadiness(req, entityType){
+function _buildTraceabilityRuntimeContext(){
+  var records = _allRequirementRecords();
+  var recordsById = {};
+  var parentToChildren = {};
+  records.forEach(function(entry){
+    var req = entry.req || {};
+    var rid = String((req.rid || req.id || "")).trim();
+    if(!rid) return;
+    recordsById[rid] = entry;
+    if(req.parentRid){
+      if(!parentToChildren[req.parentRid]) parentToChildren[req.parentRid] = [];
+      parentToChildren[req.parentRid].push(entry);
+    }
+  });
+  return {
+    records: records,
+    recordsById: recordsById,
+    parentToChildren: parentToChildren,
+    lineageCache: {},
+    vvEntriesCache: {},
+    vcrmMap: buildVCRMRows().reduce(function(acc, row){
+      acc[row.requirementId] = row;
+      return acc;
+    }, {})
+  };
+}
+
+function _getRequirementLineageFromContext(requirementId, context){
+  if(!context) return getRequirementLineage(requirementId);
+  var wanted = String(requirementId || "").trim();
+  if(!wanted) return null;
+  if(context.lineageCache[wanted]) return context.lineageCache[wanted];
+  var current = context.recordsById[wanted];
+  if(!current) return null;
+  var upstream = [];
+  var downstream = [];
+  var seenUp = {};
+  var seenDown = {};
+  var node = current.req || {};
+  while(node && node.parentRid){
+    var next = context.recordsById[node.parentRid];
+    if(!next) break;
+    var upKey = String(((next.req && (next.req.rid || next.req.id)) || next.entityType) || "");
+    if(!upKey || seenUp[upKey]) break;
+    seenUp[upKey] = true;
+    upstream.push(_cloneExecutionData({
+      requirementId: next.req.rid || next.req.id,
+      entityType: next.entityType,
+      originType: getRequirementOriginType(next.req, next.entityType),
+      desc: next.req.desc || ""
+    }));
+    node = next.req;
+  }
+  (function collectChildren(sourceRid){
+    (context.parentToChildren[sourceRid] || []).forEach(function(entry){
+      var child = entry.req || {};
+      var childId = String((child.rid || child.id || "")).trim();
+      if(!childId || seenDown[childId]) return;
+      seenDown[childId] = true;
+      downstream.push(_cloneExecutionData({
+        requirementId: childId,
+        entityType: entry.entityType,
+        parentRid: child.parentRid,
+        originType: getRequirementOriginType(child, entry.entityType),
+        desc: child.desc || ""
+      }));
+      collectChildren(childId);
+    });
+  })(wanted);
+  context.lineageCache[wanted] = {
+    requirementId: current.req.rid || current.req.id,
+    entityType: current.entityType,
+    originType: getRequirementOriginType(current.req, current.entityType),
+    upstream: upstream,
+    downstream: downstream
+  };
+  return context.lineageCache[wanted];
+}
+
+function scoreRequirementReadiness(req, entityType, context){
   req = req || {};
   var desc = String(req.desc || req.statement || "").trim();
   var rid = String(req.rid || req.id || "").trim();
   var signals = classifyRequirementSignals(req, entityType);
-  var lineage = rid ? getRequirementLineage(rid) : { upstream:[], downstream:[] };
+  var lineage = rid ? _getRequirementLineageFromContext(rid, context) : { upstream:[], downstream:[] };
   var vcrmRow = (rid && ["requirement","software_requirement","mechanical_requirement"].indexOf(entityType || "") >= 0)
-    ? buildVCRMRows().find(function(row){ return row.requirementId === rid; }) : null;
+    ? (context && context.vcrmMap ? context.vcrmMap[rid] : buildVCRMRows().find(function(row){ return row.requirementId === rid; })) : null;
   var terms = _traceabilityTermsForRequirement(req, signals);
-  var vvLinks = rid ? _vvEntriesForRequirement(rid) : [];
+  var vvLinks = rid ? (context ? (context.vvEntriesCache[rid] || (context.vvEntriesCache[rid] = _vvEntriesForRequirement(rid))) : _vvEntriesForRequirement(rid)) : [];
   var architectureLinks = (DB.arch || []).filter(function(item){
     return _requirementMentions([item.name, item.subsystem, item.interfaces, item.connections, item.flowDesc], terms);
   });
@@ -9112,15 +9202,12 @@ function detectRequirementDecompositionGaps(){
 }
 
 function buildTraceabilityRows(){
-  var vcrmMap = buildVCRMRows().reduce(function(acc, row){
-    acc[row.requirementId] = row;
-    return acc;
-  }, {});
-  return _allRequirementRecords().map(function(entry){
+  var context = _buildTraceabilityRuntimeContext();
+  return context.records.map(function(entry){
     var req = entry.req || {};
     var rid = String(req.rid || req.id || "").trim();
-    var readiness = scoreRequirementReadiness(req, entry.entityType);
-    var vcrmRow = vcrmMap[rid] || null;
+    var readiness = scoreRequirementReadiness(req, entry.entityType, context);
+    var vcrmRow = context.vcrmMap[rid] || null;
     return {
       requirementId: rid || "—",
       entityType: entry.entityType,
